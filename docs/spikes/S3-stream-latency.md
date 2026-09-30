@@ -65,6 +65,25 @@ Osservazioni:
 - **Hardware attuale ≠ hardware futuro:** il mini-PC/server Linux potrebbe avere solo una GPU Intel (Quick Sync/VAAPI) o nessuna. L'accelerazione deve essere un **backend sostituibile**, non un'assunzione.
 - La latenza end-to-end percepita dal client (rete + buffer del player) si misura in S2.
 
+## H10 — GPU e I/O dentro Docker Desktop (WSL2)
+
+Script: `spikes/s3-stream-latency/h10_docker.sh`. Immagine `lscr.io/linuxserver/ffmpeg` (ffmpeg 9.0; controprova con 8.1.2). Media montati **read-only** dal disco NTFS.
+
+| Prova | Esito |
+|---|---|
+| GPU visibile nel container (`--gpus all`, `nvidia-smi`) | ✅ RTX 3060 Ti, driver 596.49 |
+| Avvio del container | circa 2 s |
+| **I/O**: remux completo del file da 5 min (1,66 GB) dal bind mount NTFS | 35 s → **circa 47 MB/s (~380 Mbps)**. Sull'host 5,5 s (circa 300 MB/s) |
+| CUDA decode / NVENC / scale_cuda | ❌ `cuInit(0) failed -> CUDA_ERROR_NOT_FOUND: named symbol not found`, identico con ffmpeg 9.0 e 8.1.2 |
+| libplacebo (Vulkan) nel container | ❌ nessun output utile (Vulkan non esposto) |
+
+**Diagnosi:** il problema è l'ambiente, non ffmpeg. WSL **2.0.14** (kernel 5.15) e Docker Desktop **25.0.3** risalgono a fine 2023 / inizio 2024, mentre il driver NVIDIA è **596** (2026). Lo shim CUDA di WSL non espone i simboli che si aspettano le librerie recenti. **H10 non verificata:** va ripetuta dopo `wsl --update` e l'aggiornamento di Docker Desktop.
+
+**I/O:** 380 Mbps bastano per un Direct Play UHD (picchi circa 100–130 Mbps), ma con **poco margine** per 3 sessioni UHD più una scansione. Su Docker Desktop per Windows il bind mount NTFS diventa un vincolo reale. Mitigazioni da valutare nell'ADR di deploy:
+- servire i byte del Direct Play da un processo sull'host o dal gateway;
+- tenere i media sul filesystem WSL;
+- evitarlo con il futuro server Linux, dove il problema non esiste.
+
 ## Conclusioni e raccomandazioni
 
 1. ✅ **Direct Stream:** avvio sotto il secondo, seek indipendente dalla posizione, costo trascurabile. È la modalità di default per il browser.

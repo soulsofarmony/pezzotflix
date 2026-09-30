@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S2 — Browser playback</title>
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#999; --ok:#3c9; --warn:#fb3; --ko:#f55; --card:#1b1b1b; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.5 system-ui, sans-serif; margin:0; padding:16px; }
+  h1 { margin:0 0 4px; font-size:20px } h2 { font-size:16px; margin:24px 0 8px }
+  p.muted, .muted { color:var(--muted) }
+  button { background:#2d6cdf; color:#fff; border:0; border-radius:6px; padding:8px 14px; font-size:14px; cursor:pointer }
+  button:disabled { opacity:.5; cursor:default }
+  table { border-collapse:collapse; width:100%; font-size:13px }
+  th, td { border-bottom:1px solid #333; padding:4px 6px; text-align:left; vertical-align:top }
+  .ok { color:var(--ok) } .warn { color:var(--warn) } .ko { color:var(--ko) }
+  #stage { position:relative; width:640px; max-width:100%; aspect-ratio:16/9; background:#000; margin:8px 0 }
+  #stage video, #vstage video { width:100%; height:100%; }
+  .vis { background:var(--card); padding:8px 10px; border-radius:6px; margin:6px 0 }
+  #vstage { position:relative; width:960px; max-width:100%; aspect-ratio:16/9; background:#000; margin:8px 0 }
+  code { color:#9cf }
+</style>
+</head>
+<body>
+<h1>S2 — Cosa riproduce questo browser?</h1>
+<p class="muted">Spike di evidenza Pezzotflix. Esegui la pagina in <b>Chrome</b>, <b>Edge</b> e <b>Firefox</b> sullo stesso PC.
+Il report viene salvato automaticamente sul server locale.</p>
+
+<p><button id="run">1. Avvia test automatici</button> <span id="status" class="muted"></span></p>
+<div id="stage"></div>
+
+<h2>Capability dichiarate</h2>
+<table id="caps"><thead><tr><th>Check</th><th>Risultato</th></tr></thead><tbody></tbody></table>
+
+<h2>Test di riproduzione automatici</h2>
+<table id="auto"><thead><tr><th>ID</th><th>Cosa</th><th>Esito</th><th>Avvio (ms)</th><th>Seek 20s (ms)</th><th>Risoluzione</th><th>Frame / persi</th><th>Audio</th><th>Note</th></tr></thead><tbody></tbody></table>
+
+<h2>2. Verifica visiva e audio (manuale)</h2>
+<p class="muted">Per ogni riga premi <b>Riproduci</b>, guarda/ascolta qualche secondo e scegli l'esito. Il test HDR ha senso solo se lo schermo è in modalità HDR (Windows: Impostazioni → Schermo → HDR).
+Schermo in HDR adesso? <select id="hdron"><option value="">—</option><option>sì</option><option>no</option><option>non supportato</option></select>
+Audio: <select id="audioout"><option value="">—</option><option>stereo (cuffie/casse)</option><option>5.1/7.1 via HDMI/AVR</option></select></p>
+<div id="visual"></div>
+<div id="vstage"></div>
+
+<h2>3. Report</h2>
+<p><textarea id="notes" rows="3" style="width:100%;max-width:960px" placeholder="Note libere (facoltative)"></textarea></p>
+<p><button id="send">Invia report</button> <span id="sent" class="muted"></span></p>
+
+<script src="out/vendor/hls.min.js"></script>
+<script src="out/vendor/libpgs.js"></script>
+<script>
+const M = 'out/media/';
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const report = { browser: detectBrowser(), ua: navigator.userAgent, when: new Date().toISOString(), caps: {}, auto: [], visual: {} };
+
+function detectBrowser() {
+  const ua = navigator.userAgent;
+  const v = (re) => (ua.match(re) || [])[1] || '?';
+  if (/Edg\//.test(ua)) return 'Edge ' + v(/Edg\/([\d.]+)/);
+  if (/Firefox\//.test(ua)) return 'Firefox ' + v(/Firefox\/([\d.]+)/);
+  if (/Chrome\//.test(ua)) return 'Chrome ' + v(/Chrome\/([\d.]+)/);
+  return ua;
+}
+
+// ---------------------------------------------------------------- capabilities
+const MSE_TYPES = {
+  'AVC High': 'video/mp4; codecs="avc1.640028"',
+  'HEVC Main10 L5.1 (hvc1)': 'video/mp4; codecs="hvc1.2.4.L153.B0"',
+  'HEVC Main10 L6.1 (hvc1)': 'video/mp4; codecs="hvc1.2.4.L183.B0"',
+  'HEVC Main10 (hev1)': 'video/mp4; codecs="hev1.2.4.L153.B0"',
+  'DV P8 (dvh1.08.09)': 'video/mp4; codecs="dvh1.08.09"',
+  'DV P5 (dvh1.05.09)': 'video/mp4; codecs="dvh1.05.09"',
+  'AV1 Main10': 'video/mp4; codecs="av01.0.12M.10"',
+  'VP9 (webm)': 'video/webm; codecs="vp9"',
+  'AAC-LC': 'audio/mp4; codecs="mp4a.40.2"',
+  'E-AC3': 'audio/mp4; codecs="ec-3"',
+  'AC3': 'audio/mp4; codecs="ac-3"',
+  'FLAC (mp4)': 'audio/mp4; codecs="flac"',
+  'Opus (mp4)': 'audio/mp4; codecs="opus"',
+  'TrueHD (mlpa)': 'audio/mp4; codecs="mlpa"',
+  'DTS core (dtsc)': 'audio/mp4; codecs="dtsc"',
+  'DTS-HD (dtsh)': 'audio/mp4; codecs="dtsh"',
+  'DTS-HD MA (dtsl)': 'audio/mp4; codecs="dtsl"',
+};
+const CANPLAY = {
+  'MKV': 'video/x-matroska',
+  'MKV avc1+aac': 'video/x-matroska; codecs="avc1.640028, mp4a.40.2"',
+  'MKV hevc': 'video/x-matroska; codecs="hvc1.2.4.L153.B0"',
+  'WebM': 'video/webm',
+  'HLS nativo': 'application/vnd.apple.mpegurl',
+  'MP4 hvc1 (progressivo)': 'video/mp4; codecs="hvc1.2.4.L153.B0"',
+};
+async function collectCaps() {
+  const c = {};
+  const add = (k, v) => { c[k] = v; const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${k}</td><td class="${v === true || v === 'probably' ? 'ok' : (v === false || v === '' ? 'ko' : '')}">${typeof v === 'object' ? JSON.stringify(v) : String(v)}</td>`;
+    $('#caps tbody').appendChild(tr); };
+  add('Browser', report.browser);
+  add('MSE disponibile', 'MediaSource' in window);
+  for (const [k, t] of Object.entries(MSE_TYPES)) add('MSE ' + k, window.MediaSource ? MediaSource.isTypeSupported(t) : false);
+  const v = document.createElement('video');
+  for (const [k, t] of Object.entries(CANPLAY)) add('canPlayType ' + k, v.canPlayType(t) || '');
+  if (navigator.mediaCapabilities) {
+    const q = async (label, cfg) => {
+      try { const r = await navigator.mediaCapabilities.decodingInfo(cfg); add('decodingInfo ' + label, { supported: r.supported, smooth: r.smooth, powerEfficient: r.powerEfficient }); }
+      catch (e) { add('decodingInfo ' + label, 'errore: ' + e.message); }
+    };
+    const vid = (codec, hdr) => ({ type: 'media-source', video: Object.assign({ contentType: `video/mp4; codecs="${codec}"`, width: 3840, height: 2160, bitrate: 80e6, framerate: 24 },
+      hdr ? { hdrMetadataType: 'smpteSt2086', colorGamut: 'rec2020', transferFunction: 'pq' } : {}) });
+    await q('HEVC 4K SDR', vid('hvc1.2.4.L153.B0', false));
+    await q('HEVC 4K HDR10', vid('hvc1.2.4.L153.B0', true));
+    await q('DV P8 4K', vid('dvh1.08.09', true));
+    await q('FLAC 5.1', { type: 'media-source', audio: { contentType: 'audio/mp4; codecs="flac"', channels: '6', samplerate: 48000 } });
+    await q('E-AC3 5.1', { type: 'media-source', audio: { contentType: 'audio/mp4; codecs="ec-3"', channels: '6', samplerate: 48000 } });
+  } else add('mediaCapabilities', false);
+  for (const mq of ['(dynamic-range: high)', '(video-dynamic-range: high)', '(color-gamut: p3)', '(color-gamut: rec2020)'])
+    add('matchMedia ' + mq, matchMedia(mq).matches);
+  add('schermo', `${screen.width}x${screen.height} @${devicePixelRatio} · colorDepth ${screen.colorDepth}`);
+  try { const ac = new AudioContext(); add('uscita audio: canali max', ac.destination.maxChannelCount); ac.close(); } catch (e) { add('uscita audio', 'n/d'); }
+  report.caps = c;
+}
+
+// ---------------------------------------------------------------- playback tests
+const TESTS = [
+  { id: 'd1', what: 'MKV diretto · AVC + AAC', kind: 'direct', url: M + 'd1-avc-aac.mkv', h: 'H1' },
+  { id: 'd2', what: 'MKV diretto · AVC + DTS', kind: 'direct', url: M + 'd2-avc-dts.mkv', h: 'H1' },
+  { id: 'd3', what: 'MKV diretto · HEVC 4K HDR10 + TrueHD', kind: 'direct', url: M + 'd3-hevc-hdr10-truehd.mkv', h: 'H1/H2' },
+  { id: 'd4', what: 'MP4 progressivo · AVC + AAC (riferimento)', kind: 'direct', url: M + 'd4-avc-aac.mp4', h: '-' },
+  { id: 'h1', what: 'HLS fMP4 · AVC + AAC (riferimento)', kind: 'hls', url: M + 'h1-avc-aac/index.m3u8', h: '-' },
+  { id: 'h2', what: 'HLS fMP4 · HEVC 4K HDR10 + AAC', kind: 'hls', url: M + 'h2-hevc-hdr10-aac/index.m3u8', h: 'H2' },
+  { id: 'h3', what: 'HLS fMP4 · HEVC 4K HDR10 + FLAC 5.1', kind: 'hls', url: M + 'h3-hevc-hdr10-flac51/index.m3u8', h: 'H6' },
+  { id: 'h4', what: 'HLS fMP4 · HEVC 4K HDR10 + E-AC3 5.1', kind: 'hls', url: M + 'h4-hevc-hdr10-eac351/index.m3u8', h: '-' },
+  { id: 'h5', what: 'HLS fMP4 · HEVC 4K HDR10 + AC3 5.1', kind: 'hls', url: M + 'h5-hevc-hdr10-ac351/index.m3u8', h: '-' },
+  { id: 'h6', what: 'HLS fMP4 · DV P8.1 taggato hvc1 (→ HDR10)', kind: 'hls', url: M + 'h6-dv81-as-hvc1-aac/index.m3u8', h: 'H3' },
+  { id: 'h7', what: 'HLS fMP4 · DV P8.1 taggato dvh1', kind: 'hls', url: M + 'h7-dv81-as-dvh1-aac/index.m3u8', h: 'H3' },
+  { id: 'h8', what: 'HLS fMP4 · DV P5 dvh1 (nessun fallback)', kind: 'hls', url: M + 'h8-dv5-as-dvh1-aac/index.m3u8', h: '-' },
+  { id: 'p1', what: 'fMP4 progressivo (no MSE) · HEVC HDR10 + FLAC 5.1', kind: 'direct', url: M + 'p1-hevc-hdr10-flac51-frag.mp4', h: 'H6' },
+  { id: 's1', what: 'PGS via libpgs · su 1080p AVC', kind: 'hls', url: M + 'h9-buono-avc-aac/index.m3u8', pgs: M + 'buono-eng-sdh.sup', h: 'H7' },
+  { id: 's2', what: 'PGS via libpgs · su 4K HEVC HDR10', kind: 'hls', url: M + 'h2-hevc-hdr10-aac/index.m3u8', pgs: M + 'br-ita-forced.sup', h: 'H7' },
+  { id: 'v1', what: 'WebVTT via <track> · su 4K HEVC', kind: 'hls', url: M + 'h2-hevc-hdr10-aac/index.m3u8', vtt: M + 'br-ita.vtt', h: '-' },
+];
+
+function attach(video, t) {
+  if (t.kind === 'hls') {
+    if (window.Hls && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true, startPosition: 0 });
+      hls.loadSource(t.url); hls.attachMedia(video);
+      return hls;
+    }
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = t.url; return null; }
+    throw new Error('HLS non supportato');
+  }
+  video.src = t.url; return null;
+}
+
+function nextFrame(video) {
+  return new Promise(res => video.requestVideoFrameCallback ? video.requestVideoFrameCallback(() => res()) : video.addEventListener('timeupdate', () => res(), { once: true }));
+}
+
+function withTimeout(p, ms, label) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + label)), ms))]);
+}
+
+async function runTest(t) {
+  const r = { id: t.id, what: t.what, hyp: t.h, outcome: 'fail', startMs: null, seekMs: null, res: '', frames: '', audio: '', note: '' };
+  const stage = $('#stage'); stage.innerHTML = '';
+  const video = document.createElement('video');
+  video.muted = true; video.playsInline = true; video.preload = 'auto';
+  stage.appendChild(video);
+  let hls = null, pgs = null; const errors = [];
+  video.addEventListener('error', () => errors.push(`media error ${video.error && video.error.code}: ${video.error && video.error.message}`));
+  try {
+    const t0 = performance.now();
+    hls = attach(video, t);
+    if (hls) hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal || /codec|append|buffer/i.test(d.details)) errors.push(`hls ${d.type}/${d.details}${d.fatal ? ' (fatale)' : ''}${d.error ? ': ' + d.error.message : ''}`); });
+    if (t.vtt) { const tr = document.createElement('track'); tr.kind = 'subtitles'; tr.srclang = 'it'; tr.src = t.vtt; tr.default = true; video.appendChild(tr); }
+    await withTimeout(new Promise((res, rej) => {
+      video.addEventListener('playing', res, { once: true });
+      video.addEventListener('error', () => rej(new Error('errore media')), { once: true });
+      video.play().catch(e => { if (e.name !== 'AbortError') rej(e); });
+    }), 15000, 'avvio');
+    await nextFrame(video);
+    r.startMs = Math.round(performance.now() - t0);
+    await sleep(2500);
+    const q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : {};
+    r.res = `${video.videoWidth}x${video.videoHeight}`;
+    r.frames = `${q.totalVideoFrames ?? '?'} / ${q.droppedVideoFrames ?? '?'}`;
+    const audioBytes = video.webkitAudioDecodedByteCount;
+    if (typeof audioBytes === 'number') r.audio = audioBytes > 0 ? `decodificato (${Math.round(audioBytes / 1024)} KiB)` : 'NON decodificato';
+    else if (typeof video.mozHasAudio === 'boolean') r.audio = video.mozHasAudio ? 'presente' : 'ASSENTE';
+    else r.audio = 'n/d';
+    const advanced = video.currentTime > 1 && video.videoWidth > 0 && (q.totalVideoFrames ?? 1) > 0;
+
+    if (t.pgs) {
+      const tp = performance.now();
+      pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: t.pgs });
+      await withTimeout(pgs.ready || sleep(1000), 10000, 'pgs');
+      r.note += `PGS pronto in ${Math.round(performance.now() - tp)} ms; `;
+      video.pause(); video.currentTime = 1.0; await new Promise(res => video.addEventListener('seeked', res, { once: true })); await sleep(400);
+      const canvas = stage.querySelector('canvas');
+      r.note += canvas ? `canvas ${canvas.width}x${canvas.height}; verifica visiva in sezione 2; ` : 'canvas PGS assente; ';
+      video.play();
+    }
+
+    const ts = performance.now();
+    video.currentTime = 20;
+    await withTimeout(new Promise(res => video.addEventListener('seeked', res, { once: true })), 10000, 'seek');
+    await nextFrame(video);
+    r.seekMs = Math.round(performance.now() - ts);
+    r.note += `pos dopo seek ${video.currentTime.toFixed(2)}s; `;
+    r.outcome = advanced ? (/NON|ASSENTE/.test(r.audio) ? 'solo video' : 'ok') : 'fail';
+  } catch (e) {
+    r.note += e.message + '; ';
+  }
+  if (errors.length) r.note += errors.join(' | ');
+  try { pgs && pgs.dispose(); } catch (_) {}
+  try { hls && hls.destroy(); } catch (_) {}
+  video.removeAttribute('src'); video.load(); stage.innerHTML = '';
+  return r;
+}
+
+function row(r) {
+  const cls = r.outcome === 'ok' ? 'ok' : (r.outcome === 'fail' ? 'ko' : 'warn');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${r.id}</td><td>${r.what}<br><span class="muted">${r.hyp}</span></td><td class="${cls}">${r.outcome}</td><td>${r.startMs ?? ''}</td><td>${r.seekMs ?? ''}</td><td>${r.res}</td><td>${r.frames}</td><td>${r.audio}</td><td>${r.note}</td>`;
+  $('#auto tbody').appendChild(tr);
+}
+
+async function sendReport() {
+  report.visual = {};
+  document.querySelectorAll('#visual select').forEach(s => report.visual[s.dataset.id] = s.value);
+  report.hdrScreen = $('#hdron').value; report.audioOut = $('#audioout').value; report.notes = $('#notes').value;
+  const r = await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report) });
+  $('#sent').textContent = r.ok ? 'Salvato: ' + (await r.json()).saved : 'Errore invio';
+}
+
+$('#run').onclick = async () => {
+  $('#run').disabled = true; $('#auto tbody').innerHTML = ''; $('#caps tbody').innerHTML = ''; report.auto = [];
+  $('#status').textContent = 'capability…'; await collectCaps();
+  for (const t of TESTS) {
+    $('#status').textContent = `test ${t.id} (${TESTS.indexOf(t) + 1}/${TESTS.length})…`;
+    const r = await runTest(t); report.auto.push(r); row(r);
+  }
+  $('#status').textContent = 'fatto — passa alla verifica visiva, poi Invia report';
+  $('#run').disabled = false;
+  await sendReport();
+};
+$('#send').onclick = sendReport;
+
+// ---------------------------------------------------------------- visual checks
+const VISUAL = [
+  { id: 'h2', label: 'HEVC 4K HDR10: i colori sono corretti e brillanti (non slavati)?', t: TESTS.find(x => x.id === 'h2'),
+    opts: ['corretti HDR', 'corretti ma sembrano SDR', 'slavati/grigi', 'non parte'] },
+  { id: 'h6', label: 'DV P8.1 servito come hvc1: colori corretti?', t: TESTS.find(x => x.id === 'h6'), opts: ['corretti', 'slavati', 'errati', 'non parte'] },
+  { id: 'h7', label: 'DV P8.1 servito come dvh1: colori corretti?', t: TESTS.find(x => x.id === 'h7'), opts: ['corretti', 'slavati', 'errati (verde/viola)', 'non parte'] },
+  { id: 'h8', label: 'DV P5: colori corretti o verde/viola?', t: TESTS.find(x => x.id === 'h8'), opts: ['corretti', 'errati (verde/viola)', 'non parte'] },
+  { id: 's1', label: 'PGS su 1080p: sottotitoli visibili nei primi 10 s, a tempo, nitidi?', t: TESTS.find(x => x.id === 's1'), opts: ['ok', 'visibili ma fuori sync', 'non visibili', 'non parte'] },
+  { id: 's2', label: 'PGS su 4K: sottotitoli visibili e a tempo, video fluido?', t: TESTS.find(x => x.id === 's2'), opts: ['ok', 'visibili ma scatta', 'non visibili', 'non parte'] },
+  { id: 'v1', label: 'WebVTT: sottotitoli italiani visibili (2–6 s e 10–14 s)?', t: TESTS.find(x => x.id === 'v1'), opts: ['ok', 'non visibili', 'non parte'] },
+  { id: 'h3', label: 'Audio FLAC 5.1: si sente (tono continuo)?', t: TESTS.find(x => x.id === 'h3'), opts: ['si sente', 'silenzio', 'non parte'] },
+  { id: 'h4', label: 'Audio E-AC3 5.1: si sente?', t: TESTS.find(x => x.id === 'h4'), opts: ['si sente', 'silenzio', 'non parte'] },
+];
+let current = null;
+async function playVisual(v) {
+  if (current) { try { current.pgs && current.pgs.dispose(); current.hls && current.hls.destroy(); } catch (_) {} }
+  const st = $('#vstage'); st.innerHTML = '';
+  const video = document.createElement('video'); video.controls = true; video.playsInline = true; st.appendChild(video);
+  const hls = attach(video, v.t);
+  if (v.t.vtt) { const tr = document.createElement('track'); tr.kind = 'subtitles'; tr.srclang = 'it'; tr.src = v.t.vtt; tr.default = true; video.appendChild(tr); }
+  let pgs = null;
+  if (v.t.pgs) pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: v.t.pgs });
+  current = { hls, pgs };
+  video.play().catch(() => {});
+  st.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+for (const v of VISUAL) {
+  const d = document.createElement('div'); d.className = 'vis';
+  d.innerHTML = `<b>${v.id}</b> — ${v.label} <button>Riproduci</button> <select data-id="${v.id}"><option value="">—</option>${v.opts.map(o => `<option>${o}</option>`).join('')}</select>`;
+  d.querySelector('button').onclick = () => playVisual(v);
+  $('#visual').appendChild(d);
+}
+</script>
+</body>
+</html>
