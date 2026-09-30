@@ -9,8 +9,8 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 **DESIGN — no product code yet.** We follow the design chain in order. Each step produces one document, is reviewed and approved by the owner, and gets its own commit. Update this checklist when a step is approved.
 
 - [x] 0. Requirements v0.1 — `docs/requirements/`
-- [ ] 1. Domain model — `docs/architecture/01-domain-model.md` ← **next**
-- [ ] 2. Components & responsibilities — `docs/architecture/02-components.md`
+- [x] 1. Domain model — `docs/architecture/01-domain-model.md`
+- [ ] 2. Components & responsibilities — `docs/architecture/02-components.md` ← **next**
 - [ ] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [ ] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
 - [ ] 5. Evidence spikes S1–S4 — `spikes/`, reports in `docs/spikes/`
