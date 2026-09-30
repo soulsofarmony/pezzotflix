@@ -183,8 +183,9 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 | H5 | Il device Android TV scelto fa passthrough TrueHD/DTS-HD verso l'AVR, o almeno li decodifica in PCM | fase client TV |
 | H6 | Il browser riproduce FLAC multicanale nel container di streaming scelto | S2 |
 | H7 | Esiste un renderer PGS lato browser affidabile (sync, prestazioni in 4K) | S2 |
-| H8 | Il riavvio della pipeline al seek in Direct Stream ha una latenza accettabile (obiettivo: < 2–3 s) | S3 |
-| H9 | Costo del Transcode 4K software su questo PC | S3 |
+| H8 | Il riavvio della pipeline al seek in Direct Stream ha una latenza accettabile (obiettivo: < 2–3 s) | ✅ **Confermata** da [S3](../spikes/S3-stream-latency.md): 1° segmento 0,16–0,25 s, indipendente dall'offset. Seek granulare al GOP |
+| H9 | Costo del Transcode 4K software su questo PC | ❌ [S3](../spikes/S3-stream-latency.md): 4K HDR → 1080p SDR software a 14 fps (0,6× per film 24p), **non in tempo reale**. GPU (NVENC + libplacebo) 67–84 fps. Burn-in PGS 4K ≈0,9×. **P2 da rivedere** |
+| H10 | NVENC/CUDA e Vulkan (libplacebo) funzionano dentro un container Docker Desktop su WSL2 | da verificare prima dell'ADR sull'accelerazione hardware |
 
 ---
 
