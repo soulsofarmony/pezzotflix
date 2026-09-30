@@ -6,7 +6,7 @@ Ogni report contiene: domanda, setup (sample, versioni tool, browser/device), ri
 
 | ID | Domanda | Stato |
 |---|---|---|
-| S1 | Cosa espongono davvero i remux (ffprobe) e cosa serve al modello dati? | — |
+| S1 | Cosa espongono davvero i remux (ffprobe) e cosa serve al modello dati? | ✅ [report](S1-media-probe.md) |
 | S2 | Cosa riproduce il browser: MKV diretto, HEVC/HDR, fMP4/HLS remux, audio lossless, PGS? | — |
 | S3 | Latenza di avvio e seek del remux on-the-fly (video copy) | — |
 | S4 | Identificazione da filename + metadata provider in `it-IT` | — |

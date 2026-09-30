@@ -146,6 +146,12 @@ Comuni: indice nel container, tipo (`video` / `audio` / `subtitle` / `attachment
 
 Il formato HDR e il tipo di sottotitolo contano più di quanto sembri: determinano se un client può fare Direct Play o se servono remux/transcode/burn-in.
 
+**Precisazioni da [S1](../spikes/S1-media-probe.md):**
+- **Formato HDR:** si deriva da transfer + primaries. I metadata statici (mastering display, MaxCLL/MaxFALL) e dinamici (HDR10+) sono attributi **opzionali**.
+- **Dolby Vision:** si registrano profilo, livello, **BL compat id** (definisce il fallback: nessuno per P5) e **presenza dell'enhancement layer** (FEL/MEL per P7).
+- **Lossless:** dipende da codec **e** profilo (DTS core ≠ DTS-HD MA).
+- **Lingua della traccia:** può mancare o valere `und`.
+
 ### 4.4 ExternalSubtitle
 
 Sottotitoli in file sidecar accanto al MediaFile (es. `Film.it.forced.srt`). Vengono esposti al player come tracce aggiuntive, indistinguibili da quelle embedded.

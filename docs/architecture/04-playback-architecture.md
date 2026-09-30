@@ -178,7 +178,7 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 |---|---|---|
 | H1 | I browser non riproducono MKV in modo affidabile | S2 |
 | H2 | Chrome/Edge su Windows decodificano HEVC Main10 (anche HDR10) in hardware; Firefox no | S2 |
-| H3 | Il remux con video copiato preserva i metadata HDR10 (e DV) | S1/S2 |
+| H3 | Il remux con video copiato preserva i metadata HDR10 (e DV) | ✅ **Confermata** in MKV da [S1](../spikes/S1-media-probe.md) (DV P8.1/P5, HDR10); attenzione ai codec tag (`dvh1`). fMP4 da verificare in S2 |
 | H4 | La conversione DV P7→P8.1 in streaming è fattibile con i tool disponibili | futuro (fase TV) |
 | H5 | Il device Android TV scelto fa passthrough TrueHD/DTS-HD verso l'AVR, o almeno li decodifica in PCM | fase client TV |
 | H6 | Il browser riproduce FLAC multicanale nel container di streaming scelto | S2 |
