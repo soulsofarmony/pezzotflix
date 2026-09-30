@@ -11,8 +11,8 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 0. Requirements v0.1 — `docs/requirements/`
 - [x] 1. Domain model — `docs/architecture/01-domain-model.md`
 - [x] 2. Components & responsibilities — `docs/architecture/02-components.md`
-- [ ] 3. Interfaces — `docs/architecture/03-interfaces.md` ← **next**
-- [ ] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
+- [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
+- [ ] 4. Playback architecture — `docs/architecture/04-playback-architecture.md` ← **next**
 - [ ] 5. Evidence spikes S1–S4 — `spikes/`, reports in `docs/spikes/`
 - [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`
 - [ ] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
@@ -41,6 +41,7 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 
 - Video Service is a **modular monolith** (one container) with module boundaries from `02-components.md`. Stream Delivery sits behind an internal interface so it can be extracted into a `video-worker` container later. Media processing always runs in child processes.
 - The gateway serves the web client's static assets. The admin UI (unmatched queue, corrections) is a section of the web client.
+- API is **contract-first**: a machine-readable spec in the repo is the source of truth and clients are generated from it. The control plane returns data-plane locators, and media URLs are authorized by a session token in the URL (native players can't set headers). The server composes Home. Client capabilities are declared by the client and can be overridden server-side per device. The MVP uses polling for notifications.
 
 ## Environment
 
