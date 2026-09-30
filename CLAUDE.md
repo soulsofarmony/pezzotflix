@@ -10,8 +10,8 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 
 - [x] 0. Requirements v0.1 — `docs/requirements/`
 - [x] 1. Domain model — `docs/architecture/01-domain-model.md`
-- [ ] 2. Components & responsibilities — `docs/architecture/02-components.md` ← **next**
-- [ ] 3. Interfaces — `docs/architecture/03-interfaces.md`
+- [x] 2. Components & responsibilities — `docs/architecture/02-components.md`
+- [ ] 3. Interfaces — `docs/architecture/03-interfaces.md` ← **next**
 - [ ] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
 - [ ] 5. Evidence spikes S1–S4 — `spikes/`, reports in `docs/spikes/`
 - [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`
@@ -38,6 +38,9 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - LAN-only for the MVP, but no logic may assume that client and server are on the same subnet.
 - MVP: 1 streaming session. Architecture targets up to 3 heterogeneous sessions.
 - Out of scope: ripping/remuxing (done externally), a recommendation engine, and Work→Edition→Version modeling (different cuts are separate items for now).
+
+- Video Service is a **modular monolith** (one container) with module boundaries from `02-components.md`. Stream Delivery sits behind an internal interface so it can be extracted into a `video-worker` container later. Media processing always runs in child processes.
+- The gateway serves the web client's static assets. The admin UI (unmatched queue, corrections) is a section of the web client.
 
 ## Environment
 
