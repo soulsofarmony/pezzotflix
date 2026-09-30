@@ -8,7 +8,7 @@ La tecnologia deriva dai requisiti, non il contrario (vedi requisiti §20–21).
 | 1 | [01-domain-model.md](01-domain-model.md) — entità e relazioni | ✅ approvato |
 | 2 | [02-components.md](02-components.md) — componenti e responsabilità | ✅ approvato |
 | 3 | [03-interfaces.md](03-interfaces.md) — contratti client↔server e interni | ✅ approvato |
-| 4 | `04-playback-architecture.md` — Direct Play / Direct Stream / Transcode | ⏳ prossimo |
-| 5 | Spike di evidenza (`../spikes/`) | — |
+| 4 | [04-playback-architecture.md](04-playback-architecture.md) — Direct Play / Direct Stream / Transcode | ✅ approvato |
+| 5 | Spike di evidenza (`../spikes/`) | ⏳ prossimo |
 | 6 | `05-technology-evaluation.md` + ADR | — |
 | 7 | `06-mvp-plan.md` — piano vertical slice | — |
