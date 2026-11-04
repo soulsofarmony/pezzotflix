@@ -1,0 +1,33 @@
+{
+  "_doc": "S4 holdout: written AFTER rules.py was frozen, never used to tune it. Same schema as corpus.json.",
+  "entries": [
+    {"id": "H01", "cat": "movie_year", "root": "movies", "path": "Lo chiamavano Jeeg Robot (2015)/Lo.chiamavano.Jeeg.Robot.2015.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1.ITA.mkv", "exp": {"kind": "movie", "title": ["Lo chiamavano Jeeg Robot"], "year": 2015, "edition": null}},
+    {"id": "H02", "cat": "movie_year", "root": "movies", "path": "Gli Intoccabili (1987)/The Untouchables (1987) 2160p UHD.mkv", "exp": {"kind": "movie", "title": ["Gli Intoccabili", "The Untouchables"], "year": 1987, "edition": null}},
+    {"id": "H03", "cat": "movie_trap", "root": "movies", "path": "Se7en (1995)/Se7en.1995.REMASTERED.2160p.UHD.BluRay.REMUX.HDR.HEVC.DTS-HD.MA.5.1-EPSiLON.mkv", "exp": {"kind": "movie", "title": ["Se7en"], "year": 1995, "edition": ["Remastered"]}},
+    {"id": "H04", "cat": "movie_trap", "root": "movies", "path": "Blade Runner 2049 (2017)/Blade.Runner.2049.2017.2160p.UHD.BluRay.REMUX.mkv", "exp": {"kind": "movie", "title": ["Blade Runner 2049"], "year": 2017, "edition": null}},
+    {"id": "H05", "cat": "movie_trap", "root": "movies", "path": "Il mio vicino Totoro (1988)/Il mio vicino Totoro (1988) - [1080p].mkv", "exp": {"kind": "movie", "title": ["Il mio vicino Totoro"], "year": 1988, "edition": null}},
+    {"id": "H06", "cat": "movie_trap", "root": "movies", "path": "Fantozzi (1975)/Fantozzi.1975.ITA.1080p.BluRay.x264.mkv", "exp": {"kind": "movie", "title": ["Fantozzi"], "year": 1975, "edition": null}},
+    {"id": "H07", "cat": "movie_edition", "root": "movies", "path": "Amadeus (1984)/Amadeus (1984) - Director's Cut.mkv", "exp": {"kind": "movie", "title": ["Amadeus"], "year": 1984, "edition": ["Director's Cut"]}},
+    {"id": "H08", "cat": "movie_edition", "root": "movies", "path": "Terminator 2 (1991)/Terminator.2.Judgment.Day.1991.Extended.Special.Edition.1080p.mkv", "exp": {"kind": "movie", "title": ["Terminator 2 Judgment Day", "Terminator 2"], "year": 1991, "edition": ["Extended Special Edition", "Extended", "Special Edition"]}},
+    {"id": "H09", "cat": "movie_edition", "root": "movies", "path": "Watchmen (2009)/Watchmen (2009) {edition-Ultimate Cut}.mkv", "exp": {"kind": "movie", "title": ["Watchmen"], "year": 2009, "edition": ["Ultimate Cut"]}},
+    {"id": "H10", "cat": "movie_noyear", "root": "movies", "path": "Amici miei/Amici miei - 1080p.mkv", "exp": {"kind": "movie", "title": ["Amici miei"], "year": null, "edition": null}},
+    {"id": "H11", "cat": "multidisc", "root": "movies", "path": "Il Padrino - Parte II (1974)/Il Padrino - Parte II (1974).mkv", "exp": {"kind": "movie", "title": ["Il Padrino - Parte II", "Il Padrino Parte II"], "year": 1974, "edition": null}},
+    {"id": "H12", "cat": "multidisc", "root": "movies", "path": "Novecento (1976)/Novecento (1976) - CD2.mkv", "exp": {"kind": "movie", "title": ["Novecento"], "year": 1976, "edition": null, "part": 2}},
+    {"id": "H13", "cat": "series_sxxexx", "root": "series", "path": "Better Call Saul (2015)/Season 06/Better.Call.Saul.S06E13.Saul.Gone.1080p.mkv", "exp": {"kind": "episode", "title": ["Better Call Saul"], "year": 2015, "season": 6, "episodes": [13]}},
+    {"id": "H14", "cat": "series_sxxexx", "root": "series", "path": "Mare fuori (2020)/S02/Mare Fuori S02E03.mkv", "exp": {"kind": "episode", "title": ["Mare fuori"], "year": 2020, "season": 2, "episodes": [3]}},
+    {"id": "H15", "cat": "series_1x02", "root": "series", "path": "Lost (2004)/Lost - 3x22-23 - Through the Looking Glass.mkv", "exp": {"kind": "episode", "title": ["Lost"], "year": 2004, "season": 3, "episodes": [22, 23]}},
+    {"id": "H16", "cat": "series_it", "root": "series", "path": "Suburra - La serie (2017)/Stagione 01/Suburra - Ep. 04.mkv", "exp": {"kind": "episode", "title": ["Suburra - La serie", "Suburra La serie", "Suburra"], "year": 2017, "season": 1, "episodes": [4]}},
+    {"id": "H17", "cat": "series_it", "root": "series", "path": "Don Matteo/Stagione 12/Puntata 3.mkv", "exp": {"kind": "episode", "title": ["Don Matteo"], "year": null, "season": 12, "episodes": [3]}},
+    {"id": "H18", "cat": "series_multiep", "root": "series", "path": "The Mandalorian (2019)/Season 1/The Mandalorian - S01E01E02E03.mkv", "exp": {"kind": "episode", "title": ["The Mandalorian"], "year": 2019, "season": 1, "episodes": [1, 2, 3]}},
+    {"id": "H19", "cat": "series_special", "root": "series", "path": "Black Mirror (2011)/Season 00/Black Mirror - S00E01 - Bianco Natale.mkv", "exp": {"kind": "episode", "title": ["Black Mirror"], "year": 2011, "season": 0, "episodes": [1]}},
+    {"id": "H20", "cat": "extra", "root": "movies", "path": "Se7en (1995)/Deleted Scenes/Alternate Ending.mkv", "exp": {"kind": "extra", "extra_type": "deleted-scene", "extra_of": ["Se7en"]}},
+    {"id": "H21", "cat": "extra", "root": "movies", "path": "Amadeus (1984)/Amadeus (1984)-featurette.mkv", "exp": {"kind": "extra", "extra_type": "featurette", "extra_of": ["Amadeus"]}},
+    {"id": "H22", "cat": "extra", "root": "movies", "path": "Lo chiamavano Jeeg Robot (2015)/Extra/Backstage.mkv", "exp": {"kind": "extra", "extra_type": "other", "extra_of": ["Lo chiamavano Jeeg Robot"]}},
+    {"id": "H23", "cat": "documentary", "root": "mixed", "path": "Documentari/Le Mans 66 - La grande sfida (2019)/Le Mans 66 (2019).mkv", "exp": {"kind": "movie", "title": ["Le Mans 66", "Le Mans 66 - La grande sfida"], "year": 2019, "edition": null}},
+    {"id": "H24", "cat": "sidecar", "root": "movies", "path": "Amadeus (1984)/Amadeus (1984) - Director's Cut.ita.sdh.srt", "exp": {"kind": "sidecar", "lang": "it", "forced": false, "sdh": true}},
+    {"id": "H25", "cat": "sidecar", "root": "series", "path": "Better Call Saul (2015)/Season 06/Better.Call.Saul.S06E13.Saul.Gone.1080p.it.forced.srt", "exp": {"kind": "sidecar", "lang": "it", "forced": true, "sdh": false}},
+    {"id": "H26", "cat": "junk", "root": "movies", "path": "Se7en (1995)/Se7en.1995.SAMPLE.mkv", "exp": {"kind": "ignore"}},
+    {"id": "H27", "cat": "junk", "root": "movies", "path": "misc/MOVIE_t02.mkv", "exp": {"kind": "movie", "title": null, "year": null, "edition": null}},
+    {"id": "H28", "cat": "ambiguous", "root": "movies", "path": "Nosferatu.mkv", "exp": {"kind": "movie", "title": ["Nosferatu"], "year": null, "edition": null}}
+  ]
+}

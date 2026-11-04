@@ -1,0 +1,4 @@
+guessit==4.4.0
+parsett==1.8.5
+rapidfuzz==3.14.6
+requests==2.34.2
