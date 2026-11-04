@@ -184,7 +184,7 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 | H6 | Il browser riproduce FLAC multicanale nel container di streaming scelto | S2 |
 | H7 | Esiste un renderer PGS lato browser affidabile (sync, prestazioni in 4K) | S2 |
 | H8 | Il riavvio della pipeline al seek in Direct Stream ha una latenza accettabile (obiettivo: < 2–3 s) | ✅ **Confermata** da [S3](../spikes/S3-stream-latency.md): 1° segmento 0,16–0,25 s, indipendente dall'offset. Seek granulare al GOP |
-| H9 | Costo del Transcode 4K software su questo PC | ❌ [S3](../spikes/S3-stream-latency.md): 4K HDR → 1080p SDR software a 14 fps (0,6× per film 24p), **non in tempo reale**. GPU (NVENC + libplacebo) 67–84 fps. Burn-in PGS 4K ≈0,9×. **P2 da rivedere** |
+| H9 | Costo del Transcode 4K software su questo PC | ❌ [S3](../spikes/S3-stream-latency.md): 4K HDR → 1080p SDR software a 14 fps (0,6× per film 24p), **non in tempo reale**. GPU (NVENC + libplacebo) 67–84 fps. Burn-in PGS 4K ≈0,9×. → **P2 rivista** (§11) |
 | H10 | NVENC/CUDA e Vulkan (libplacebo) funzionano dentro un container Docker Desktop su WSL2 | ⏸️ **Non verificata** ([S3](../spikes/S3-stream-latency.md)): GPU visibile ma `cuInit` fallisce con WSL 2.0.14 / Docker Desktop 25.0.3 datati. Ripetere dopo l'aggiornamento. I/O dal bind mount NTFS circa 380 Mbps |
 
 ---
@@ -194,6 +194,6 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 | ID | Domanda | Decisione |
 |---|---|---|
 | P1 | Selezione automatica dell'audio: prima la qualità o prima la compatibilità? | **Prima la qualità**: la traccia migliore nella lingua preferita, con la trasformazione minima. Una traccia compatibile di qualità inferiore si usa solo se la migliore richiederebbe un Transcode video (non succede mai per il solo audio) |
-| P2 | Transcode nell'MVP? | **Direct Play + Direct Stream completi; Transcode minimo** (software, 1 sessione, per burn-in e codec non supportati). Accelerazione hardware dopo |
+| P2 | Transcode nell'MVP? | **Rivista il 2026-11-04 dopo S3 (H9 ❌), opzione (b).** Direct Play + Direct Stream completi per tutte le sorgenti. Transcode **software solo per sorgenti fino a 1080p** (1 alla volta, per burn-in e codec non supportati). Le sorgenti **4K si servono solo in Direct Play o Direct Stream**: se servirebbe un Transcode, la sessione fallisce con motivo chiaro (PGS su 4K → render lato client, P3). Il transcode con accelerazione hardware (NVENC + libplacebo) si rivaluta quando H10 è verificata. _Versione originale: Transcode minimo software per ogni sorgente._ |
 | P3 | PGS nel web client | **Render lato client** se S2 conferma H7; altrimenti burn-in |
 | P4 | Transcode simultanei massimi | **1**, indipendente dal limite di sessioni; configurabile |
