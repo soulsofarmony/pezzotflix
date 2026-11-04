@@ -13,7 +13,7 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 2. Components & responsibilities — `docs/architecture/02-components.md`
 - [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [x] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
-- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S2 harness ready, S4 started, H10 waits for WSL/Docker update)
+- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 report in review, H10 re-measured after the WSL/Docker update, S2 harness ready and needs an owner session)
 - [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`
 - [ ] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
 
@@ -56,12 +56,12 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
 - Video Service is a **modular monolith** (one container) with module boundaries from `02-components.md`. Stream Delivery sits behind an internal interface so it can be extracted into a `video-worker` container later. Media processing always runs in child processes.
 - The gateway serves the web client's static assets. The admin UI (unmatched queue, corrections) is a section of the web client.
 - API is **contract-first**: a machine-readable spec in the repo is the source of truth and clients are generated from it. The control plane returns data-plane locators, and media URLs are authorized by a session token in the URL (native players can't set headers). The server composes Home. Client capabilities are declared by the client and can be overridden server-side per device. The MVP uses polling for notifications.
-- Playback: **minimum necessary transformation**. Positions always use the original media timeline. Audio selection is quality-first (best track in the preferred language, minimal conversion). MVP ships full Direct Play and Direct Stream plus a minimal software Transcode **for sources up to 1080p only** (1 at a time, configurable, separate from the session limit). 4K sources are Direct Play/Direct Stream only (decision P2, revised after S3); hardware-accelerated transcode is re-evaluated once H10 is verified. PGS in the browser is rendered client-side if spike S2 validates it, otherwise burned in. A Direct Play failure automatically re-plans with a heavier mode.
+- Playback: **minimum necessary transformation**. Positions always use the original media timeline. Audio selection is quality-first (best track in the preferred language, minimal conversion). MVP ships full Direct Play and Direct Stream plus a minimal software Transcode **for sources up to 1080p only** (1 at a time, configurable, separate from the session limit). 4K sources are Direct Play/Direct Stream only (decision P2, revised after S3; a temporary deviation from requirements §5.2 that depends on H2/H7 from S2); hardware-accelerated transcode is re-evaluated after H10. PGS in the browser is rendered client-side if spike S2 validates it, otherwise burned in. A Direct Play failure automatically re-plans with a heavier mode.
 
 ## Environment
 
 - Dev and first real use: Windows 11 + Docker Desktop (WSL2). A Linux mini-PC/server comes later, so keep everything portable.
-- Host tools: Docker 25, Node 22, Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
+- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node 22, Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
 - Bind mounts from NTFS into WSL2 containers are slow. Keep this in mind for scanning/watching (inotify does not propagate reliably from Windows paths).
 - Main TV client: Android TV / Google TV device (Chromecast GTV / Google TV Streamer or a Google TV set) → AVR/soundbar over HDMI. Lossless audio passthrough (TrueHD/Atmos, DTS-HD) matters. **Known risk:** Dolby Vision profile 7 (FEL) is unreliable on these devices and usually falls back to HDR10, so it is not an MVP requirement.
 - No real media yet: use public test samples. Subtitle formats are unknown, so treat PGS as likely.

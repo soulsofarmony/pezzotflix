@@ -1,6 +1,6 @@
 # S3 — Latenza e costo di remux e transcode
 
-- **Stato:** Completato (2026-10-01)
+- **Stato:** Completato (2026-10-01); H10 rimisurata il 2026-11-04
 - **Domanda:** quanto costa, in tempo di avvio, seek e risorse, servire un remux UHD in Direct Stream o in Transcode?
 - **Alimenta:** doc 04 H8, H9 (e nuova H10), decisione P2; ADR su motore di streaming e accelerazione hardware
 - **Codice:** `spikes/s3-stream-latency/` (`make_long_source.sh`, `measure.py`), throwaway
@@ -84,13 +84,79 @@ Script: `spikes/s3-stream-latency/h10_docker.sh`. Immagine `lscr.io/linuxserver/
 - tenere i media sul filesystem WSL;
 - evitarlo con il futuro server Linux, dove il problema non esiste.
 
+### H10 — Seconda prova dopo l'aggiornamento (2026-11-04)
+
+- **Ambiente:** WSL **3.0.3** (kernel 6.18), Docker Desktop **4.98.0** (engine 29.9.2), driver NVIDIA **596.49**, 26 GB liberi su C:.
+- **Script:** `spikes/s3-stream-latency/h10_docker_v2.sh`. Ogni prova salva lo stderr completo in `out/h10v2/<id>.r<n>.log`, il riepilogo è in `out/h10v2/summary.tsv`, l'ambiente in `out/h10v2/env.txt`. Ogni prova è ripetuta 2 volte.
+- **Sorgente:** clip di 20 s (1200 frame a 60 fps) dal file da 5 min usato sopra, letta da un **volume Docker** (ext4 nella VM WSL) per separare il costo GPU dall'I/O. Una prova è ripetuta dal bind mount NTFS.
+- **Immagini:**
+  - `lscr.io/linuxserver/ffmpeg:latest` (**9.0.2**);
+  - `lscr.io/linuxserver/ffmpeg:8.1.2`;
+  - `jellyfin/jellyfin:latest`, con **jellyfin-ffmpeg 8.1.3**.
+- **fps:** valore riportato da ffmpeg (`-stats`).
+- **Prima prova della giornata, scartata:** il disco C: era quasi pieno (2 GB liberi) e tutti i tempi risultavano gonfiati. La causa precisa non è stata isolata e quei numeri non vanno usati. Per la stessa ragione l'output `out/h10-rerun.txt` è superato.
+
+#### Funzionalità nel container
+
+| Prova | Esito | Evidenza |
+|---|---|---|
+| Decodifica CUDA (ffmpeg 9.0.2, 8.1.2, jellyfin 8.1.3) | ✅ | 373–397 fps |
+| NVENC con ffmpeg **9.0.2** | ❌ | `Driver does not support the required nvenc API version. Required: 13.1 Found: 13.0` e `The minimum required Nvidia driver for nvenc is 610.00 or newer` |
+| NVENC con ffmpeg **8.1.2** e **jellyfin 8.1.3** | ✅ | `scale_cuda` + `hevc_nvenc`, rc=0 |
+| `tonemap_cuda` (HDR10 → SDR) | ✅ in jellyfin-ffmpeg | Nell'elenco `-filters` compare **solo** nell'immagine jellyfin; linuxserver 9.0.2 e 8.1.2 hanno `tonemap_opencl`, `tonemap_vaapi`, `libplacebo` ma non `tonemap_cuda` |
+| Vulkan (per `libplacebo`) | ❌ | Unico device visibile: `llvmpipe (LLVM 21.1.8) (software)`. Nel container ci sono `libcuda`, `libnvcuvid`, `libnvidia-encode` ma nessun ICD Vulkan NVIDIA |
+| OpenCL (`tonemap_opencl`) | ❌ | `No such device` (prima prova, non ripetuta) |
+
+#### Prestazioni (2 ripetizioni, fps riportati da ffmpeg)
+
+| Pipeline (clip 4K HEVC Main10 HDR10, 20 s) | fps | × film 24p |
+|---|---|---|
+| Container, solo decodifica CUDA | 373–397 | 16× |
+| Container, CUDA + `scale_cuda` + `hevc_nvenc` 1080p HDR (ffmpeg 8.1.2) | 129–130 | 5,4× |
+| come sopra, sorgente dal **bind mount NTFS** | 129–130 | 5,4× |
+| Container, CUDA + `scale_cuda` + `hevc_nvenc` (jellyfin 8.1.3) | 151–154 | 6,3× |
+| Container, CUDA + **`tonemap_cuda`** + `h264_nvenc` 1080p **SDR** (jellyfin) | **106–107** | **4,4× ✅** |
+| Container, solo `tonemap_cuda` (senza encoder) | 108–114 | 4,6× |
+| **Host Windows**, CUDA + `scale_cuda` + `hevc_nvenc` (ffmpeg 7.0), stessa clip, stessa sessione | 292–299 | 12× |
+
+- Il transcode 4K HDR → 1080p SDR **interamente su GPU nel container** va a **circa 4,4× il tempo reale di un film a 24p**, quindi c'è margine teorico per 3 sessioni. Il collo di bottiglia è `tonemap_cuda`, non l'encoder.
+- **Overhead WSL/GPU:** a parità di pipeline il container fa circa **la metà degli fps** dell'host (130–154 contro 292–299). È il costo della GPU paravirtualizzata di WSL e non riguarderà il server Linux nativo.
+- **Nota sul confronto con M4:** i 120 fps di M4 per la stessa pipeline sull'host erano calcolati come contenuto/tempo totale del processo (avvio e seek compresi) e misurati in un'altra sessione. Il confronto valido è quello host/container fatto nella stessa sessione, riportato qui.
+
+#### I/O (file da 5 min, 1,66 GB, 2 ripetizioni)
+
+| Prova | Tempo | Throughput |
+|---|---|---|
+| Lettura sequenziale (`cat`) dal **bind mount NTFS** | 24,7–27,9 s | **circa 60–67 MB/s (circa 500 Mbps)** |
+| Lettura sequenziale dal **volume Docker** | 0,93 s | probabilmente in cache nella VM: non è una misura del disco |
+| Remux completo (copy) dal bind mount | 33,4–34,3 s | circa 9× il tempo reale |
+| Remux completo (copy) dal volume | 6,1–6,4 s | circa 56–59× il tempo reale (come sull'host) |
+
+- Il bind mount NTFS regge circa 500 Mbps: bastano per 3 Direct Play UHD (picchi di 100–130 Mbps ciascuno), con poco margine se nel frattempo gira una scansione. Resta valida la raccomandazione per l'ADR di deploy (sopra).
+- Per un clip che si legge a circa 44 Mbps il bind mount **non** limita il transcode: stessi fps da volume e da bind mount.
+
+**Scoperte:**
+- **La versione di ffmpeg va abbinata al driver.** ffmpeg 9.0 richiede l'API NVENC 13.1 (driver ≥ 610, dal messaggio di ffmpeg stesso), il driver 596 espone la 13.0. Il backend di accelerazione dovrà fare all'avvio un **probe delle capability reali** (encoder, filtri, device) invece di dedurle dalla presenza di una GPU.
+- **Su Docker Desktop/WSL2 l'unica catena di tone-mapping su GPU funzionante è CUDA** (`tonemap_cuda`), disponibile in jellyfin-ffmpeg ma non nelle build linuxserver provate. Vulkan/libplacebo e OpenCL non sono esposti. Sul server Linux nativo vanno verificati Vulkan, VAAPI/QSV o CUDA, in base alla GPU.
+
+**Stato H10:**
+- ✅ **Confermata per CUDA e NVENC** (con ffmpeg 8.x) e per il tone-mapping CUDA, a 4,4× il tempo reale per un film 24p.
+- ❌ **Smentita per Vulkan/libplacebo e OpenCL** su WSL2.
+
 ## Conclusioni e raccomandazioni
 
 1. ✅ **Direct Stream:** avvio sotto il secondo, seek indipendente dalla posizione, costo trascurabile. È la modalità di default per il browser.
 2. ✅ **Timeline originale** realizzabile; il seek del server è granulare al GOP e il player completa il seek fine.
 3. ❌ **"Transcode minimo software" (decisione P2) non è sufficiente per contenuti 4K HDR** su questo PC: il caso più probabile (4K HDR → client SDR/1080p) non è in tempo reale. **P2 va rivista**:
-   - (a) MVP con transcode GPU (NVENC + libplacebo), con H10 da verificare;
+   - (a) MVP con transcode GPU;
    - (b) MVP con transcode software limitato alle sorgenti 1080p, 4K solo in Direct Play/Direct Stream;
    - (c) transcode fuori dall'MVP.
+   - → Scelta l'opzione **(b)** il 2026-11-04 (doc 04 §11, P2).
 4. ⚠️ **Burn-in 4K** da evitare: PGS resi dal client (P3); se non evitabile, downscale a 1080p prima del burn-in.
-5. 🔬 **Nuova H10:** NVENC/CUDA (e Vulkan per libplacebo) funzionano dentro un container Docker Desktop su WSL2. Da verificare prima dell'ADR sull'accelerazione hardware.
+5. ✅/❌ **H10** (rimisurata il 2026-11-04):
+   - in un container Docker Desktop su WSL2 funzionano CUDA, NVENC (ffmpeg 8.x) e `tonemap_cuda` (jellyfin-ffmpeg): il 4K HDR → 1080p SDR su GPU va a circa 4,4× il tempo reale per un film 24p;
+   - Vulkan/libplacebo e OpenCL non funzionano.
+   - L'ADR sull'accelerazione hardware deve prevedere:
+     - un backend sostituibile (CUDA oggi, VAAPI/QSV/Vulkan sul server);
+     - una build di ffmpeg abbinata al driver;
+     - un probe delle capability all'avvio.
