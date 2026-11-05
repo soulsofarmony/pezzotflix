@@ -135,7 +135,7 @@ Il server è Fastify (ADR 0001); il gateway Caddy instrada `/video/api/*` e `/vi
   - ADR 0002 (cursori keyset, `domain_event`, `CURSOR_EXPIRED`);
   - ADR 0006 (prefissi del gateway senza riscrittura, `Authorization` passato invariato);
   - ADR 0007 (sorgente delle immagini, che decide il `Cache-Control`);
-  - ADR 0003, protocollo di streaming (numero riservato, scritta dopo S2): token nel path come vincolo sui locatori;
-  - ADR 0005, web client (numero riservato, scritta dopo S2): openapi-fetch e generazione dei tipi dal bundle;
+  - [ADR 0003](0003-streaming-hls-fmp4-segmenter.md), streaming (accettata il 2026-11-05): token nel path come vincolo sui locatori;
+  - [ADR 0005](0005-web-client-react-vite.md), web client (accettata il 2026-11-05): openapi-fetch e generazione dei tipi dal bundle;
   - ADR del client TV (numero da assegnare): libreria HTTP del client Kotlin e verifica del generatore;
   - ADR della CI ospitata (numero da assegnare): per ora gate locali e di milestone.

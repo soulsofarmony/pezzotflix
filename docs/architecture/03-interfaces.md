@@ -133,10 +133,14 @@ PlaybackSession
 ├── mode: direct_play | direct_stream | transcode   (+ motivo leggibile, es. "audio TrueHD non supportato")
 ├── stream: locatore del data plane + protocollo + tipo MIME con il parametro codecs
 │           (RFC 6381) degli stream esatti, es. video/mp4; codecs="hvc1.2.4.L153.B0, flac" (I6)
+│           + bitrate (picco, media, solo audio) per i limiti del buffer del client
+│           + offset costante dei timestamp dei media rispetto alla timeline originale
+│             (0 in Direct Play; il client ne ricava la timeline originale, ADR 0003)
 ├── tracks
 │   ├── audio[]: id, lingua, codec, canali, selezionata, "cambio senza riavvio" sì/no
 │   └── subtitles[]: id, lingua, forced/SDH, selezionata, "cambio senza riavvio" sì/no
-│                    (no per una traccia ancora in estrazione, Playback §4.4),
+│                    (riguarda solo lo stream: sì per una traccia servita a parte con URL),
+│                    disponibilità: completa | in crescita (estrazione in corso, Playback §4.4),
 │                    delivery ∈ {embedded, sidecar, burned, client_render}, più l'URL se servita a parte
 │                    - embedded: dentro lo stream
 │                    - sidecar: traccia di testo servita a parte (WebVTT)
@@ -158,6 +162,8 @@ Il **motivo** della modalità serve alla diagnostica: si deve poter capire perch
 | `MEDIA_UNAVAILABLE` | Nessun file online (root offline, file mancante) | — |
 | `NO_COMPATIBLE_PLAN` | Nessuna modalità possibile (es. transcode disabilitato e client incompatibile) | motivo |
 | `SESSION_EXPIRED` | Sessione chiusa per timeout | — |
+| `STREAM_PREPARING` | `StartPlayback` su un file il cui indice dei keyframe non è ancora pronto e richiede una sonda lenta (ADR 0003). Risposta `503` con `Retry-After`: il client mostra "in preparazione" e riprova | — |
+| `STREAM_FAILED` | Il data plane non riesce a produrre lo stream dopo un nuovo tentativo automatico (`500`). Il client che non legge il corpo (hls.js) chiama comunque `ReportPlaybackFailure`, e il server ripianifica dal proprio registro del fallimento (Playback §8) | — |
 
 ---
 
@@ -167,7 +173,7 @@ Il **motivo** della modalità serve alla diagnostica: si deve poter capire perch
 |---|---|
 | **File originale** (Direct Play) | Byte del file così com'è, con **richieste a intervalli** (seek) e dimensione nota. Nessuna modifica |
 | **Stream elaborato** (Direct Stream / Transcode) | Forma dipendente dal protocollo scelto. Deve supportare **seek** senza ricominciare dall'inizio e un avvio rapido |
-| **Sottotitoli serviti a parte** | Tracce testuali convertite in un formato che il client sa rendere (WebVTT; delivery `sidecar`). Tracce immagine (PGS) estratte senza ricodifica come `.sup`, con delivery `client_render` (§4.3), per il render lato client (Playback P3). Se il `.sup` è completo o cresce durante l'estrazione dipende dall'ADR 0003 (Playback §4.4): il client non deve assumere un file completo finché la traccia non lo dichiara |
+| **Sottotitoli serviti a parte** | Tracce testuali convertite in un formato che il client sa rendere (WebVTT; delivery `sidecar`). Tracce immagine (PGS) estratte senza ricodifica come `.sup`, con delivery `client_render` (§4.3), per il render lato client (Playback P3). Durante l'estrazione l'URL è una sola risposta in streaming che cresce, senza dimensione nota; a estrazione finita lo stesso URL serve il file completo con Range (ADR 0003, Playback §4.4). Il client non deve assumere un file completo finché la traccia non lo dichiara (disponibilità completa, §4.3) |
 | **Immagini** | Varianti di dimensione, cacheabili a lungo (immutabili per URL) |
 
 Tutte le risorse di sessione sono autorizzate dal **token di sessione nell'URL** (P9) e smettono di funzionare alla chiusura della sessione. Le immagini non dipendono dalla sessione.
@@ -214,7 +220,7 @@ Contratti tra i componenti di [02](02-components.md). Sono dati in ingresso e da
 | **MetadataProvider** | `search(query, kind, year?, lang) → Candidate[]`, `getDetails(ref, lang) → NormalizedMetadata`, `getSeason(ref, n, lang)`, `getImages(ref) → ImageRef[]` | Contratto neutro: nessun tipo del provider esce dall'adapter |
 | **Resolver** | `resolve(MediaFacts, PathInfo, context) → ScoredCandidate[]` (con evidenze) | Catena ordinata; un nuovo resolver (AI) implementa la stessa firma |
 | **PlaybackDecision** | `decide(files: MediaFacts[], ClientCapabilities, ProfilePrefs, constraints) → PlaybackPlan` | **Pura**: stesso input, stesso output. Base di `ExplainPlaybackDecision` |
-| **StreamDelivery** | `start(PlaybackPlan) → StreamHandle{locators}`, `stop(handle)`, `status(handle)` | Confine estraibile (C1). Il file è riferito come root + path relativo, mai come path assoluto dell'host |
+| **StreamDelivery** | `start(PlaybackPlan) → StreamHandle{locators, mimeType, bitrate, mediaTimestampOffsetMs, disponibilità di ogni traccia di sottotitoli}`, `stop(handle)`, `status(handle)` | Confine estraibile (C1). Il file è riferito come root + path relativo, mai come path assoluto dell'host. Un fallimento di formato o di stream torna al Session Manager, che ripianifica col Decision Engine (ADR 0003) |
 | **JobRunner** | `enqueue(type, payload, priority, idempotencyKey)` | L'idempotency key evita doppie analisi dello stesso file |
 
 ### 8.1 Eventi di dominio interni

@@ -1,0 +1,87 @@
+## flac0 [] [-c:a flac] init=30d0563d818c size=1403
+   mvhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   mvex
+   flac0.mp4	1	10	10	2	120
+   flac0.mp4	2	10	10	2.016	21
+   flac0.mp4	1	12	12	2	120
+   flac0.mp4	2	12.016	12.016	2.016	21
+## flac16 [-noaccurate_seek -ss 16.135] [-c:a flac] init=30d0563d818c size=1403
+   mvhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   mvex
+   flac16.mp4	1	26	26	2	120
+   flac16.mp4	2	25.95	25.95	2.0262	21
+   flac16.mp4	1	28	28	2	120
+   flac16.mp4	2	27.9762	27.9762	2.016	21
+## aac0 [] [-af aformat=channel_layouts=5.1 -c:a aac -b:a 640k] init=3b1f2bdb6cd5 size=1407
+   mvhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   mvex
+   aac0.mp4	1	10	10	2	120
+   aac0.mp4	2	9.9787	9.9787	2.0053	94
+   aac0.mp4	1	12	12	2	120
+   aac0.mp4	2	11.984	11.984	1.984	93
+## aac16 [-noaccurate_seek -ss 16.135] [-af aformat=channel_layouts=5.1,atrim=start=16 -c:a aac -b:a 640k] init=3b1f2bdb6cd5 size=1407
+   mvhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   trak
+    tkhd dur=0
+    edts
+     elst[0] dur=0 media_time=0
+    mdia
+     mdhd dur=0
+   mvex
+   aac16.mp4	1	26	26	2	120
+   aac16.mp4	2	25.9787	25.9787	2.0053	94
+   aac16.mp4	1	28	28	2	120
+   aac16.mp4	2	27.984	27.984	1.984	93
+== file start_time
+0.000000 Blade Runner 2049 (2017) - 2160p Remux.mkv
+0.000000 Dune.2021.2160p.UHD.BluRay.REMUX.DV.HDR.mkv
+0.000000 Il.Buono.il.Brutto.il.Cattivo.1966.1080p.BluRay.REMUX.mkv
+0.000000 Long Test (2024) - 2160p.mkv
+0.000000 Oppenheimer (2023).mkv
+0.000000 BDMV_DISC1_t00.mkv
+0.000000 jf-1080p-avc-30M.mp4
+0.000000 jf-4k-dv-p5.mp4
+0.000000 jf-4k-dv-p8.1.mp4
+0.000000 jf-4k-hevc-hdr10-100M.mp4

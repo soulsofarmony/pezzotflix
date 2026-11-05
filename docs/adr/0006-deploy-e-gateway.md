@@ -142,7 +142,7 @@ La portabilità verso un mini-PC o NAS Linux è un vincolo rigido (§18).
   - ADR 0001 (immagine base `node:26.13.0-trixie-slim` fissata per digest, reload con `compose watch`);
   - ADR 0002 (file `/data/db/video.db` nel volume `video-db`, backup in `video-backup`);
   - ADR 0007 (`.env` dei provider, `provider_cache` nel DB, artwork TMDB in `video-artwork`);
-  - ADR 0003, protocollo di streaming (numero riservato, scritta dopo S2): segmenti attraverso Caddy, quota dello scratch;
-  - ADR 0005, web client (numero riservato, scritta dopo S2): build e dev server;
+  - [ADR 0003](0003-streaming-hls-fmp4-segmenter.md), streaming (accettata il 2026-11-05): segmenti attraverso Caddy, quota dello scratch;
+  - [ADR 0005](0005-web-client-react-vite.md), web client (accettata il 2026-11-05): build e dev server;
   - ADR del client TV (numero da assegnare): HTTP in chiaro in LAN su Android;
   - ADR del backup fuori dall'host (numero da assegnare).

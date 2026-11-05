@@ -155,5 +155,5 @@ L'host ha Node 22 e Python 3.12, più un Node 26.13.0 portabile installato il 20
   - ADR 0004 (fastify-openapi-glue, openapi-typescript);
   - ADR 0006 (immagine trixie, `init: true`, `compose watch`);
   - ADR 0007 (limiti per host del rate limiter, parser e matcher portati da S4);
-  - ADR 0003, protocollo di streaming (numero riservato, scritta dopo S2 e prima del lavoro su Stream Delivery): forma dei segmenti servita da `@fastify/send`;
-  - ADR 0005, web client (numero riservato, scritta dopo S2 e prima del lavoro sulla UI).
+  - [ADR 0003](0003-streaming-hls-fmp4-segmenter.md), streaming (accettata il 2026-11-05): forma dei segmenti servita da `@fastify/send`;
+  - [ADR 0005](0005-web-client-react-vite.md), web client (accettata il 2026-11-05).

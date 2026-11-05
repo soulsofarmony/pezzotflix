@@ -142,7 +142,9 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
   - **Direct Stream:** rimpacchetta al volo copiando il video. Converte solo ciò che serve (container, audio). Prima di un AAC o di un Opus multicanale porta il layout a `5.1` e, dopo l'AAC, controlla il channelConfiguration del risultato (Playback §4.3).
   - **Transcode:** ricodifica (fallback).
   - **Sottotitoli:** i testuali vengono serviti in un formato leggibile dal client. Quelli immagine passano in pass-through se il client li supporta; per il browser si estraggono come file `.sup` a parte, da rendere lato client (Playback P3; delivery in Interfacce §4.3). Solo in ultima risorsa vengono bruciati nel video.
-  - **Estrazione dei sottotitoli embedded** (immagine e testo): legge tutto il file. Quando e dove farla è aperto (ADR 0003, Playback §4.4); il risultato va nella cache persistente, non nello scratch.
+  - **Estrazione dei sottotitoli embedded** (immagine e testo): legge tutto il file. Avviene al primo playback del file, tutte le tracce in un processo, partendo poco prima della posizione della sessione, con la lettura limitata in byte; il file si serve mentre cresce (ADR 0003, Playback §4.4). Il risultato va nella cache persistente, non nello scratch.
+  - **Indice dei keyframe** di ogni file, che serve alla playlist del Direct Stream: dai Cues dell'MKV, o da una sonda di ffprobe se mancano. Si calcola in un job dopo `FileAnalyzed` e si tiene nella cache (ADR 0003).
+  - **Errori di stream:** tiene il proprio registro del fallimento (uscita del processo, classificazione dello stderr), che il Session Manager usa per scegliere la modifica minima quando ripianifica (Playback §8).
 - **Gestisce:** processi di elaborazione media, file temporanei/segmenti (volume **scratch** effimero), sottotitoli estratti (volume **cache**, persistente), futura accelerazione hardware.
 - **Proprietà:** è il componente più **pesante** e l'unico con picchi di CPU/GPU. Deve essere isolabile (vedi §6, C1).
 - **Dipende da:** Media Storage (lettura), scratch, cache (sottotitoli estratti).

@@ -1,6 +1,6 @@
 # 05 — Valutazione tecnologica
 
-- **Stato:** in revisione. Le ADR collegate sono in stato **Proposed**; le accetta l'orchestratore dopo il passaggio del `design-reviewer` (CLAUDE.md, decisioni delegate dal proprietario il 2026-11-05).
+- **Stato:** completo per l'MVP. Tutte le ADR collegate sono **Accepted**; le ha accettate l'orchestratore dopo il passaggio del `design-reviewer` (CLAUDE.md, decisioni delegate dal proprietario il 2026-11-05).
 - **Data:** 2026-11-05
 - **Fonti interne:** [requisiti](../requirements/0001-video-service-requirements-v0.1.md) (§20–21 e le sezioni citate in ogni area); doc [01](01-domain-model.md)–[04](04-playback-architecture.md); report degli spike in [`docs/spikes/`](../spikes/); [standard di libreria](../library-standard.md).
 
@@ -15,8 +15,10 @@ La tecnologia segue i requisiti: ogni area parte dalla decisione da prendere e d
 | 3 | [Formato del contratto API e codegen](#3-formato-del-contratto-api-e-codegen) | OpenAPI 3.1.1 scritto a mano, fastify-openapi-glue, openapi-typescript, OpenAPI Generator | TypeSpec 1.17 | [0004](../adr/0004-contratto-api-openapi-3-1.md) |
 | 4 | [Deploy e gateway](#4-deploy-e-gateway) | Docker Compose, Caddy 2.11.8, `jellyfin-ffmpeg8` 8.1.3-2 | nginx 1.30 con `proxy_buffering off` | [0006](../adr/0006-deploy-e-gateway.md) |
 | 5 | [Provider dei metadata e funzionamento offline](#5-provider-dei-metadata-e-funzionamento-offline) | TMDB per l'arricchimento, Wikidata per identificazione e base durevole | Identificazione TMDB-first | [0007](../adr/0007-provider-metadata-e-offline.md) |
+| 6 | [Protocollo di streaming e Stream Delivery](#6-protocollo-di-streaming-e-stream-delivery) | HLS fMP4 (CMAF) con playlist VOD dell'intero film, segmenter proprio sui confini dei keyframe (indice dai Cues dell'MKV), un ffmpeg figlio per sessione rallentato dalla backpressure, Direct Play con `@fastify/send` | DASH CMAF; muxer `hls` di ffmpeg con playlist EVENT | [0003](../adr/0003-streaming-hls-fmp4-segmenter.md) |
+| 7 | [Web client](#7-web-client) | React 19.3.1, Vite 8.3.6, TanStack Router e Query, openapi-fetch; player con hls.js 1.7.4 light e libpgs 0.9.0 | Svelte 5.57.3 | [0005](../adr/0005-web-client-react-vite.md) |
 
-**Numeri riservati:** ADR 0003 (protocollo di streaming) e ADR 0005 (web client). Si scrivono dopo lo spike S2, prima del lavoro su Stream Delivery e sulla UI. Altre ADR previste, senza numero: client TV, accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
+**ADR previste, senza numero:** client TV, accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
 
 **Decisioni aggiunte dopo la revisione di design (2026-11-05)**, riportate nelle aree e nelle ADR:
 - path fissi nel container sotto `DATA_DIR=/data` e volume `video-backup` (§4.6.2, ADR 0006);
@@ -35,9 +37,9 @@ La tecnologia segue i requisiti: ogni area parte dalla decisione da prendere e d
 ## 1. Runtime e framework del backend
 
 - **Area:** linguaggio, runtime e framework web del Video Service
-- **ADR:** [0001 — TypeScript su Node.js 26 con Fastify 5](../adr/0001-runtime-backend-typescript-node-fastify.md) (Proposed)
+- **ADR:** [0001 — TypeScript su Node.js 26 con Fastify 5](../adr/0001-runtime-backend-typescript-node-fastify.md) (Accepted)
 - **Data:** 2026-11-05
-- **Aree collegate:** [database](#2-database-e-migrazioni) (ADR 0002), [contratto API](#3-formato-del-contratto-api-e-codegen) (ADR 0004), [deploy](#4-deploy-e-gateway) (ADR 0006), [metadata](#5-provider-dei-metadata-e-funzionamento-offline) (ADR 0007), ADR 0003 (protocollo di streaming) e ADR 0005 (web client), riservate
+- **Aree collegate:** [database](#2-database-e-migrazioni) (ADR 0002), [contratto API](#3-formato-del-contratto-api-e-codegen) (ADR 0004), [deploy](#4-deploy-e-gateway) (ADR 0006), [metadata](#5-provider-dei-metadata-e-funzionamento-offline) (ADR 0007), [streaming](#6-protocollo-di-streaming-e-stream-delivery) (ADR 0003), [web client](#7-web-client) (ADR 0005)
 
 ### 1.1 Decisione da prendere
 
@@ -166,8 +168,8 @@ Lo stack concreto e le regole d'uso sono nell'[ADR 0001](../adr/0001-runtime-bac
   - immagine `node:26.13.0-trixie-slim` (fissata per digest) con `jellyfin-ffmpeg8=8.1.3-2-trixie` dal repo Jellyfin;
   - `init: true` per raccogliere i processi zombie;
   - `node --watch` dentro `compose watch` (nessuna build: il type stripping evita un passo di transpilazione).
-- **ADR 0003, protocollo di streaming** (numero riservato, scritta dopo S2): il runtime serve playlist e segmenti fMP4 dallo scratch con `@fastify/send`. La scelta HLS/DASH non cambia questa ADR.
-- **ADR 0005, web client** (numero riservato, scritta dopo S2): stesso TypeScript 6.0.3 e Vitest 5 nel workspace npm.
+- **ADR 0003, streaming** (accettata il 2026-11-05): il runtime serve la playlist generata e i segmenti fMP4 tagliati dal segmenter, e il Direct Play con `@fastify/send` (§6).
+- **ADR 0005, web client** (accettata il 2026-11-05): stesso TypeScript 6.0.3 e Vitest 5 nel workspace npm.
 - **ADR 0007 (provider dei metadata):** limiti per host del rate limiter; parser e matcher portati da S4.
 
 ### 1.8 Domande aperte
@@ -181,7 +183,7 @@ Lo stack concreto e le regole d'uso sono nell'[ADR 0001](../adr/0001-runtime-bac
 ## 2. Database e migrazioni
 
 - **Area:** motore di database, driver, query layer e migrazioni, backup
-- **ADR:** [0002 — SQLite (WAL) con better-sqlite3 e Drizzle](../adr/0002-database-sqlite-drizzle.md) (Proposed)
+- **ADR:** [0002 — SQLite (WAL) con better-sqlite3 e Drizzle](../adr/0002-database-sqlite-drizzle.md) (Accepted)
 - **Data:** 2026-11-05
 - **Aree collegate:** [runtime](#1-runtime-e-framework-del-backend) (ADR 0001), [contratto API](#3-formato-del-contratto-api-e-codegen) (ADR 0004), [deploy](#4-deploy-e-gateway) (ADR 0006)
 
@@ -316,9 +318,9 @@ Il carico (§8: 3 sessioni, scritture di progress ogni pochi secondi) è di dive
 ## 3. Formato del contratto API e codegen
 
 - **Area:** formato della specifica contract-first, validazione lato server, generazione dei client TS e Kotlin, convenzioni trasversali
-- **ADR:** [0004 — OpenAPI 3.1 scritto a mano, con codegen TS e Kotlin](../adr/0004-contratto-api-openapi-3-1.md) (Proposed)
+- **ADR:** [0004 — OpenAPI 3.1 scritto a mano, con codegen TS e Kotlin](../adr/0004-contratto-api-openapi-3-1.md) (Accepted)
 - **Data:** 2026-11-05
-- **Aree collegate:** [runtime](#1-runtime-e-framework-del-backend) (ADR 0001), [database](#2-database-e-migrazioni) (ADR 0002), [deploy](#4-deploy-e-gateway) (ADR 0006), ADR 0003 (protocollo di streaming) e ADR 0005 (web client), riservate, e ADR del client TV
+- **Aree collegate:** [runtime](#1-runtime-e-framework-del-backend) (ADR 0001), [database](#2-database-e-migrazioni) (ADR 0002), [deploy](#4-deploy-e-gateway) (ADR 0006), [streaming](#6-protocollo-di-streaming-e-stream-delivery) (ADR 0003), [web client](#7-web-client) (ADR 0005) e ADR del client TV
 
 ### 3.1 Decisione da prendere
 
@@ -450,7 +452,7 @@ Convenzioni vincolanti (dettagli nell'ADR 0004):
   - Caddy non tocca `Authorization` e passa il path invariato;
   - le immagini (`GetImage`) hanno URL indirizzati per contenuto: `immutable` per un anno se non TMDB, 30 giorni senza `immutable` se di sorgente `tmdb`;
   - `/video/healthz` è una route operativa del Video Service, inoltrata dal gateway.
-- **ADR 0003, protocollo di streaming** (numero riservato): il token nel path è un **vincolo** sulla forma dei locatori HLS/DASH.
+- **ADR 0003, streaming** (accettata il 2026-11-05): il token nel path è un **vincolo** sulla forma dei locatori HLS/DASH.
 - **ADR del client TV:** il client Kotlin generato (`jvm-ktor` o `jvm-retrofit2`/OkHttp) va scelto lì insieme allo stack Android. Qui si garantisce solo che la generazione funzioni.
 
 ### 3.8 Domande aperte
@@ -465,7 +467,7 @@ Convenzioni vincolanti (dettagli nell'ADR 0004):
 
 ## 4. Deploy e gateway
 
-- **Stato:** Proposta (2026-11-05). ADR collegato: [0006 — Deploy e gateway](../adr/0006-deploy-e-gateway.md)
+- **Stato:** Accettata (2026-11-05). ADR collegato: [0006 — Deploy e gateway](../adr/0006-deploy-e-gateway.md)
 - **Area:** layout Docker Compose dell'MVP, gateway/reverse proxy, volumi, mount dei media, ambiente di sviluppo su Windows, configurazione e segreti, ffmpeg nell'immagine del Video Service.
 - **Fonti interne:** requisiti §2, §3, §5.1, §9, §18, §19; doc 02 §2.1, §3.1, §3.11, §6 (C1, C2); doc 03 P1, P9, §5; doc 04 §7, P2; [S3](../spikes/S3-stream-latency.md) (M2, H10 e seconda prova H10).
 - **Esperimento nuovo:** `spikes/g1-gateway-range/` (throwaway, 2026-11-05), descritto in §4.4.
@@ -646,9 +648,9 @@ Tutti i dati stanno sotto `DATA_DIR=/data` (decisione dopo la revisione di desig
 - **ADR 0001 (runtime):** immagine base `node:26.13.0-trixie-slim` fissata per digest e `node --watch` dentro `compose watch`. Se la base cambiasse distribuzione, cambierebbe il pacchetto `jellyfin-ffmpeg8` da installare (esiste anche per bookworm).
 - **ADR 0002 (database):** SQLite embedded, file `/data/db/video.db` nel volume `video-db`, backup in `video-backup`; nessun container di database.
 - **ADR 0007 (provider):** `.env` dei provider, risposte in `provider_cache` nel DB, artwork TMDB in `video-artwork`.
-- **ADR 0003, protocollo di streaming** (numero riservato, scritta dopo S2): i segmenti HLS/fMP4 passano dal gateway con `flush_interval -1`; il Range del Direct Play è verificato in G1; la quota dello scratch dipende dalla durata dei segmenti tenuti.
+- **ADR 0003, streaming** (accettata il 2026-11-05): i segmenti HLS/fMP4 passano dal gateway con `flush_interval -1`; il Range del Direct Play è verificato in G1; la quota dello scratch dipende dalla durata dei segmenti tenuti.
 - **Accelerazione hardware:** override GPU, versione di jellyfin-ffmpeg abbinata al driver, probe all'avvio.
-- **ADR 0005, web client** (numero riservato, scritta dopo S2): la sua build entra nell'immagine del gateway (multi-stage). Il dev server, se c'è, gira sull'host.
+- **ADR 0005, web client** (accettata il 2026-11-05): la sua build entra nell'immagine del gateway (multi-stage). Il dev server, se c'è, gira sull'host.
 - **Contratto API:** base path `/video`, locatori relativi (P1), token nell'URL (P9). Il gateway non tocca la query string.
 - **Client TV:** HTTP in chiaro in LAN, TLS in futuro.
 
@@ -665,7 +667,7 @@ Tutti i dati stanno sotto `DATA_DIR=/data` (decisione dopo la revisione di desig
 
 ## 5. Provider dei metadata e funzionamento offline
 
-- **Stato:** Proposta (2026-11-05). ADR collegato: [0007 — Provider dei metadata e funzionamento offline](../adr/0007-provider-metadata-e-offline.md)
+- **Stato:** Accettata (2026-11-05). ADR collegato: [0007 — Provider dei metadata e funzionamento offline](../adr/0007-provider-metadata-e-offline.md)
 - **Area:** contratto del Metadata Provider Adapter, ripartizione dei dati tra le sorgenti, refresh, rate limiting e `Retry-After`, artwork e il suo stato rispetto ai termini TMDB, attribuzione nella UI, comportamento **senza chiave TMDB**.
 - **Fissato a monte:** la decisione D5 del proprietario (doc 01 §11). TMDB è il provider principale, con refresh entro la finestra di 6 mesi dei termini; Wikidata fa da base durevole CC0 conservata indefinitamente (titoli IT/originali, anno, ID esterni); i dati TMDB si cancellano alla cessazione della licenza.
 - **Fonti interne:** requisiti §11, §12, §13, §16; doc 01 §3.5, §3.6, §3.7, §5.2, D1, D5, D6; doc 02 §3.3–3.5, §3.7, §7; doc 03 §6, §8 (`MetadataProvider`); [S4](../spikes/S4-identification.md); [standard di libreria](../library-standard.md).
@@ -972,7 +974,7 @@ Punteggi da 1 a 5. **E** = evidenza (S4, termini), **G** = giudizio.
 - **ADR 0001 (runtime):** `fetch` nativo, token bucket per host scritto a mano e parsing di `Retry-After`; parser e punteggi portati a mano da S4, senza guessit né rapidfuzz.
 - **Thumbnail e Artwork Store:** niente ricodifica delle immagini TMDB; varianti nostre solo per upload e frame.
 - **ADR 0004 (contratto API):** `Cache-Control` di 30 giorni senza `immutable` per le immagini TMDB; stati `provider_unavailable` e `not_configured`, provenienza per campo, comando `PurgeProviderData`, payload della pagina crediti.
-- **ADR 0005 (web client, riservata) e client TV:** pagina "Informazioni" con logo e avviso, segnaposto delle copertine, avanzamento dell'ingest, "fissa come valore manuale".
+- **ADR 0005 (web client) e client TV:** pagina "Informazioni" con logo e avviso, segnaposto delle copertine, avanzamento dell'ingest, "fissa come valore manuale".
 
 ### 5.16 Raccomandazione
 
@@ -984,3 +986,937 @@ Punteggi da 1 a 5. **E** = evidenza (S4, termini), **G** = giudizio.
   - L'artwork TMDB è trattato come TMDB Content: riscaricato a ogni refresh, mai ricodificato, cancellato a scadenza o al purge.
   - Senza chiave l'MVP gira con Wikidata e i segnaposto, e TMDB si attiva al riavvio con un backfill automatico.
 - **Runner-up:** B (identificazione TMDB-first). Sarebbe diventata la scelta con una precision più alta su TMDB: misurata il 2026-11-05 in S4, non lo è (ADR 0007, revisione).
+
+---
+
+## 6. Protocollo di streaming e Stream Delivery
+
+- **Stato:** Accettata (2026-11-05), dopo la revisione di design ("accettare dopo le correzioni": B1, M1–M9, minori 1–22) e una seconda revisione breve ("accettare", otto ritocchi applicati). ADR collegato: [0003 — Streaming: HLS fMP4 VOD con segmenter proprio](../adr/0003-streaming-hls-fmp4-segmenter.md)
+- **Area:** protocollo e packaging di Direct Stream e Transcode, segmentazione e playlist, indice dei keyframe, seek e timeline, processi ffmpeg, Direct Play, conversione audio, sottotitoli embedded, dati per il buffer del browser, Dolby Vision P7, librerie.
+- **Fonti interne:** requisiti §5, §6, §8, §18, §19, §20; doc 02 §3.9–§3.12, §6 (C1), §7; doc 03 §4, §5, §8, I5, I6; doc 04 (tutto, in particolare §4, §6, §7, §8, H8, H11, P2, P3); [S1](../spikes/S1-media-probe.md), [S2](../spikes/S2-browser-playback.md), [S3](../spikes/S3-stream-latency.md); ADR 0001, 0004, 0006; §4.4 (G1).
+- **Esperimento nuovo:** `spikes/a3-stream-delivery/` (throwaway, 2026-11-05), descritto in §6.5. Misurato sul **portatile**: iGPU Intel + RTX 1000 Ada, Docker Desktop con engine 28.1, WSL 2.5.7, immagine `pezzotflix/video:dev` con jellyfin-ffmpeg 8.1.3, media dal bind mount NTFS in sola lettura.
+- **Verifica del revisore:** script e output t1–t9 in `spikes/a3-stream-delivery/review/` (2026-11-05, stesso portatile). Dove questa sezione li usa, li cita come "verifica del revisore, tN".
+
+### 6.1 Decisioni da prendere
+
+1. Protocollo e packaging per Direct Stream e Transcode.
+2. Segmentazione e modello di playlist: muxer HLS di ffmpeg o segmenter nostro; playlist EVENT o VOD; seek, confini e durata dei segmenti; fonte dell'indice dei keyframe.
+3. Gestione dei processi ffmpeg: ciclo di vita, kill, throttling, scratch, errori, confine estraibile verso `video-worker` (C1).
+4. Chi serve i byte del Direct Play, e con quale sicurezza.
+5. La scala di conversione audio del Direct Stream, lato server.
+6. I punti aperti della revisione di S2: estrazione dei sottotitoli embedded, dati per il buffer di hls.js, DV P7 (H11).
+7. Le librerie, oltre a ffmpeg ed execa.
+
+Il player (hls.js, libpgs) è dell'ADR 0005: qui conta solo dove vincola il server.
+
+### 6.2 Criteri
+
+| # | Criterio | Fonte | Peso | Vincolo rigido? |
+|---|---|---|---|---|
+| P1 | **Qualità originale**: video copiato, trasformazione minima, multi-traccia | §5.1, §6, §18 "Qualità", doc 04 §1 | — | sì |
+| P2 | Riproduzione **misurata** nei browser dell'MVP | §19, S2 | 25% | no |
+| P3 | **Seek** su tutta la durata, **timeline originale** esatta | doc 03 §5, doc 04 §6.1–§6.2 | 20% | sì |
+| P4 | Client futuri: Android TV (Media3), mobile | §7, doc 03 I4 | 15% | no |
+| P5 | Aderenza al contratto (`progressive`, `hls-fmp4`, token nel path), solo con modifiche additive | ADR 0004, mvp-plan §3 | 15% | no |
+| P6 | Semplicità e robustezza del server (processi, riavvii, risorse) | doc 02 C1 e §7, ADR 0001 | 15% | no |
+| P7 | Limiti di memoria del player (quote MSE di Chromium) | S2, doc 04 §4.5 | 10% | no |
+
+Per la segmentazione e l'indice dei keyframe valgono criteri propri (§6.4).
+
+### 6.3 Protocollo e packaging
+
+Versioni verificate il 2026-11-05 su GitHub releases: hls.js **1.7.4** (2026-10-28), dash.js **5.3.0** (2026-11-04), Shaka Player **5.3.3** (2026-10-29), AndroidX Media3 **1.11.1** (2026-09-11; HLS e DASH entrambi supportati).
+
+| Criterio (peso) | **A. HLS con segmenti fMP4 (CMAF), playlist VOD** | B. DASH con segmenti CMAF (`SegmentTimeline`) | C. fMP4 progressivo, una risposta per ogni avvio |
+|---|---|---|---|
+| P1 (vincolo) | ✅ video copiato | ✅ | ✅ |
+| P2 browser misurati (25%) | 5 **E**: S2, Chrome/Edge/Firefox, AVC e HEVC Main10 HDR10 4K, FLAC/Opus/AAC 5.1 | 2 G: non misurato; player diverso (dash.js o Shaka) | 3 **E**/G: funziona, ma in Chromium il 4K parte in 0,8–1,5 s contro 0,15–0,40 s dell'HLS (**E**, S2). Che il ritardo cresca con la durata del file è un giudizio: S2 lo indica come probabile, non lo misura (G) |
+| P3 seek e timeline (20%) | 5 **E** lato server (§6.5, verifica del revisore t4, t8, t9): playlist dell'intero film, riavvio al seek invisibile al player con il pre-roll di un GOP; timeline originale tramite un offset dichiarato (§6.6) | 5 G: stessa logica | 2 G: ogni seek oltre il generato è un nuovo URL; la barra di seek e l'offset dei sottotitoli restano al client |
+| P4 client futuri (15%) | 5 G: Media3 lo supporta; HLS nativo sui dispositivi Apple | 4 G: Media3 sì, Apple no | 3 G |
+| P5 contratto (15%) | 5 **E**: `hls-fmp4` e la risorsa `hls/{resource}` esistono | 2 **E**: serve un valore nuovo dell'enum e nuove risorse | 4 **E**: `progressive` e `startOffsetMs` esistono |
+| P6 server (15%) | 4 G | 4 G | 5 G: nessuna playlist |
+| P7 memoria (10%) | 3 **E**: quote MSE da rispettare dal client (S2) | 3 G: stesse quote | 4 G: buffer nativo, niente MSE |
+| **Totale pesato** | **4,65** | 3,30 | 3,35 |
+
+- **HLS con MPEG-TS** è escluso: il TS non porta la FLAC e obbliga hls.js a ricomporre i segmenti in fMP4.
+- **Audio muxato o rendition separate.** Nell'MVP l'audio è **muxato** con il video, una traccia per stream, come in S2 (un solo SourceBuffer, misurato). Cambiare traccia audio è una ripianificazione con riavvio alla posizione corrente (circa 1 s). Le rendition separate (`EXT-X-MEDIA`) darebbero il cambio senza riavvio, ma S2 non le ha misurate, e il segmenter dovrebbe produrre segmenti solo audio e una conversione per ogni traccia. Restano un'evoluzione.
+  - Conseguenza per l'ADR 0005: senza rendition separate basta la build **light** di hls.js.
+- **`stream.mimeType`** per `hls-fmp4` è il tipo dei **segmenti** (`video/mp4; codecs="…"`), non della playlist, con entrambi i codec (video e audio) letti dal segmento di init: è ciò che il client verifica con `MediaSource.isTypeSupported`.
+
+### 6.4 Segmentazione, modello di playlist e indice dei keyframe
+
+**Playlist.** Si confrontano due modelli:
+- **EVENT**: la playlist cresce con ffmpeg. Il seek oltre il generato richiede una nuova sessione con `startOffsetMs`, una timeline del player che non parte da 0 e un offset per sottotitoli e progress;
+- **VOD**: la playlist copre tutto il film sin dall'inizio, con durate e confini noti, e i segmenti si producono su richiesta, come fa Jellyfin ([DynamicHlsPlaylistGenerator.cs](https://github.com/jellyfin/jellyfin/blob/master/src/Jellyfin.MediaEncoding.Hls/Playlist/DynamicHlsPlaylistGenerator.cs), letto il 2026-11-05). Il player vede un film normale, con la barra di seek completa.
+
+Si sceglie la **VOD**. La condizione è che un segmento prodotto da un riavvio sia identico, per confini e timestamp di ogni campione, a quello che avrebbe prodotto un'esecuzione partita da 0. È la domanda dell'esperimento (§6.5) e della verifica del revisore.
+
+**Segmenter.** Criteri propri:
+
+| # | Criterio | Peso |
+|---|---|---|
+| G1 | **Coerenza dopo un riavvio**: stessi confini e stessi timestamp dei campioni della playlist | 30% (vincolo) |
+| G2 | Timeline originale ricostruibile, nessun timestamp negativo | 20% |
+| G3 | Throttling e controllo delle risorse (scratch, CPU) | 15% |
+| G4 | Latenza di avvio e di seek (H8) | 15% |
+| G5 | Ispezione dell'output: stringa di codec, controllo dell'`esds` (doc 04 §4.3) | 10% |
+| G6 | Codice da scrivere e mantenere | 10% |
+
+| Criterio (peso) | A. Muxer `hls` di ffmpeg (Jellyfin) | **B. ffmpeg scrive fMP4 frammentato su stdout, il servizio taglia i segmenti** | C. Muxer `segment` con `-segment_times` |
+|---|---|---|---|
+| G1 riavvio (30%) | **1 E**: taglia al primo keyframe ≥ inizio dell'esecuzione + n·`hls_time`. Coincide con una playlist calcolata da 0 solo con keyframe sulla griglia (verifica del revisore, t7); con keyframe fuori griglia un riavvio taglia altrove (E1, t7) | **5 E**: con il pre-roll di un GOP i campioni del riavvio coincidono con quelli dell'esecuzione da 0, su GOP chiusi (E2, E7, t9) e aperti (t4, t8) | 3 G: tagli espliciti, ma non misurato; ogni segmento è un file MP4 a sé |
+| G2 timeline (20%) | 2 **E**: con l'AAC, il primo `tfdt` audio è negativo e va in overflow (E3) | 5 **E**: offset costante dichiarato e `negative_cts_offsets` (E3, E7, t1) | 3 G |
+| G3 throttling (15%) | 2 G: file su disco; pausa con SIGSTOP o lettura limitata, attesa dei file con polling (Jellyfin: 100 ms) | 5 G: contropressione della pipe: se il servizio non legge, ffmpeg si ferma; segmenti pronti con un evento | 2 G |
+| G4 latenza (15%) | 4 **E**: S3, 0,16–0,25 s sull'host | 4 **E**: primi 60 MB in 0,39–0,80 s dal bind mount NTFS (E2b); il pre-roll aggiunge un GOP, dal keyframe indicizzato che precede Bₖ (G: circa +0,2–0,4 s a UHD; fino a un segmento, 0,5–0,7 s, con la sonda di ripiego) | 4 G |
+| G5 ispezione (10%) | 3 G: il file di init va letto comunque | 5 **E**: lo stesso parser legge `hvcC` ed `esds` dal segmento di init (E3) | 3 G |
+| G6 codice (10%) | 4 G | 3 G: circa 300–400 righe (lettore di box, segmenter, playlist) con i test | 3 G |
+| **Totale pesato** | 2,30 | **4,65** | 3,00 |
+
+**Indice dei keyframe.** La playlist VOD con video copiato vuole la posizione dei keyframe prima di produrre un segmento. Criteri: esattezza rispetto al seek di ffmpeg (vincolo), byte letti a freddo da un remux da 50–80 GB, codice.
+
+| | **A. Cues di Matroska (parser EBML)** | B. Sonda a salti di ffprobe (`-read_intervals`) | C. Scansione completa dei pacchetti |
+|---|---|---|---|
+| Esattezza | G: è lo stesso indice che ffmpeg usa per il seek; da confrontare con la sonda sui sample | **E**: usa l'indice del container, i confini coincidono per costruzione (E7) | **E**: esatta |
+| Byte letti | G: solo SeekHead e Cues, qualche centinaio di KB | **E**/G: un pacchetto keyframe per intervallo. In E7 74 salti in 181 ms su 5 min di file in cache; su un remux da 2,5 h circa 2250 salti e 0,6–3 GB, cioè 10–60 s a freddo (stima del revisore, t5: keyframe medi da 263 KB su Long Test) | **E**: tutto il file; sul portatile 20,5 s per 1,66 GB (circa 81 MB/s), cioè circa 12 minuti per 60 GB |
+| Copertura | solo MKV con Cues | ogni container | ogni container |
+| Codice | un parser EBML minimo, scritto a mano | nessuno | nessuno |
+
+**Scelta:**
+- **A, i Cues, come fonte primaria per gli MKV**, verificata contro la sonda a salti sui sample in un test;
+- **B, la sonda, come ripiego** per i file non MKV o senza Cues;
+- C non rende veloci i riavvii, perché anche il seek di ffmpeg in un MKV senza Cues è una lettura lineare. Per questi file la diagnostica consiglia di rifare il remux con l'indice.
+
+L'indice si calcola in un **job obbligatorio dopo `FileAnalyzed`** e si salva in `video-cache` sotto `/data/cache/delivery/keyframes/<impronta>`. A `StartPlayback` un indice mancante si costruisce in modo sincrono dai Cues. Se è possibile solo la sonda lenta, `StartPlayback` risponde `503` `STREAM_PREPARING` con `Retry-After` e il job passa in testa alla coda (§6.6).
+
+### 6.5 Esperimento A3 (2026-11-05, portatile)
+
+- **Setup:** `spikes/a3-stream-delivery/`, con gli script `e1_restart.sh`, `e3_fixes.sh`, `e4_subs_misc.sh`, `e5_grow.sh`, `e6_merge_dv.sh` ed `e7_timeline.sh`, eseguiti in container usa e getta di `pezzotflix/video:dev`.
+  - Parser dei box: `mp4inspect.mjs` legge `tfdt`, `trun`, `hvcC`, `esds`, `dfLa` e `dOps`. `helpers.mjs` dà gli istogrammi delle unità NAL e le informazioni sui `.sup`.
+  - Sorgente: `Long Test (2024) - 2160p.mkv` di `media-samples/library` (S3: 5 min, HEVC Main10 HDR10 a 60 fps, GOP chiusi da 2 s, TrueHD 5.1(side) ed E-AC-3), montata in sola lettura.
+  - Output in `out/`, gitignorato.
+
+| # | Domanda | Esito |
+|---|---|---|
+| E1 | Il muxer `hls` di ffmpeg, riavviato a un keyframe con `-start_number`, produce gli stessi segmenti di un'esecuzione da 0? | **No, nella forma provata.** Con `-hls_time 5` e GOP da 2 s, da 0 i tagli cadono a 6, 10, 16, 20, 26, 30 s; riavviato con `-ss 16`, parte a 14 s e taglia a 20, 24, 30, 34 s. Gran parte dello scarto viene dall'arretramento del seek (E3, punto 1), che qui non era compensato. **Verifica del revisore, t7:** con `-noaccurate_seek -ss 12.135` il muxer coincide su Long Test, perché i keyframe cadono sulla griglia; sulla fixture con keyframe fuori griglia no (da 0 il quinto segmento parte a 16,891 s, il riavvio taglia a 15,807 e 20,519 s, valori di `tfdt`). Il muxer taglia al primo keyframe ≥ inizio dell'esecuzione + n·`hls_time`: una playlist VOD calcolata da 0 resta valida solo se i keyframe sono sulla griglia |
+| E2 | fMP4 frammentato su stdout (`frag_keyframe`), riavvio allo stesso keyframe | Su GOP chiusi il video del riavvio ha gli stessi `tfdt` dell'esecuzione da 0 (16, 18, 20 s…); un frammento per keyframe |
+| E2b | Primo output da un offset profondo, dal bind mount NTFS | Primi 60 MB (circa 4,8 s di contenuto a 100 Mbps) in **0,39–0,80 s** (offset 284 e 150 s) |
+| E3 | Insidie e rimedi | 1) **`-ss 16` parte da 14 s**, perché ffmpeg arretra il target di 3/23 s quando il video ha B-frame (`has_b_frames`=2). Con `-ss 16.135` parte esattamente a 16 s (E7).<br>2) **Seek accurato**: l'audio è tagliato al target e parte 178 ms dopo il video. Con `-noaccurate_seek` parte 71 ms prima.<br>3) **AAC da 0**: il priming dà un primo `tfdt` audio di −21 ms, scritto come intero senza segno (`tfdt` ≈ 3,8·10¹⁴ s), sia con il muxer `hls` sia con l'fMP4. **`-output_ts_offset 10`** sposta tutto di 10 s costanti: nessun valore negativo, stessi rapporti fra le esecuzioni.<br>4) **Senza `frag_discont`** il `tfdt` riparte da 0 a ogni esecuzione: la timeline originale si perde |
+| E3b | Controllo dell'AAC multicanale dopo l'encoder | Dal TrueHD 5.1(side): `channelConfiguration` **0** (PCE) senza `aformat`; **6** con `aformat=channel_layouts=5.1`. Il parser lo legge dall'`esds` del segmento di init. Stringhe ricavate dall'init: `hvc1.2.4.H153.90`, `mp4a.40.2`, `flac`, `opus` (6 canali) |
+| E4 | Copia dell'E-AC-3 in fMP4 su pipe | Con `empty_moov` fallisce ("Cannot write moov atom before EAC3 packets parsed"). Con **`delay_moov`** riesce (`ec-3`, brand `dby1`) |
+| E5a | Lettura sequenziale dal bind mount NTFS | `cat` del file da 1,66 GB: 178–183 MB/s, probabilmente dalla cache di Windows, perché il file era già stato letto. La prima lettura completa della sessione (ffprobe, E7) andava a circa 81 MB/s. Per la pianificazione restano i 47 MB/s del remux e i 60–67 MB/s di `cat` di S3 |
+| E5b | Estrazione dei sottotitoli embedded (Blade Runner, 373 MB, due PGS, un SRT e un ASS) | Una traccia PGS: 2,9 s. **Tutte e quattro in un solo passaggio: 2,0 s.** Il costo è la lettura del file, non il numero di tracce |
+| E5c | Un `.sup` in estrazione cresce mentre ffmpeg legge? | La mia misura usava la fixture difettosa di E5d e non vale. **Verifica del revisore, t6**, su una traccia PGS reale: senza `-flush_packets 1` il `.sup` resta a 0 byte fino alla fine; **con `-flush_packets 1` cresce** con la lettura (10,7 → 21 → 49 → 101 → 119 KB) |
+| E5d | Due passaggi ([X, fine), poi [0, X)) concatenati danno il file completo? | La mia fixture sintetica non ha permesso la misura (PTS a 2³²−1 nel mux MKV). **Verifica del revisore, t3**, su Blade Runner (traccia PGS s:4): senza `-copyts` il passaggio con `-ss 5` riscrive i cue sul punto di seek (6,000 → 1,000); **con `-copyts` la fusione è identica byte per byte all'estrazione completa**, a X = 5 e X = 6,5. Il passaggio da X = 5 parte dal cue a 6,0 s: il display set 4,024–6,0 s, sullo schermo a X, sta solo nel secondo passaggio. Da qui il pre-roll di §6.10 |
+| E6 | `hevc_metadata=remove_dovi=1` su un DV P8.1, video copiato | Unità NAL di tipo 62 (RPU): **62 → 0**. Restano i SEI di mastering e di content light level. **Non sono identiche le altre:** VPS/SPS/PPS (NAL 32/33/34) passano da 4 a 2, con entrambi i filtri provati, quindi per effetto della riscrittura dei parametri, non della rimozione DV. Sull'EL di un P7 (tipo 63) non si può dire nulla: manca un sample |
+| E7 | Seek e timeline con le opzioni finali | `-noaccurate_seek -ss 16.135` parte a 16 s esatti. Con `+negative_cts_offsets` il primo PTS video di un keyframe **IDR** coincide col keyframe (+10 s di offset); senza, è spostato di 33 ms, il ritardo di riordino dei B-frame a 60 fps. La FLAC parte 50 ms prima del video. La sonda a salti (74 intervalli) dura 181 ms |
+
+**Verifica del revisore** (`spikes/a3-stream-delivery/review/`):
+
+| # | Domanda | Esito |
+|---|---|---|
+| t1 | Il segmento di init è identico fra l'esecuzione da 0 e un riavvio? | **Sì**, byte per byte, con FLAC e con AAC; `elst` con durata 0 |
+| t3 | Fusione dei due passaggi su una traccia PGS reale | Vedi E5d: identica con `-copyts`, sbagliata senza |
+| t4 | Riavvio esattamente a Bₖ su HEVC x265 a 23,976 fps con **GOP aperti** (CRA), keyint 29, B-pyramid | **No.** A B = 3,629 (`-ss 3.764`) il primo frammento ha `tfdt` = 13,629 e PTS 13,629, mentre nell'esecuzione da 0 lo stesso GOP ha `tfdt` = 13,503 e PTS 13,629: su un GOP aperto il `tfdt` precede il PTS del keyframe di circa 125 ms. Dal secondo GOP in poi i frammenti coincidono. AC-3 copiato: lo scarto audio-video all'inizio è di 178–203 ms |
+| t5 | Peso medio di un keyframe su Long Test | 263 KB: base della stima del costo della sonda a salti (§6.4) |
+| t6 | Crescita del `.sup` | Vedi E5c |
+| t7 | Muxer `hls` con la compensazione del seek | Vedi E1 |
+| t8 | PTS di ogni campione del primo GOP dopo il riavvio (fixture di t4) | Da 0: `13.504 13.545 13.587 13.629…`; riavvio: `13.546 13.546 13.587 13.629…`. Le leading picture (RASL) del primo GOP hanno un PTS doppio e un buco di 42 ms, perché i riferimenti del GOP precedente mancano. **Il secondo GOP coincide esattamente** |
+| t9 | Riavvio su GOP chiusi (Long Test) con il comando di §6.6 | Campioni identici all'esecuzione da 0; E-AC-3 copiato con δ = 37 ms |
+
+**Conclusione per la decisione:** un riavvio esattamente a Bₖ è corretto solo con GOP chiusi. Con un GOP aperto il primo GOP di ogni esecuzione è sbagliato, quindi un'esecuzione per il segmento k parte dal keyframe indicizzato che precede Bₖ e scarta il GOP di pre-roll (§6.6).
+
+**Limiti:**
+- nessun remux reale; fixture sintetiche a 60 fps con GOP chiusi, più la fixture x265 a GOP aperti del revisore, l'unica con GOP aperti;
+- i file erano probabilmente nella cache di Windows: le misure di I/O (E2b, E5, E7) sono limiti inferiori dei tempi;
+- nessun browser: che hls.js accetti i segmenti prodotti così (`trun` versione 1 con composizione negativa, offset costante) va verificato in F1c;
+- parser dei Cues non ancora scritto, e quindi non confrontato con la sonda;
+- nessun DV P7.
+
+### 6.6 Seek, timeline e confini dei segmenti
+
+- **Dominio dei tempi.** La timeline originale è definita una volta sola come **PTS − `start_time`**, cioè quello che un browser riporta in Direct Play. `-start_at_zero` (con `-copyts`) la applica all'esecuzione video e ai due passaggi dei sottotitoli, e l'indice dei keyframe si salva in questo dominio. Bₖ, `-ss` e `-t` partono quindi tutti da 0; `mediaTimestampOffsetMs` resta 10000.
+  - Un test di F1b con una fixture a `start_time` diverso da 0 lo verifica.
+  - Da verificare in F1c: che in Direct Play il browser riporti davvero PTS − `start_time` per un file con `start_time` diverso da 0.
+- **Confini:** dall'indice (§6.4), B₀ = 0 e Bₙ = l'ultimo keyframe ≤ n·4 s. I duplicati si scartano, e un segmento più corto di 0,5 s si unisce al precedente.
+  - **Durata obiettivo: 4 s**, come in S2. Con video copiato un segmento non può essere più corto di un GOP.
+  - **Limite superiore:** un gruppo di GOP più lungo di `HLS_SEGMENT_MAX_S` (6 s) o più grande di `HLS_SEGMENT_MAX_BYTES` (32 MiB, stimati dalle posizioni dell'indice) si taglia ai keyframe interni. Così `EXT-X-TARGETDURATION` vale al più 6 s, salvo un GOP singolo più lungo, che col video copiato non si può tagliare.
+  - **Conto della quota** (video di Chromium 150 MiB, S2): buffer in avanti minimo dell'ADR 0005 = 1 × TD = 6 s a circa 128 Mbps di picco ≈ 92 MiB, più un segmento in append. Con 64 MiB fanno circa 156 MiB, oltre la quota; con 32 MiB circa 124 MiB. Il limite taglia solo i segmenti oltre circa 2 s di picco: quelli a bitrate basso non cambiano.
+  - Un segmento da 4 s a 100 Mbps pesa circa 50 MB. Dal bind mount NTFS sono circa 0,7 s, contro 1,1 s per uno da 6 s: conta su avvio e seek. Segmenti più corti non cambiano i byte nel buffer (S2).
+  - `EXT-X-TARGETDURATION` è il massimo arrotondato per eccesso.
+- **`EXTINF` con arrotondamento cumulativo:** ogni valore è la differenza fra i confini arrotondati al millisecondo, così la somma dei primi n coincide con Bₙ. hls.js reimposta `initPTS` quando lo scarto fra la durata attesa e quella dei campioni raggiunge max(durata, 1 s) (`isInvalidInitPts`).
+- **`EXT-X-INDEPENDENT-SEGMENTS`** solo quando ogni keyframe di confine è IDR: nel Transcode, con IDR forzati, e nel Direct Stream solo se l'indice lo dimostra. Con un GOP aperto le RASL dipendono dal segmento precedente (t8), quindi il tag sarebbe falso.
+- **Riavvio con pre-roll di un GOP (B1).** Un'esecuzione per il segmento k parte da **Kₖ, il keyframe indicizzato immediatamente prima di Bₖ**; per k = 0 parte da 0, senza `-ss`.
+  - I Cues elencano ogni keyframe, quindi Kₖ è il GOP precedente. Con la sonda di ripiego l'indice conosce solo un keyframe per intervallo, e Kₖ = Bₖ₋₁: la regola è la stessa.
+  - Basta un GOP: le leading picture sbagliate stanno solo nel primo GOP di un'esecuzione (t4, t8).
+  - Il segmenter scarta i frammenti il cui keyframe ha PTS (`tfdt` + composition offset del primo campione) < Bₖ.
+  - Il raggruppamento dei frammenti in segmenti usa **sempre il PTS del keyframe, mai il `tfdt`**: su un GOP aperto il `tfdt` precede il PTS di circa 125 ms (t4).
+  - Le leading picture del primo GOP tenuto hanno ora i riferimenti del GOP di pre-roll, quindi i loro PTS coincidono con quelli dell'esecuzione da 0. Lo mostra t8 per il secondo GOP di un riavvio; un test di F1b lo verifica per il percorso completo.
+  - **Controllo del primo keyframe tenuto:** il suo PTS si confronta con Bₖ in millisecondi sulla timeline originale, con tolleranza di 1 ms. Uno scarto è deterministico: il tentativo automatico del server riparte da un keyframe indicizzato ancora prima (due prima di Bₖ), mai con lo stesso comando. Solo se fallisce anche quello, `STREAM_FAILED` (§6.7).
+  - Costo: un GOP letto in più a ogni riavvio, circa +0,2–0,4 s per seek a UHD (G: 1–2 s di GOP a 100 Mbps dal bind mount); nel caso peggiore, con la sonda di ripiego (Kₖ = Bₖ₋₁), fino a un segmento, circa 0,5–0,7 s.
+- **Comando di un'esecuzione** (video copiato), con i parametri ricavati in §6.5:
+  `-nostdin -noaccurate_seek -ss <Kₖ + 0,135> -i <file> -map 0:v:0 -map 0:a:<n>? -c:v copy [-tag:v hvc1 solo per HEVC] <audio> -copyts -start_at_zero -avoid_negative_ts disabled -output_ts_offset 10 -map_metadata -1 -map_chapters -1 -sn -dn -fflags +bitexact -f mp4 -movflags +frag_keyframe+delay_moov+default_base_moof+frag_discont+negative_cts_offsets pipe:1`
+  - i 0,135 s compensano l'arretramento di 3/23 s che ffmpeg fa con i B-frame. Senza B-frame vale il minimo fra 0,135 s e metà della distanza dal keyframe successivo;
+  - la mappa audio è facoltativa (`?`), per i file senza audio;
+  - `hvc1` si imposta solo per l'HEVC; per l'AVC resta `avc1`.
+- **Audio all'inizio di un'esecuzione.** Nessun `atrim`: l'audio che parte prima di Bₖ cade nel GOP di pre-roll, che si scarta, e quello tenuto è contiguo. Resta da misurare la giunzione fra segmenti di esecuzioni diverse (dopo un seek): sovrapposizione o buco fino a un frame audio (F1c).
+- **Timeline (M1).** I timestamp dei segmenti sono la timeline originale più un **offset costante di 10 s**, dichiarato nel nuovo campo `stream.mediaTimestampOffsetMs`: 10000 per `hls-fmp4`, 0 per il Direct Play. `stream.startOffsetMs` vale 0 per ogni protocollo.
+  - Il `currentTime` del player **non** coincide da solo con la timeline originale. hls.js 1.7.4 prende `initPTS` dal tempo di decodifica del primo frammento caricato, della traccia audio se parte prima (`passthrough-remuxer.ts`, letto dal revisore). Quindi `currentTime` = PTS originale + δ, con δ che cambia con codec e posizione di partenza.
+  - δ misurati: 37 ms con E-AC-3 copiato (t9), 50 ms con FLAC (E7), 71 ms con AAC e `-noaccurate_seek` (E3), 178–203 ms con AC-3 copiato su GOP aperto (t4), di cui circa 125 ms dovuti allo spostamento del DTS.
+  - **Un riavvio della pipeline non cambia la timeline: i cue restano validi; `timelineOffsetMs` si ricalcola a ogni `INIT_PTS_FOUND`, cioè con un nuovo player o quando hls.js reimposta `initPTS`.** I cue vengono dall'estrazione (§6.10), non dal processo del video.
+  - Il client lo corregge a ogni `INIT_PTS_FOUND` con `timelineOffsetMs = initPTS·1000/timescale − mediaTimestampOffsetMs` (tempo originale = `currentTime` + `timelineOffsetMs`), e lo usa nei due sensi: per posizioni e PGS, e per tradurre in tempo del player un seek a un tempo originale (ADR 0005). Il server non può dichiarare δ, perché dipende dal primo frammento che il player carica.
+- **Regola del riavvio.** Per una richiesta del segmento k:
+  - se il segmento c'è nello scratch, si serve;
+  - se il processo lo produrrà entro 3 segmenti, la richiesta aspetta l'evento "segmento pronto", al più 8 s, poi `503` con `Retry-After`;
+  - altrimenti, cioè k indietro rispetto all'esecuzione o più di 3 segmenti avanti, il processo si chiude e ne parte uno nuovo da Kₖ.
+  - **Una risorsa presente nella playlist non risponde mai `404` finché la sessione è viva.** hls.js non legge `Retry-After` e ritenta i 5xx con un backoff proprio, mentre non ritenta i 4xx (`error-helper.ts`). L'header resta per gli altri client, ma nessuno ci fa affidamento.
+  - Latenza attesa del seek lato server: 0,4–1,2 s (S3, E2b, più il pre-roll).
+- **Indice non pronto.** Se a `StartPlayback` l'indice manca e il file non ha Cues, la risposta è `503` `application/problem+json` con codice `STREAM_PREPARING` e `Retry-After`; il job dell'indice passa in testa alla coda. Il client mostra "in preparazione" e riprova (ADR 0005).
+- **Transcode** (≤ 1080p, P2): stesso segmenter, keyframe IDR forzati sulla griglia (`-force_key_frames "expr:gte(t,<Bₖ>+n_forced*4)"`), quindi Bₙ = n·4 s senza indice, seek accurato (il video si decodifica comunque) e nessun pre-roll, perché ogni confine è IDR.
+
+### 6.7 Processi, throttling, scratch e confine estraibile
+
+- **Un processo ffmpeg per sessione** in Direct Stream o Transcode, avviato con execa:
+  - `stdin: 'ignore'`, `buffer: false`, `cancelSignal` di un `AbortController`, `forceKillAfterDelay: 2000`, `cleanup: true`;
+  - stderr in un buffer circolare (ultimi 64 KB) per la diagnostica.
+
+  Accanto ci sono **al più un'estrazione di sottotitoli** alla volta (per file, condivisa fra le sessioni) e le sonde ffprobe.
+- **Throttling per contropressione:** il segmenter legge stdout solo finché i segmenti pronti davanti all'ultima richiesta sono meno di `DELIVERY_AHEAD_S` (default 30 s). Poi smette di leggere: la pipe si riempie e ffmpeg si blocca in scrittura, senza CPU e senza segnali.
+- **Il processo si chiude:**
+  - su `StopPlayback` o `terminateSession`;
+  - quando il Session Manager scade la sessione per heartbeat mancati;
+  - su una ripianificazione (`ChangeTracks`, `ChangeVersion`, `reportPlaybackFailure`), che emette un **nuovo token** di sessione: i locatori vecchi danno `410`;
+  - su un riavvio per seek;
+  - dopo `DELIVERY_IDLE_KILL_S` (default 120 s) senza richieste di segmenti, per esempio in pausa. Riparte da solo alla richiesta successiva;
+  - allo spegnimento del servizio, entro lo `stop_grace_period`.
+- **Ordine di chiusura:** prima si distrugge stdout, poi SIGTERM e, dopo 2 s, SIGKILL. Un ffmpeg bloccato in scrittura su una pipe piena non gestisce SIGTERM finché la scrittura non si sblocca. Per un'esecuzione il cui output si butta (seek, ripianificazione) si manda subito SIGKILL.
+- **Errore di stream (M7):** uscita di ffmpeg diversa da 0, oppure riavvio fallito (primo keyframe tenuto lontano più di 1 ms da Bₖ).
+  - Il modulo `delivery` registra il fallimento: codice d'uscita, classificazione dello stderr (es. errore di demux, di codec, di I/O), posizione. Fa un solo tentativo automatico; per un riavvio fallito parte un keyframe indicizzato prima (§6.6), mai con lo stesso comando.
+  - Se fallisce ancora, il data plane risponde `500` `application/problem+json` con codice `STREAM_FAILED`, per i client che leggono il corpo.
+  - **`STREAM_FAILED` è terminale per lo stream:** da quel momento ogni richiesta del data plane di quella sessione risponde subito `500` `STREAM_FAILED`, senza nuovi tentativi e senza consumare il limite dei 3 tentativi. Si recupera solo con `reportPlaybackFailure`.
+  - hls.js non legge il corpo della risposta. Per questo il web client, quando hls.js dà un errore fatale di rete o media su un 5xx dopo i suoi tentativi, chiama **da solo** `reportPlaybackFailure` con sospetto `unknown` (ADR 0005).
+  - Il server sceglie la dimensione sospetta e la modifica minima dal **proprio** registro del fallimento, non dal sospetto del client. È la ripianificazione automatica del doc 04 §8. Vale il limite del doc 04 §8: al più 3 tentativi automatici per `StartPlayback`, ripianificazioni e riavvii insieme.
+- **Fallimento di formato** (es. channelConfiguration 0 dopo l'encoder, §6.9): lo Stream Delivery lo segnala al Session Manager, che ripianifica col Decision Engine escludendo quel formato. Il motivo va in `reasons`: nessun cambio di gradino silenzioso dentro lo Stream Delivery.
+- **Segmenti:** scritti come `…m4s.part` in `/data/scratch/<sessionId>/` e rinominati quando sono completi; li serve `@fastify/send`. Il segmento di init viene dalla prima esecuzione: quelli successivi si confrontano byte per byte (`-fflags +bitexact`, identici in t1), e una differenza è un errore del riavvio.
+- **Scratch:**
+  - per sessione si tiene la finestra `DELIVERY_AHEAD_S` + `DELIVERY_BEHIND_S` (default 30 + 30 s), circa 1 GB a 130 Mbps;
+  - la quota globale `SCRATCH_MAX_BYTES` (ADR 0006) si applica con una prenotazione all'avvio della sessione e con l'eliminazione dei segmenti più vecchi dietro la posizione;
+  - lo scratch si svuota a fine sessione e all'avvio del servizio.
+- **Confine estraibile (C1):**
+  - l'interfaccia interna è quella del doc 03 §8: `start(PlaybackPlan) → StreamHandle`, `stop`, `status`, con dati serializzabili e file riferiti come root + path relativo. `StreamHandle` porta locatori, `mimeType`, `bitrate`, `mediaTimestampOffsetMs` e la disponibilità di ogni traccia di sottotitoli;
+  - le route del data plane (`/video/media/s/{token}/…`, tag `media`) appartengono al modulo `delivery`, insieme a tabella dei token, processi, scratch, indice dei keyframe e sottotitoli estratti;
+  - le cache del modulo stanno in `/data/cache/delivery/` (`keyframes/`, `subtitles/`), separate dalle immagini, così un `video-worker` le può montare da solo;
+  - il Session Manager possiede sessioni e heartbeat e chiama `stop`.
+  - Un `video-worker` futuro prende il modulo così com'è: il gateway gli instrada `/video/media/*`.
+
+### 6.8 Direct Play
+
+- **Lo serve Fastify** con `@fastify/send` (ADR 0001). Range, `206`/`416`, `ETag`, `Last-Modified` e la contropressione sono verificati nello smoke test (§1.5), e G1 (§4.4) mostra che Caddy non legge in anticipo.
+- Servire dal gateway è già scartato dall'ADR 0006 (Accepted): duplicherebbe l'autorizzazione con token e il controllo delle sessioni.
+- **Sicurezza:**
+  - l'URL non contiene path del file. Il file si risolve dal piano della sessione (root + path relativo, ricondotto al path reale e controllato dentro la root, quindi niente traversal né symlink fuori dalla root);
+  - il token di 32 byte (ADR 0004) si cerca per SHA-256 in una mappa. Un confronto "a tempo costante" non ha senso su una ricerca in mappa: l'hash toglie la dipendenza dei tempi dal valore del token;
+  - `{track}` dei sottotitoli si risolve sull'elenco delle tracce della sessione, mai unito a un path;
+  - `410` a sessione chiusa, con una tombstone del token a scadenza (TTL), così la tabella non cresce;
+  - `Cache-Control: no-store` su tutte le risorse di sessione;
+  - token mascherato nei log di pino. Se si accendono i log di accesso di Caddy, va filtrato il segmento `/s/{token}/`.
+- **Throughput:** un UHD chiede 12,5–16 MB/s, contro i 47–67 MB/s del bind mount NTFS (S3). Per una sessione c'è margine; per 3 UHD su Windows il margine è poco (ADR 0006).
+- `stream.mimeType`: `video/x-matroska` per un MKV, che il client verifica con `canPlayType` (ADR 0005); `video/mp4; codecs="…"` per un MP4. `stream.mediaTimestampOffsetMs` = 0.
+
+### 6.9 Audio nel Direct Stream
+
+- La **scelta** del gradino è del Decision Engine (doc 04 §4.3). Lo Stream Delivery la esegue così:
+
+| Gradino | Parametri ffmpeg | Note |
+|---|---|---|
+| Copia | `-c:a copy` | Per una traccia che il client decodifica (es. AC-3/E-AC-3 in Edge). L'E-AC-3 copiato richiede `delay_moov` (E4). Mai la copia di un AAC con channelConfiguration 0 |
+| FLAC | `-c:a flac`, profondità della sorgente (s32 per 24 bit) | Lossless, va in tutti e tre i browser (S2). Il 7.1 è visto solo dalle API |
+| E-AC-3 / AC-3 | `-c:a eac3 -b:a 640k` | Solo se il client dichiara `eac3`/`ac3` (Edge con il codec Dolby) |
+| AAC 5.1 | `-af aformat=channel_layouts=5.1 -c:a aac -b:a 640k` | Il layout passa da 5.1(side) a 5.1 a mix invariato (S2). Una sorgente 7.1 si porta a 5.1, perché l'AAC 7.1 nel browser non è misurato |
+| Opus 5.1 | `-af aformat=channel_layouts=5.1 -c:a libopus -b:a 448k` | `aformat` serve anche con jellyfin-ffmpeg, che rimappa da solo: la catena non dipende dalla build |
+| Stereo | `-ac 2 -c:a aac -b:a 256k` | Solo per un client stereo |
+
+- **Controllo dopo l'encoder:** prima di rispondere a `StartPlayback` lo Stream Delivery legge il segmento di init (la prima esecuzione parte subito, e l'init arriva col primo frammento: E2b). Da lì ricava la **stringa di codec esatta** per `stream.mimeType` (I6) e il `channelConfiguration` dell'AAC.
+  - Se il channelConfiguration è 0, è un fallimento di formato (§6.7): il Session Manager ripianifica escludendo quel formato, e il motivo finisce in `reasons`.
+  - Lo stesso controllo vale per l'AAC copiato.
+  - Un test d'integrazione lo ripete a ogni aggiornamento di ffmpeg (S2).
+
+### 6.10 Sottotitoli embedded
+
+Il punto aperto di S2 e del doc 04 §4.4. Le opzioni:
+
+| | **A. Estrazione completa nella cache, una volta per file, servita mentre cresce** | B. Uscita in più del processo di remux | C. Estrazione all'ingest per ogni file |
+|---|---|---|---|
+| I/O | una lettura completa per file, una volta sola (E5b: tutte le tracce costano come una) | nessuna lettura in più | una lettura completa per **ogni** file della libreria: con 500 film da 60 GB a 60 MB/s, circa 6 giorni sul bind mount NTFS |
+| Copertura | da subito, dal pre-roll prima della posizione di partenza; il resto dopo | solo da dove parte l'esecuzione fino a dove è arrivato il remux; ogni riavvio crea un file parziale nuovo | completa prima di ogni playback |
+| Direct Play | ✅ indipendente dalla delivery | ❌ in Direct Play non c'è un remux | ✅ |
+| Complessità | media: due passaggi e una fusione (verifica del revisore, t3) | alta: copertura a pezzi, file per esecuzione, sottotitoli legati alla pipeline video | bassa, ma il costo è alto |
+
+**Scelta: A**, con questi dettagli:
+- **Quando:** al primo `StartPlayback` di un file con tracce di sottotitoli embedded che il client deve ricevere a parte (`client_render` o `sidecar`), qualunque sia la traccia scelta. Così un `ChangeTracks` successivo non costa nulla.
+- **Comando** di un passaggio, una coppia `-map`/output per ogni traccia:
+  `-nostdin -readrate <r> -noaccurate_seek -ss <P> -i <file> -map 0:s:<i> -c copy -copyts -start_at_zero -flush_packets 1 -f sup <i>.sup`
+  - per il testo e l'ASS: `-c:s webvtt -f webvtt <i>.vtt` (ASS in WebVTT semplice, doc 04 §4.4);
+  - senza `-copyts` i cue finiscono sul punto di seek (t3); senza `-flush_packets 1` il file resta vuoto fino alla fine (t6).
+- **Passaggi (M4):**
+  - il primo va da P = max(0, X − `SUBTITLE_PREROLL_S`) alla fine, dove X è la posizione di partenza della sessione e il pre-roll vale 60 s di default. Così il cue che è sullo schermo a X sta nel primo passaggio (in t3 il passaggio da X partiva dal cue successivo);
+  - il secondo copre [0, P₁), con `-t P₁`, dove P₁ è il minimo, fra le tracce estratte, del primo PTS del primo passaggio. Se il primo passaggio è vuoto, il secondo va fino alla fine, senza `-t`;
+  - se P = 0 basta un passaggio.
+- **Fusione:** i due file si concatenano (il secondo davanti), scartando i display set duplicati per PTS, e si rinominano in modo atomico nella cache. Con `-copyts` il risultato è identico byte per byte all'estrazione completa (verifica del revisore, t3, su una traccia PGS reale).
+- **Dove:** `/data/cache/delivery/subtitles/<impronta del file>/<traccia>.sup|.vtt`, nel volume `video-cache`: derivato e ricostruibile, come prevede l'ADR 0006. Un limite LRU `SUBTITLE_CACHE_MAX_BYTES` (default 20 GB) evita che cresca senza fine.
+- **I/O (M5):** la lettura è limitata in byte, non in multipli del tempo reale.
+  - `SUBTITLE_EXTRACT_MAX_MBPS` (default 15 MB/s); `-readrate` = max(1,1; limite / bitrate del file).
+  - **Cosa protegge:** il bind mount NTFS legge a 47 MB/s col remux e a 60–67 MB/s con `cat` (S3). Con 15 MB/s di estrazione e un Direct Stream UHD da 12,5–16 MB/s restano circa 16–36 MB/s per i picchi di lettura di un seek.
+  - Su un file oltre 13,6 MB/s (circa 110 Mbps) vale il minimo di 1,1×, quindi il limite viene superato di poco: l'estrazione deve restare davanti alla riproduzione.
+  - **Da misurare sul bind mount reale:** la latenza di un seek in Direct Stream mentre un'estrazione è in corso. La frase della versione precedente ("non affama il playback") non era misurata.
+- **Servizio durante l'estrazione:** `GET …/subtitles/{track}` restituisce il file che cresce come **una sola risposta in streaming**, senza `Content-Length`, aperta fino alla fine del primo passaggio, con `Cache-Control: no-store`. Il `flush_interval -1` di Caddy (ADR 0006) passa i byte subito.
+  - libpgs 0.9.0 legge il corpo della risposta come stream (`StreamBinaryReader`) e rende i display set man mano, con aggiornamenti `onProgress` ([pgs.ts](https://github.com/Arcus92/libpgs-js/blob/main/src/pgs.ts), letto il 2026-11-05). È verificato dal sorgente, non nel browser: va provato in F1c.
+  - Per il WebVTT con `<track>` non è verificato che il browser aggiunga i cue mentre la risposta cresce: da verificare in F1c, con ripiego `fetch` + `VTTCue` (ADR 0005).
+  - **Estrazione in coda:** per una traccia `growing` la cui estrazione non è ancora partita, l'URL tiene aperta la risposta senza byte finché l'estrazione parte. Da verificare in F1c: libpgs e `<track>` devono tollerare un primo byte lento; ripiego: `503` con `Retry-After` sull'URL del sottotitolo.
+  - A estrazione finita, la stessa URL serve il file completo, con Range.
+- **Stato nella sessione (M4, M6):**
+  - `switchWithoutRestart` riguarda solo lo stream: è true per una traccia `client_render` o `sidecar` che ha un URL;
+  - lo stato dell'estrazione sta nel nuovo campo `availability` della traccia: `growing` mentre si estrae, `complete` dopo.
+- **Segnale di fine:** il server pubblica l'evento `playback.subtitle_ready` (`sessionId`, `trackId`, `availability`) nel polling degli eventi (`listEvents`), la chiamata periodica che il client fa già.
+  - L'estrazione è per file e condivisa: l'evento esce per ogni sessione attiva su quel file, con il `sessionId` attuale di quella sessione.
+  - `reportProgress` non va bene: risponde `204` senza corpo, e dargli un corpo non sarebbe additivo per i client generati.
+  - All'evento il client rilegge l'URL, che serve il file completo, e ha così anche la parte prima del pre-roll (ADR 0005).
+- **Sidecar esterni** (`.srt` accanto al file): convertiti in WebVTT alla richiesta e messi in cache. Costano poco, perché il file è piccolo.
+- **Estrazione all'ingest:** opzionale con `SUBTITLE_PREEXTRACT=on`, da valutare sul server Linux. Default `off`.
+- **Runner-up:** B, se un host futuro avesse un I/O molto più scarso (NAS su rete lenta).
+
+### 6.11 Buffer del browser: cosa dà il server
+
+- La causa del `bufferFullError` è il buffer in avanti di hls.js (S2), che hls.js calcola da `max(BANDWIDTH, bitrate misurato)` del livello ([base-stream-controller.ts](https://github.com/video-dev/hls.js/blob/master/src/controller/base-stream-controller.ts), [level.ts](https://github.com/video-dev/hls.js/blob/master/src/types/level.ts), letti il 2026-11-05).
+- `main.m3u8` è quindi una **playlist multivariante** con una sola variante:
+  - `BANDWIDTH` è il picco stimato per segmento e `AVERAGE-BANDWIDTH` la media, dalle posizioni dell'indice. Comprendono tutte le tracce del file, quindi sono una stima prudente;
+  - poi `CODECS`, cioè la lista interna del parametro `codecs` di `stream.mimeType` (non l'intero tipo MIME), `RESOLUTION`, `FRAME-RATE` e `VIDEO-RANGE` (PQ/SDR/HLG);
+  - rimanda a `media-0.m3u8`.
+- Il client legge `BANDWIDTH` a `MANIFEST_PARSED` (ADR 0005, `autoStartLoad: false`) e fissa i limiti prima del primo frammento.
+- **Il limite audio di Chromium (12 MiB)** dipende dal bitrate della sola traccia audio, che la playlist non separa. Per questo la sessione porta il campo additivo `stream.bitrate { peakBps, averageBps, audioBps }` (richiesto anche dall'ADR 0005).
+- **Dimensione dei segmenti:** un segmento da 4 s a 130 Mbps pesa circa 65 MB; il limite `HLS_SEGMENT_MAX_BYTES` (32 MiB) taglia ai keyframe interni i gruppi più grandi (§6.6), così buffer minimo più un append restano sotto i 150 MiB. Il minimo del buffer in avanti dell'ADR 0005 diventa 1 × la durata obiettivo.
+
+### 6.12 Dolby Vision P7 (H11)
+
+- **Finché H11 non è misurata vale la regola provvisoria del doc 04 §4.2.** Verso il browser, un DV P7 si serve come HDR10 con `hvc1`, video copiato e `-bsf:v hevc_metadata=remove_dovi=1`. Mai `-strict unofficial`, mai un box DV.
+- La sessione lo dice nei motivi: "Dolby Vision P7: servito come HDR10, layer DV rimossi (regola provvisoria)".
+- **Evidenza parziale (E6):** su un P8.1 il filtro toglie tutte le RPU (62 → 0) e lascia i SEI di mastering e di content light level. Anche VPS/SPS/PPS passano da 4 a 2, con entrambi i filtri provati: effetto della riscrittura dei parametri, da tenere presente. Che tolga anche l'EL di un P7 (NAL 63) non è misurato.
+- Un errore fatale MSE su un P7 porta alla ripianificazione: con il video come dimensione sospetta si arriva al Transcode, che per il 4K dà `NO_COMPATIBLE_PLAN` (P2).
+- P8.1 resta com'è (RPU nel flusso, misurato in S2). Togliere le RPU anche lì sarebbe una trasformazione non necessaria.
+- **Misura da fare** quando arriva un sample P7 (azione del proprietario): copia così com'è e copia con `remove_dovi`, conteggio delle NAL 62/63 con `helpers.mjs naltypes`, riproduzione nei tre browser.
+
+### 6.13 Librerie
+
+| Bisogno | Scelta | Alternative considerate |
+|---|---|---|
+| Lettore di box ISO-BMFF (frammenti, `tfdt`/`trun`, `hvcC`/`avcC`/`esds`/`dfLa`/`dOps`/`dec3`) | **scritto a mano**, circa 200 righe, con test su fixture generate da ffmpeg nei test d'integrazione. Prototipo in `spikes/a3-stream-delivery/mp4inspect.mjs` | mp4box.js 2.5.0 (BSD-3-Clause, 2026-10-25): parser completo, molto più grande del bisogno |
+| Indice dei keyframe da Matroska | **parser EBML minimo scritto a mano**, solo SeekHead e Cues, confrontato con la sonda a salti nei test | sonda a salti di ffprobe (ripiego, §6.4) |
+| Writer delle playlist HLS | **scritto a mano**: VOD e multivariante, una decina di tag | hls-parser 0.16.x (MIT): non serve per scrivere due playlist fisse |
+| Processi, file, Range | execa 10.2.1, `@fastify/send` 4.2.1 (ADR 0001) | — |
+| Sonda dei keyframe di ripiego, estrazione | ffprobe/ffmpeg di jellyfin-ffmpeg 8.1.3 (ADR 0006) | — |
+
+Nessuna dipendenza nuova. È coerente con la regola dell'ADR 0001: si scrive a mano il codice piccolo e testabile.
+
+### 6.14 Dipendenze con altre aree
+
+- **ADR 0001:**
+  - execa e la contropressione degli stream di Node;
+  - `@fastify/send` per file, segmenti e `.sup` completi;
+  - token mascherato da pino.
+- **ADR 0004 e contratto** (modifiche additive, applicate in `services/video/contract`):
+  - token nel path: i nomi relativi della playlist (`media-0.m3u8`, `init-0.mp4`, `seg-0-00042.m4s`) rispettano il pattern di `resource`;
+  - `stream.mediaTimestampOffsetMs`, `stream.bitrate`, `startOffsetMs` = 0 per ogni protocollo;
+  - `availability` sulle tracce di sottotitoli; `switchWithoutRestart` riferito solo allo stream; evento `playback.subtitle_ready`;
+  - `503` con `Retry-After` su `getHlsResource`, mai `404` per una risorsa della playlist a sessione viva;
+  - `503` `STREAM_PREPARING` su `startPlayback`; `500` `STREAM_FAILED` sul data plane;
+  - `MIME_TYPE_UNSUPPORTED` e `STREAM_FAILED` nel vocabolario di `FallbackRequest.error`;
+  - `stream.mimeType` dal segmento di init.
+- **ADR 0006:**
+  - `flush_interval -1` sui media, che serve anche al `.sup` in streaming;
+  - scratch con quota;
+  - `video-cache` con il sotto-path `delivery/` per i sottotitoli estratti e l'indice dei keyframe, entrambi derivati;
+  - jellyfin-ffmpeg 8.1.3 (`remove_dovi`, `libopus`), `init: true`, `stop_grace_period`;
+  - nuove chiavi del `.env` (§6.16).
+- **ADR 0005** (le scrive il suo autore):
+  - build **light** di hls.js (audio muxato, nessuna rendition separata);
+  - `autoStartLoad: false` + `startPosition`;
+  - `timelineOffsetMs = initPTS·1000/timescale − mediaTimestampOffsetMs` a ogni `INIT_PTS_FOUND`, nei due sensi; non serve più un campo `stream.timelineOffsetMs`, perché il client lo ricava;
+  - buffer da `BANDWIDTH` e da `stream.bitrate`, con il minimo pari a 1 × la durata obiettivo;
+  - `reportPlaybackFailure` automatico con sospetto `unknown` su un 5xx fatale dopo i tentativi di hls.js;
+  - errori di un motore in sostituzione ignorati: un `410` del token vecchio non deve diventare un nuovo `StartPlayback`;
+  - "in preparazione" con nuovo tentativo su `STREAM_PREPARING`;
+  - libpgs con `loadFromUrl` in streaming; rilettura dell'URL a `playback.subtitle_ready`; nessun `ChangeTracks` necessario per una traccia `growing`;
+  - verifica in F1c di `negative_cts_offsets`, di `timelineOffsetMs` dopo un riavvio e del WebVTT che cresce.
+- **ADR 0002:** nessun cambiamento di schema. Indice dei keyframe e sottotitoli stanno nella cache, indicizzati per impronta del file; le sessioni restano runtime.
+- **Job Runner (doc 02 §3.12):** job dell'indice dei keyframe dopo `FileAnalyzed`, con priorità alta su `STREAM_PREPARING`.
+- **Accelerazione hardware (ADR futura):** il Transcode usa lo stesso segmenter; cambia solo l'encoder.
+
+### 6.15 Domande aperte e rischi
+
+- **`trun` versione 1 con composizione negativa** (`negative_cts_offsets`): è CMAF standard, ma non è provato con hls.js 1.7.4 nei tre browser (F1c). Se fallisce, si toglie il flag: lo spostamento pari al ritardo di riordino (33 ms a 60 fps, fino a circa 125 ms a 24 fps) entra in δ, e il client lo compensa con lo stesso `timelineOffsetMs`.
+- **`timelineOffsetMs` dopo un riavvio:** da confrontare con il PTS originale in F1c, su GOP chiusi e aperti.
+- **GOP aperti su un remux reale:** il pre-roll è verificato solo sulla fixture x265 del revisore; il test di F1b lo ripete su una fixture a 23,976 fps, e va ripetuto sul primo remux vero.
+- **Parser dei Cues:** da scrivere e confrontare con la sonda a salti sui sample. Se risulta inaffidabile, la sonda diventa la fonte primaria, con `STREAM_PREPARING` più frequente.
+- **MKV senza Cues:** seek e riavvii lenti anche per ffmpeg. La diagnostica segnala il file con il consiglio di rifare il remux con l'indice.
+- **E-AC-3 7.1 con substream dipendente** copiato verso Edge: non misurato (S2).
+- **Contesa di I/O** sul bind mount NTFS fra playback ed estrazione: limitata da `SUBTITLE_EXTRACT_MAX_MBPS`, ma la latenza di un seek durante l'estrazione va misurata.
+- **Una sola estrazione di sottotitoli alla volta:** con 3 sessioni, i sottotitoli del secondo e del terzo film aspettano un passaggio intero. Da rivedere con il target di 3 sessioni.
+- **H11 (DV P7):** aperta; serve un sample del proprietario.
+- **Giunzione audio** fra segmenti di esecuzioni diverse (dopo un seek indietro): sovrapposizione o buco fino a un frame audio. Da misurare in F1c.
+
+### 6.16 Raccomandazione
+
+- **Protocollo:** HLS con segmenti fMP4 (CMAF), playlist **VOD** dell'intero film e segmenti prodotti su richiesta; audio muxato, una traccia per stream. Runner-up: DASH CMAF, se un client futuro lo richiedesse.
+- **Segmenter:** ffmpeg scrive fMP4 frammentato (`frag_keyframe+delay_moov+default_base_moof+frag_discont+negative_cts_offsets`, `-copyts`, `-output_ts_offset 10`) su stdout, e il modulo `delivery` lo taglia in segmenti da circa 4 s (al più 6 s o 32 MiB) sul PTS dei keyframe. Ogni esecuzione parte un GOP prima e scarta il pre-roll. Runner-up: il muxer `hls` di ffmpeg, solo con la playlist EVENT.
+- **Indice dei keyframe:** Cues di Matroska come fonte primaria, sonda a salti come ripiego, job obbligatorio dopo `FileAnalyzed`, `STREAM_PREPARING` se manca e serve la sonda lenta.
+- **Timeline:** offset costante dichiarato in `stream.mediaTimestampOffsetMs`; il client ricava `timelineOffsetMs` a ogni `INIT_PTS_FOUND`.
+- **Processi:** uno per sessione, throttling per contropressione, kill su stop, timeout, ripianificazione, seek lontano e inattività; scratch a finestra con quota; `STREAM_FAILED` e registro del fallimento lato server per la ripianificazione automatica.
+- **Direct Play:** Fastify con `@fastify/send`, come da ADR 0006.
+- **Audio:** scala di §6.9, con `aformat=channel_layouts=5.1` prima di AAC e Opus e il controllo dell'`esds` sull'init.
+- **Sottotitoli embedded:** estrazione completa per file nella cache, al primo playback, con pre-roll di 60 s prima della posizione della sessione, `-copyts -flush_packets 1`, lettura limitata in byte, servita in streaming mentre cresce, `availability` ed evento `playback.subtitle_ready`. Runner-up: uscita in più del remux.
+- **Buffer:** playlist multivariante con `BANDWIDTH` e `AVERAGE-BANDWIDTH`, più `stream.bitrate` nella sessione.
+- **DV P7:** regola provvisoria con `remove_dovi`, da misurare.
+- **Librerie:** nessuna nuova.
+- **Configurazione nuova** (`.env`, ADR 0006):
+  - `HLS_SEGMENT_TARGET_S=4`, `HLS_SEGMENT_MAX_S=6`, `HLS_SEGMENT_MAX_BYTES=32MiB`;
+  - `DELIVERY_AHEAD_S=30`, `DELIVERY_BEHIND_S=30`, `DELIVERY_IDLE_KILL_S=120`;
+  - `SUBTITLE_EXTRACT_MAX_MBPS=15`, `SUBTITLE_PREROLL_S=60`, `SUBTITLE_PREEXTRACT=off`, `SUBTITLE_CACHE_MAX_BYTES=20GB`.
+
+---
+
+## 7. Web client
+
+- **Area:** framework della UI, build, client dell'API, stack del player, stile, i18n, stato e test del web client
+- **ADR:** [0005 — Web client: React 19 con Vite 8, hls.js e libpgs](../adr/0005-web-client-react-vite.md) (Accepted, 2026-11-05)
+- **Data:** 2026-11-05; rivista lo stesso giorno dopo la revisione di design dell'ADR 0005 e i punti incrociati della revisione dell'ADR 0003
+- **Aree collegate:** [runtime](#1-runtime-e-framework-del-backend) (ADR 0001: TypeScript, workspace npm, Vitest), [contratto API](#3-formato-del-contratto-api-e-codegen) (ADR 0004: openapi-typescript e openapi-fetch), [deploy](#4-deploy-e-gateway) (ADR 0006: Caddy serve la build statica), [streaming](#6-protocollo-di-streaming-e-stream-delivery) (ADR 0003: vedi §7.11)
+
+### 7.1 Decisioni da prendere
+
+Il web client è il primo e, nell'MVP, l'unico client (§7, §19). Fa tutto quello che vede il proprietario: scelta del profilo, Home, dettaglio, ricerca, player e la sezione di gestione "Da verificare" (doc 02 §2.3, C3; doc 06 F1c). Le decisioni sono cinque:
+
+1. il **framework della UI**;
+2. **build e ambiente di sviluppo**: dove vive il codice e come la build arriva a Caddy;
+3. il **client dell'API**: tipi generati dal contratto, token del profilo, polling degli eventi;
+4. lo **stack del player**: motori di riproduzione, sottotitoli, capability, verifica del `mimeType`, ripianificazione, buffer, timeline;
+5. **stile, i18n, stato e test**.
+
+Il client TV sarà con ogni probabilità **un'app nativa** (Kotlin/Media3, ADR 0004 punto 7): Media3 fa Direct Play di MKV, passthrough audio e PGS da sé (doc 04 §4.1, §4.4). Ne segue che il web client non condivide codice di UI con la TV. Con la TV condivide il contratto, il vocabolario delle capability (I6) e il protocollo di ripianificazione (doc 04 §8).
+
+### 7.2 Criteri
+
+| # | Criterio | Fonte | Peso | Vincolo rigido? |
+|---|---|---|---|---|
+| W1 | **Qualità e manutenibilità con sviluppo AI**: codice corretto alla prima stesura, pattern stabili, errori presi dal compilatore e dal lint, revisione del proprietario | CLAUDE.md, §18 "Qualità" | 5 | no |
+| W2 | **Integrazione del player imperativo**: `<video>`, hls.js, Worker di libpgs e `requestVideoFrameCallback` vivono fuori dal ciclo di render, con un ciclo di vita pulito (attach, destroy, ripianificazione) | doc 04 §5, §8; S2 scoperta 4 | 4 | no |
+| W3 | **Ecosistema**: routing con parametri di ricerca tipizzati (filtri e ordinamenti, doc 03 P5), cache dei dati del server, componenti accessibili, test | §16, doc 03 §3.2 | 4 | no |
+| W4 | **Manutenzione e licenza**: versione stabile, API ferma nei prossimi 12 mesi, licenza permissiva | §18 "Evolvibilità" | 4 | sì (licenza permissiva, progetto mantenuto) |
+| W5 | **Tipi dal contratto e TypeScript strict** senza strumenti in più | ADR 0001, ADR 0004 punto 6 | 4 | sì (TypeScript, tipi da openapi-typescript) |
+| W6 | **Costo di bundle e di runtime** su un PC modesto in LAN | §18 | 2 | no |
+| W7 | **Focus e D-pad**, se la stessa UI finisse su un browser TV | §7 "TV" | 1 | no |
+| — | **Build statica** servita da Caddy, nessun server di rendering | ADR 0006, doc 02 C2 | — | sì (passa/non passa) |
+
+- La familiarità del proprietario conta solo dentro W1, come capacità di rivedere il codice.
+- W6 pesa poco perché il client gira su browser desktop in LAN: il costo vero del primo playback è il player (§7.4).
+- W7 pesa poco perché la TV avrà un'app nativa (§7.1).
+
+### 7.3 Opzioni (stato al 2026-11-05)
+
+Versioni, date e licenze sono lette dal registry npm il 2026-11-05 (`npm view`, campi `version`, `license`, `time`, `dist-tags`).
+
+#### A. React 19
+- **react / react-dom 19.3.1** (MIT, 2026-10-14). La serie 19 è stabile dal 2024-12-05; la 19.3.0 ha aggiunto `<ViewTransition />` e Fragment Refs ([changelog 19.3.0](https://www.gitclear.com/open_repos/facebook/react/release/v19.3.0), mirror, settembre 2026).
+- Plugin di build `@vitejs/plugin-react` 6.2.1 (MIT), per Vite 8.
+- **Ecosistema:**
+  - routing: TanStack Router 1.170.46 (MIT, 1.x stabile dal 2023-12, parametri di path e di ricerca tipizzati, validazione dei parametri con uno schema) o React Router 8.5.1 (MIT);
+  - dati: TanStack Query 5.106.1 (MIT);
+  - accessibilità: React Aria Components 1.22.1 (Apache-2.0);
+  - test: Testing Library 16.3.3;
+  - navigazione spaziale per D-pad: `@noriginmedia/norigin-spatial-navigation` 3.4.0 (MIT), pensata per React.
+- **Contro:**
+  - il runtime più pesante delle quattro opzioni (§7.4);
+  - il modello a effetti, con lo `StrictMode` che in sviluppo monta due volte, punisce un player scritto dentro i componenti;
+  - React Router ha cambiato API due volte in due anni (v6 → v7 → v8): il codice generato tende a mescolare le versioni.
+
+#### B. Svelte 5
+- **svelte 5.57.3** (MIT, 2026-10-26), runes stabili dal 2024-10-19; `@sveltejs/vite-plugin-svelte` 7.3.1; SvelteKit 3.1.1 in modalità SPA con adapter statico, oppure un router di terze parti.
+- **Pro:**
+  - runtime minimo (§7.4);
+  - componenti leggibili;
+  - `$effect` e gli attachment rendono naturale agganciare un oggetto imperativo come hls.js.
+- **Contro:**
+  - i tipi nei template passano da un controllore separato (svelte-check 4.7.8);
+  - il codice Svelte 4 (store, `export let`, `$:`) è ancora maggioritario nel materiale da cui imparano i modelli, quindi il codice generato tende a mescolare due sintassi;
+  - l'ecosistema dell'accessibilità e del routing fuori da SvelteKit è più sottile.
+
+#### C. Solid
+- **solid-js 1.9.18** (MIT, 2026-10-29), con la **2.0 in release candidate** (`next` = 2.0.0-rc.21) e il router 1.0.1 appena uscito (2026-10-30), già con una 2.0 in `next`. La beta 2.0 cambia async, Suspense e batching ([This Month in Solid](https://dev.to/danieljcafonso/this-month-in-solid-v200-beta-is-over-and-start-v2-on-the-horizon-26jo), 2026).
+- **Pro:**
+  - reattività fine, nessun re-render;
+  - TSX controllato da `tsc`;
+  - runtime piccolo.
+- **Contro:**
+  - una migrazione 2.0 imminente;
+  - l'ecosistema più piccolo;
+  - meno codice di riferimento per i modelli.
+
+#### D. Vue 3
+- **vue 3.5.45** (MIT, 2026-11-05), con la 3.6 (Vapor Mode) in release candidate e non ancora stabile ([OpenReplay](https://blog.openreplay.com/vue-vapor-mode/), ottobre 2026); vue-router 5.4.0.
+- **Pro:** maturo, ecosistema completo, TanStack Vue Query.
+- **Contro:**
+  - due stili di API (Options e Composition) che i modelli mescolano;
+  - template controllati da vue-tsc;
+  - un cambio di modello di compilazione (Vapor) in arrivo.
+
+**Scartati:** Lit 3.3.3 (BSD-3-Clause) e i web component scritti a mano: routing, cache dei dati e componenti accessibili sarebbero tutti da scrivere, cioè più codice nostro da rivedere senza vantaggi per un'unica SPA. Preact 11.1.1 (MIT) è un sostituto di React più leggero, ma con un ecosistema di compatibilità meno provato: si può riconsiderare se il peso diventasse un problema.
+
+### 7.4 Esperimento W1: peso del bundle (2026-11-05)
+
+Esperimento usa e getta in `spikes/w1-web-bundle/` (`run.sh` e `src/`, output in `out/`), sul portatile con Node 26.13.0 e Vite 8.3.6. Si rifà con `bash spikes/w1-web-bundle/run.sh`. Ogni build di produzione contiene una pagina con un contatore, una query di TanStack Query con `refetchInterval` e una chiamata openapi-fetch. I pesi sono quelli riportati da Vite, gzip compreso:
+
+| Variante | JS | gzip |
+|---|---|---|
+| a0: React 19.3.1 + TanStack Query 5.106.1 + openapi-fetch 0.17.0, senza router | 259,9 KB | 80,8 KB |
+| a1: a0 + TanStack Router 1.170.46 (route nel codice, senza plugin) | 336,3 KB | 107,3 KB |
+| a2: a0 + React Router 8.5.1 al posto di TanStack Router | 353,7 KB | 110,8 KB |
+| b0: Svelte 5.57.3 + TanStack Svelte Query 6.3.11 + openapi-fetch 0.17.0, **senza router** (switch a hash scritto a mano) | 73,9 KB | 25,2 KB |
+| Chunk del player con hls.js 1.7.4 **completo** (worker incluso) | 578,4 KB | 180,3 KB |
+| Chunk del player con **`hls.js/light`** | 362,3 KB | 115,3 KB |
+| libpgs 0.9.0, chunk condiviso dai due player | 69,1 KB | 23,2 KB |
+| Worker di hls.js per la build ESM (`hls.worker.js`), asset con hash | 118,4 KB | — |
+| Worker di libpgs, asset con hash | 66,0 KB | — |
+
+- **Tipi:** `tsc` 6.0.3 strict, anche con `skipLibCheck: false`, passa su React 19.3, hls.js light e libpgs con tre dichiarazioni locali (`src/ambient.d.mts` dello spike):
+  - `hls.js/light` non ha tipi: l'export `./light` di hls.js 1.7.4 non ha la condizione `types` (TS7016). La dichiarazione riesporta i tipi di `hls.js`;
+  - libpgs 0.9.0 dichiara nei suoi tipi due import a solo effetto, `core-js/stable/promise` e `whatwg-fetch` (TS2882): bastano due `declare module`.
+- **Polyfill di libpgs:** libpgs 0.9.0 porta dentro di sé core-js 3.50 (Promise) e whatwg-fetch (MIT), per la compatibilità con WebOS. Nei browser moderni si attivano solo se mancano le funzioni native (giudizio, non misurato).
+- **Compressione:** il Caddyfile di F0 comprime solo `/video/api/*`. Gli asset della SPA oggi viaggiano senza gzip, cioè con i pesi della colonna JS (§7.6).
+- **Non misurati:** tempi di parsing ed esecuzione, i bundle di Solid e Vue, Svelte con un router, la memoria.
+- **Lettura:** fra React con router (107 KB) e Svelte senza router (25 KB) ci sono circa 80 KB gzip; con un router Svelte la differenza sarebbe minore. In LAN a 100 Mbps 80 KB sono circa 7 ms di trasferimento; su un PC modesto il parsing aggiunge decine di millisecondi (giudizio). Il primo playback è dominato dal chunk del player (circa 139 KB gzip con la build light più libpgs), uguale per tutti i framework. W6 quindi non decide.
+
+### 7.5 Valutazione del framework
+
+Punteggi 1–5. **E** = evidenza (§7.4, registry, documentazione); **G** = giudizio.
+
+| Criterio (peso) | A. React 19 | B. Svelte 5 | C. Solid 1.9/2.0 | D. Vue 3.5 |
+|---|---|---|---|---|
+| W1 Qualità con sviluppo AI (5) | 5 G: il corpus più ampio, JSX controllato da `tsc`, regole di `eslint-plugin-react-hooks` 7.1.1 | 4 G: leggibile, ma con il rischio di sintassi Svelte 4 mescolata | 3 G: corpus piccolo, 2.0 in arrivo | 4 G: due stili di API |
+| W2 Player imperativo (4) | 4 G: possibile con un controller esterno e `useSyncExternalStore`; attenzione allo `StrictMode` | 5 G: `$effect` e attachment | 5 G: nessun re-render | 4 G |
+| W3 Ecosistema (4) | 5 **E**: TanStack Router e Query, React Aria, Testing Library, Norigin (versioni al §7.3) | 4 **E**: SvelteKit o router di terze parti, TanStack Svelte Query 6 | 3 **E**: router 1.0.1 di 6 giorni, 2.0 in `next` | 4 **E**: vue-router 5.4, TanStack Vue Query |
+| W4 Manutenzione e licenza (4) | 5 **E**: MIT, 19.x stabile dal 2024-12 | 5 **E**: MIT, 5.x stabile dal 2024-10 | 2 **E**: la 1.9 sarà sostituita dalla 2.0 (RC) | 4 **E**: MIT, 3.6 in RC |
+| W5 Tipi e TS strict (4) | 5 **E**: `tsc` sui TSX (§7.4) | 4 G: serve svelte-check | 5 G: TSX | 4 G: serve vue-tsc |
+| W6 Bundle e runtime (2) | 2 **E**: 81 KB gzip senza router, 107 con | 5 **E**: 25 KB gzip senza router | 5 G | 3 G |
+| W7 Focus e D-pad (1) | 4 **E**: Norigin 3.4.0 | 3 G | 2 G | 3 G |
+| **Totale pesato (/5)** | **4,54** | 4,38 | 3,63 | 3,88 |
+
+Tutte e quattro passano il vincolo della build statica: Vite produce file statici e nessuna opzione richiede un server di rendering.
+
+**Lettura del risultato.** React e Svelte sono vicini, quindi il totale da solo non basta a decidere.
+- **Svelte vince su W2 e W6**, ma nessuno dei due vincola davvero:
+  - il player si scrive comunque come modulo TypeScript senza framework (§7.8), quindi l'ergonomia del framework conta solo per l'involucro;
+  - il bundle conta poco in LAN, e il primo playback è dominato dal player (§7.4).
+- **React vince su W1, W3 e W5**, che vincolano adesso:
+  - F1c lo scrive un agente, subito, e il proprietario lo rivede;
+  - router e cache dei dati sono tipizzati e maturi;
+  - i TSX sono controllati da `tsc` senza strumenti in più, nella stessa `npm run verify` del backend.
+- Un esperimento in più non cambierebbe l'esito: l'unica differenza misurabile, il peso, è già misurata (§7.4).
+
+### 7.6 Build, workspace e consegna a Caddy
+
+- **Vite 8.3.6** (MIT, 2026-11-05) con `@vitejs/plugin-react` 6.2.1. Vite 8 compila con Rolldown. La build produce file statici con hash in `/assets/`: è il path su cui il Caddyfile mette già `Cache-Control: immutable`.
+- **Posizione:** `clients/web/` è già un workspace npm della radice (`package.json`, ADR 0001), con il nome `@pezzotflix/web`. Un solo lockfile, un solo `typescript` 6.0.3, ESLint 10 e Vitest 5 condivisi con il backend.
+- **`tsconfig` del web client, deroga esplicita all'ADR 0001.** L'ADR 0001 chiede `"types": ["node"]` in ogni workspace. Il web client gira nel browser, quindi usa `"types": ["vite/client"]`, `"lib": ["ES2024", "DOM", "DOM.Iterable"]`, `moduleResolution: "bundler"` e `jsx: "react-jsx"`, senza tipi di Node; i file di configurazione (`vite.config.ts`, `playwright.config.ts`) hanno un `tsconfig.node.json` a parte, con i tipi di Node. Il resto segue l'ADR 0001 (strict, `noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `skipLibCheck: true`). F1c non copia il `tsconfig` del backend.
+- **Dichiarazioni locali** in `src/types/ambient.d.ts`: `hls.js/light` (riesporta i tipi di `hls.js`) e i due import a solo effetto di libpgs (§7.4). `?url` è già dichiarato da `vite/client`.
+- **Struttura** (proposta per F1c):
+
+```text
+clients/web/
+  index.html, vite.config.ts, tsconfig.json, tsconfig.node.json, eslint.config.js, playwright.config.ts
+  src/
+    api/        client openapi-fetch, schema.d.ts generato, query, poller degli eventi
+    player/     motore di riproduzione in TypeScript puro: nessun import da react
+    i18n/       messaggi in italiano e formattazione Intl
+    app/        router, provider, layout
+    features/   profiles, home, catalog, item, search, player (UI), admin ("Da verificare")
+    styles/     token CSS e stili globali
+    types/      dichiarazioni locali (ambient.d.ts)
+  test/e2e/     Playwright
+```
+
+- **Confini:** una regola di dependency-cruiser, come nel backend, vieta a `src/player/` di importare `react` e `src/features/`. Il motore del player si testa da solo e sopravvive a un cambio di framework.
+- **Script:**
+  - `dev`: Vite sull'host, con `server.proxy` di `/video` verso il gateway su `http://localhost:8080` (ADR 0006 punto 5);
+  - `build`: `vite build` in `clients/web/dist`;
+  - `contract:types`: openapi-typescript sul bundle;
+  - `typecheck`, `lint`, `test`;
+  - `verify`: `contract:check` + `typecheck` + `lint` + `test`, come nel backend; la `npm run verify` della radice la esegue già;
+  - `e2e`: Playwright, fuori da `verify` (§7.9).
+- **Consegna a Caddy:** l'artefatto è `clients/web/dist`.
+  - **Produzione (ADR 0006):** l'immagine `gateway` si costruisce in multi-stage. Uno stage `node:26.13.0-trixie-slim` esegue `npm ci -w @pezzotflix/web --include-workspace-root`, così non installa le dipendenze del backend (better-sqlite3, drizzle…), poi `npm run build -w @pezzotflix/web`; l'immagine `caddy:2.11.8-alpine` copia `dist` in `/srv/web`.
+  - **Sviluppo:** il Compose di F0 monta `clients/web/dist` in sola lettura su `/srv/web`, ed è sufficiente.
+- **Cache:** il Caddyfile di F0 mette già `no-cache` su `index.html` e sulle route della SPA (`@shell`), e `immutable` su `/assets/*`. Non serve altro.
+- **Compressione:** il Caddyfile comprime solo `/video/api/*`. Nel blocco della SPA va aggiunto `encode zstd gzip`, così i chunk viaggiano compressi (§7.4: il player passa da circa 431 KB a circa 139 KB). È una riga del Caddyfile, da fare in F1c (§7.12).
+
+### 7.7 Client API, profilo ed eventi
+
+- **Tipi** (ADR 0004 punto 6): openapi-typescript 7.13.0 genera `clients/web/src/api/schema.d.ts` da `services/video/contract/dist/openapi.json`. Il file si versiona, e `verify` lo rigenera e fallisce se c'è un diff. Nessun pacchetto di contratto condiviso.
+- **Runtime:** **openapi-fetch 0.17.0** (MIT, circa 2 KB gzip), con `baseUrl` uguale all'origine della pagina. È il gateway che serve la SPA, quindi il client non conosce host né IP (doc 03 P1).
+- **Cache dei dati:** **TanStack Query 5.106.1**. Le query sono scritte a mano in `src/api/queries.ts`, con chiavi esplicite per operazione (`['home']`, `['items', filtri]`, `['item', id]`, `['admin', 'cases', stato]`…).
+  - Il wrapper `openapi-react-query` 0.5.4 non serve: un helper di una trentina di righe fa lo stesso con una dipendenza in meno.
+  - I tipi stretti per `PlaybackSession.mode` ed `Event.type` si scrivono a mano, come prevede l'ADR 0004 (niente `oneOf` con `discriminator` in `v1`).
+- **Contesto di profilo** (doc 03 P2, ADR 0004 punto 8):
+  - `SelectProfile` restituisce `profileToken`. Il client lo tiene in `localStorage` (`pezzotflix.profile`: id e token), così l'ultimo profilo resta scelto su quel browser; "Cambia profilo" è sempre nell'intestazione;
+  - un middleware di openapi-fetch aggiunge `Authorization: Bearer` su ogni chiamata del control plane, tranne quelle con `security: []` (`listProfiles`, `selectProfile`, `getServerInfo`);
+  - un `401` del control plane cancella il token e porta alla scelta del profilo;
+  - nell'MVP il token non è un segreto. Con l'autenticazione vera (§9, §14) il salvataggio si rivede (per esempio un cookie `HttpOnly`), con la sua ADR;
+  - il data plane non usa header: i locatori portano già il token di sessione nel path (P9), e il client non costruisce mai URL.
+- **Polling degli eventi** (doc 03 I3, ADR 0004 punto 8): è un modulo `EventPoller`, non un `refetchInterval`, perché deve tenere il cursore.
+  - All'avvio `listEvents` senza cursore: dà la posizione corrente e nessun evento.
+  - Poi una chiamata ogni **5 s** con la pagina visibile, anche durante la riproduzione e a schermo intero. Con la pagina nascosta il polling si ferma (Page Visibility), e riparte subito quando torna visibile; **con una sessione di playback attiva** non si ferma ma passa a 15 s, perché il player aspetta `playback.subtitle_ready` (§7.8.6). Dopo un errore di rete l'intervallo cresce fino a 60 s.
+  - Ogni evento invalida le query interessate:
+
+    | Evento | Query invalidate |
+    |---|---|
+    | `library.item_added` / `library.item_updated` / `library.item_removed` | `['home']`, `['items']`, `['search']`, e `['item', id]` se il payload lo porta |
+    | `ingest.progress` | `['admin', 'ingest']` |
+    | `identification.needs_review` | `['admin', 'cases']` (badge "Da verificare") |
+    | `playback.session_terminated` | ferma il player se la sessione è la sua e mostra il motivo |
+    | `playback.subtitle_ready` `{sessionId, trackId, availability}` | se la sessione è quella del player: aggiorna `availability` della traccia e, se è scelta, la ricarica (§7.8.6) |
+    | tipo sconosciuto | ignorato (enum aperti, ADR 0004) |
+
+  - `410 CURSOR_EXPIRED`: invalida tutto e riparte senza cursore.
+- **Lingua:** `<html lang="it">`. Il browser manda già `Accept-Language`, e il contratto oggi non ha un parametro di lingua (doc 03 P4): per l'MVP basta, perché i metadata sono in `it-IT` lato server.
+
+### 7.8 Stack del player
+
+Il player è un modulo TypeScript senza framework, `src/player/`. Un `PlayerController` riceve un `HTMLVideoElement` e una `PlaybackSession`, e la UI React lo legge con `useSyncExternalStore`. È idempotente su `attach`/`destroy`, quindi il doppio montaggio dello `StrictMode` in sviluppo non lascia istanze di hls.js aperte.
+
+**Sostituzione del motore.** Ogni motore (hls.js, `<video src>`, renderer dei sottotitoli) nasce con un numero di generazione legato alla sessione che lo ha creato.
+- Quando la sessione cambia (`ChangeTracks`, `ChangeVersion`, `reportPlaybackFailure`, nuova `StartPlayback`), il controller distrugge il motore vecchio **prima** di creare il nuovo.
+- Gli errori e gli eventi di un motore che non è quello corrente (vecchio token, `410` dopo `ChangeTracks`, richieste ancora in volo) **si ignorano**: non portano mai a una nuova `StartPlayback` né a un `reportPlaybackFailure`.
+
+#### 7.8.1 Motori di riproduzione
+
+| `stream.protocol` | Motore | Note |
+|---|---|---|
+| `progressive` (Direct Play dell'originale, o fMP4 progressivo) | `<video src>` nativo | Seek con richieste a intervalli gestite dal browser (doc 04 §6.2). Controllo dell'audio che sparisce (§7.8.5) |
+| `hls-fmp4` (Direct Stream, Transcode) | **hls.js 1.7.4**, build **light**, fissato alla versione esatta, via MSE | Il caricamento parte solo dopo aver calcolato i buffer (§7.8.4) |
+| `hls-fmp4` senza MSE | nessuno: `NO_COMPATIBLE_PLAN` lato client, con motivo | Tutti i browser desktop misurati hanno MSE; l'HLS nativo non è stato provato (S2) |
+
+- **Perché hls.js 1.7.4 e non 1.7.3, la versione misurata in S2.**
+  - La 1.7.4 (Apache-2.0, 2026-10-28) è una patch dentro la 1.7. Fra le correzioni c'è il troncamento dei parameter set, una regressione della 1.7.0 ([release v1.7.4](https://github.com/video-dev/hls.js/releases/tag/v1.7.4)).
+  - Le altre correzioni riguardano LL-HLS, DRM, interstitial e audio alternativo, ma **anche** MediaSource, caricamento dei frammenti e timestamp: #8083 (initPTS alle discontinuità), #8085 (detach invece di reset della MediaSource), #8110 (audio silenzioso iniettato), #8125, #8127, #8128. Toccano proprio il percorso del player.
+  - Il test end-to-end di F1c/F2 ripete la parte HLS di S2 come test di regressione: h1, h2, h6, c1, c4, c7, **s3** (PGS su 4K HDR10 con rVFC, ritardo ≤ 42 ms) e un caso di **seek e resume** con riavvio della pipeline (§7.8.7). Se fallisce, si torna alla 1.7.3.
+- **Build light: `import Hls from 'hls.js/light'`.** L'ADR 0003 mette l'audio muxato nei segmenti video (una sola rendition) e i sottotitoli sono nostri (§7.8.6), quindi audio alternativo, sottotitoli ed EME della build completa non servono. Il chunk del player scende da circa 180 a circa 115 KB gzip, più libpgs (§7.4).
+  - I tipi arrivano da una dichiarazione locale (§7.6).
+  - La build ESM non incorpora il worker di trasmux: si passa `workerPath` con l'URL di `hls.js/dist/hls.worker.js?url`, che Vite emette con hash (§7.4). Che il worker parta davvero è da verificare in F1c (§7.15); per fMP4 in passthrough il costo nel thread principale è basso, quindi `enableWorker: false` è un ripiego accettabile (giudizio).
+- **Configurazione di hls.js:**
+  - `enableWorker: true` con `workerPath` (sopra);
+  - `autoStartLoad: false`: dopo `MANIFEST_PARSED` si calcolano i buffer e si chiama `startLoad(posizione)`;
+  - nessun sottotitolo gestito da hls.js: la build light non li ha, i sottotitoli seguono il §7.8.6.
+- **Alternativa al player:** Shaka Player 5.3.3 (Apache-2.0). Non è provato in S2 e non serve finché il protocollo è HLS.
+
+#### 7.8.2 Capability (doc 03 I6, doc 04 §5)
+
+Le capability si rilevano **a ogni `StartPlayback`**, non solo all'avvio dell'app: è il momento in cui conta `displayHdr`.
+
+- **Sonda fissa** con `MediaSource.isTypeSupported('video/mp4; codecs="…"')`, tradotta nel vocabolario fisso:
+
+| Stringa sondata | Dichiarazione se `true` |
+|---|---|
+| `avc1.640028` | `video[]`: `{ codec: h264, profiles: [high], maxBitDepth: 8 }` |
+| `hvc1.2.4.L153.B0`, `hvc1.2.4.H153.B0`, `hvc1.2.4.L183.B0` (almeno una) | `video[]`: `{ codec: hevc, profiles: [main, main10], maxBitDepth: 10 }` |
+| `flac` | `audio[]`: `{ codec: flac, maxChannels: 8, mode: decode }` |
+| `opus` | `audio[]`: `{ codec: opus, maxChannels: 6, mode: decode }` |
+| `mp4a.40.2` | `audio[]`: `{ codec: aac, maxChannels: 6, mode: decode }` |
+| `ac-3` | `audio[]`: `{ codec: ac3, maxChannels: 6, mode: decode }` |
+| `ec-3` | `audio[]`: `{ codec: eac3, maxChannels: 6, mode: decode }`: il 7.1 con substream dipendente non è misurato (S2) |
+
+- **Risoluzione e frame rate:** per ogni codec dichiarato, `mediaCapabilities.decodingInfo` (tipo `media-source`) a 3840×2160 e **60 fps**.
+  - Se risponde `supported`: `maxWidth`/`maxHeight` 3840×2160 e `maxFrameRate: 60`.
+  - Altrimenti si prova 3840×2160 a 30 fps (`maxFrameRate: 30`), poi 1920×1080 a 60 e a 30 fps.
+  - Il sample 4K di S2 era a 60 fps: la sonda a 60 fps corrisponde a quello che è stato misurato.
+- **Limiti:** `limits.maxBitrate` non si invia nell'MVP: non c'è un'impostazione dell'utente né una misura della rete. Il campo assente vuol dire "nessun limite": va concordato con il Decision Engine (F1b).
+- **HDR:**
+  - `hdr` contiene `HDR10` se `decodingInfo` risponde sì per HEVC Main10 4K con `transferFunction: pq`, `colorGamut: rec2020` e `hdrMetadataType: smpteSt2086`; contiene `HLG` con `transferFunction: hlg`;
+  - **mai** DV, perché nessun browser lo riproduce (S2 H3);
+  - **mai** HDR10+, perché Firefox risponde sì anche quando non lo presenta (S2 H2), e l'HDR10+ si riproduce comunque come HDR10.
+- **Display:** `displayHdr = matchMedia('(dynamic-range: high)').matches`, letto all'avvio della sessione.
+- **Container e protocolli:**
+  - `containers` contiene sempre `mp4`; contiene `mkv` se `canPlayType('video/x-matroska')` non è vuoto (doc 04 §5);
+  - `protocols` = `["progressive"]`, più `"hls-fmp4"` se `Hls.isSupported()`.
+- **Tracce e sottotitoli:**
+  - `audioTrackSelection: false`, fisso: anche dove `audioTracks` esiste dietro un flag, non è misurato;
+  - `subtitles: { text: ["webvtt"], image: ["pgs"], ass: false }`. `pgs` si dichiara solo se ci sono `Worker` e `requestVideoFrameCallback`.
+- **Dispositivo:**
+  - `device.class` vale `desktop`, oppure `mobile` se `navigator.userAgentData.mobile` è vero;
+  - `device.model` = browser, versione e sistema, per esempio `"Edge 156.0.4314.58; Windows 11"`;
+  - in Chromium si ricava da `userAgentData.getHighEntropyValues(['fullVersionList', 'platformVersion'])`, con Windows 11 quando la major di `platformVersion` è ≥ 13;
+  - in Firefox si ricava dallo user agent, che dice sempre "Windows NT 10.0": il modello diventa `"Firefox 159.0; Windows"`, senza distinguere 10 da 11;
+  - `device.app` = versione del web client.
+- **Diagnostica:** `AudioContext.destination.maxChannelCount` va solo nel log del client, non nelle capability (doc 04 §5).
+- **Test:** la tabella si testa con un `isTypeSupported` e un `decodingInfo` finti, uno per ogni browser misurato in S2.
+
+#### 7.8.3 Verifica di `stream.mimeType` prima di avviare
+
+- **Cosa contiene `stream.mimeType`:** per `hls-fmp4` è il MIME dei **segmenti**, `video/mp4; codecs="<video>, <audio>"`, non quello della playlist (ipotesi H-I, §7.11).
+- **`hls-fmp4` e MP4 progressivo:** `MediaSource.isTypeSupported(stream.mimeType)` sulla stringa esatta.
+  - Se fallisce, si cerca la dimensione sospetta. Il client scompone il parametro `codecs` e prova ogni codec da solo (`video/mp4; codecs="<uno>"`). Sono video le stringhe che iniziano con `avc1`, `avc3`, `hvc1`, `hev1`, `dvh1`, `dvhe`, `av01` e `vp09`; tutte le altre sono audio.
+  - Se è rifiutato solo il video, il sospetto è `video`; se è rifiutato solo l'audio, è `audio`.
+  - Se sono rifiutati entrambi, o nessuno dei due da solo, il sospetto è `unknown`.
+- **MKV in Direct Play:** la verifica MSE non vale, perché `isTypeSupported` dà `false` per MKV ovunque (S2 H1).
+  - Se `canPlayType(stream.mimeType)` è vuoto, il sospetto è `container`, senza scomposizione: doc 04 §8 porta al Direct Stream. Provare i codec come `video/mp4` attribuirebbe all'audio o al video un problema del container.
+  - Questa verifica ferma solo il container. L'audio si controlla dopo l'avvio (§7.8.5), e "maybe" per qualunque Matroska non dice nulla dei codec (S2 H1).
+- **`stream.mimeType` assente:** il contratto lo lascia facoltativo (`required: [url, protocol]`). Il client salta la verifica, lo scrive nel log e si affida agli errori a runtime (§7.8.5).
+- **Esito negativo:** `reportPlaybackFailure` con `error: "MIME_TYPE_UNSUPPORTED"` e la dimensione trovata, **in automatico**, senza avviare il player e senza chiedere nulla all'utente (§7.8.5).
+
+#### 7.8.4 Buffer di hls.js dal bitrate
+
+S2 ha misurato che con i default di hls.js un remux UHD a circa 100 Mbps chiede circa 352 MiB di buffer in avanti, contro i 150 MiB di video che Chromium 156 tiene per stream; per l'audio il limite è 12 MiB (doc 04 §4.5). La regola, calcolata a `MANIFEST_PARSED` prima di `startLoad`:
+
+```text
+Qv = 150 MiB, Qa = 12 MiB   limiti di Chromium per stream (demuxer_memory_limit)
+m  = 0,70                    margine per il buffer in avanti; il 10% va al buffer indietro
+ba = stream.bitrate.audioBps
+bv = stream.bitrate.peakBps − ba
+TD = EXT-X-TARGETDURATION (s)
+T  = min(m·Qv·8 / bv, m·Qa·8 / ba)     secondi che stanno nel margine
+maxBufferLength = maxMaxBufferLength = clamp(floor(T − TD), TD, 30 s)
+maxBufferSize   = floor(m · Qv)        byte; entra nel calcolo della durata, non è un tetto
+backBufferLength = max(2 s, floor(0,10·Qv·8 / bv))
+```
+
+- **Perché `T − TD`:** hls.js chiede il frammento successivo finché il buffer in avanti è sotto `maxBufferLength`, quindi può arrivare a `maxBufferLength` più un frammento intero. Togliere una target duration tiene anche quel frammento dentro `T`.
+- **Minimo di una target duration:** sotto non si scende, altrimenti il player non avrebbe nemmeno un segmento davanti. Se `T < 2 × TD` il minimo vince e il buffer può superare il margine: il client scrive un avviso nel log. L'ADR 0003 limita `TARGETDURATION` tagliando un gruppo di GOP ai keyframe interni sopra 6 s o 32 MiB (`HLS_SEGMENT_MAX_BYTES`).
+- **Esempi** (`m·Qv·8` ≈ 881 Mbit, `m·Qa·8` ≈ 70 Mbit):
+  - 100 Mbps, TD 4 s: T ≈ 8,8 s → `maxBufferLength` 4 s; in avanti al più 8 s, circa 100 MB, sotto il margine;
+  - 1080p a 20 Mbps con AAC 5.1: T ≈ 44 s → tetto di 30 s;
+  - FLAC 7.1 a circa 6 Mbit/s, TD 6 s: T audio ≈ 11,7 s → floor(5,7) = 5, alzato al minimo di 6 s; in avanti al più 12 s di audio, circa 8,6 MiB, sotto i 12 MiB;
+  - 100 Mbps, TD 6 s: T ≈ 8,8 s < 12 s → avviso; `maxBufferLength` 6 s (circa 72 MiB) più un segmento da al più 32 MiB fanno circa 104 MiB, appena sotto il margine del 70% (105 MiB);
+  - 128 Mbps, TD 6 s: T ≈ 6,9 s → avviso; 6 s (circa 92 MiB) più un segmento da 32 MiB fanno circa 124 MiB, sopra il margine ma sotto i 150 MiB (§7.15).
+  - Gli esempi diventano casi dei test unitari della regola.
+- **Fonte del bitrate:** `stream.bitrate { peakBps, averageBps, audioBps }` nella `PlaybackSession` (§7.12, contratto dell'ADR 0003). Se il campo manca, `bv` viene da `BANDWIDTH` del master playlist meno `ba`, e `ba` da una tabella per codec, che è una **stima (giudizio)**: FLAC 0,75 Mbit/s per canale, AC-3/E-AC-3 640 kbit/s, AAC/Opus 384 kbit/s per il 5.1.
+- **Vale per tutti i browser.** Firefox ha un limite suo, non letto nel sorgente (S2): la stessa regola è prudente.
+- **`bufferFullError` resta non fatale:** hls.js lo recupera da solo. Il client lo conta e lo scrive nel log. Se compare più di 3 volte in un minuto con questa regola, è un difetto da correggere, non un evento normale.
+- **I valori sono di partenza, da verificare su un film intero** in F2: S2 ha misurato clip di 30 s. Il limite audio non è stato esercitato.
+
+#### 7.8.5 Fallimenti e ripianificazione (doc 04 §8)
+
+La ripianificazione è **automatica** (doc 04 §8): nessuna domanda all'utente prima dei tentativi automatici. Il client non lascia mai che hls.js ritenti da solo lo stesso stream dopo un errore fatale (S2 scoperta 4). Ferma e distrugge il motore, poi chiama `reportPlaybackFailure` con posizione, errore e sospetto, e riparte con la sessione restituita.
+
+| Segnale | Azione e sospetto | Note |
+|---|---|---|
+| Verifica di `mimeType` fallita (§7.8.3) | `reportPlaybackFailure` automatico, sospetto dalla scomposizione dei codec (`container` per l'MKV) | prima di avviare |
+| hls.js `ERROR` fatale, `bufferAddCodecError` o `bufferIncompatibleCodecsError` | `reportPlaybackFailure`: `audio` o `video` da `sourceBufferName`; con `audiovideo`, dalla scomposizione dei codec; altrimenti `unknown` | S2: E-AC-3 in Chrome |
+| hls.js `ERROR` fatale, `bufferAppendError` o `fragParsingError` | `reportPlaybackFailure`: scomposizione dei codec, poi `unknown` | S2: AAC con PCE, DV `dvh1` in Chrome |
+| hls.js `ERROR` fatale, `manifestIncompatibleCodecsError` | `reportPlaybackFailure`: scomposizione dei codec | |
+| hls.js `ERROR` di rete fatale con un **5xx** sui media, dopo i retry di hls.js | `reportPlaybackFailure` automatico con sospetto `unknown`: la dimensione la sceglie il server, che ha registrato il fallimento dello stream | hls.js non legge `Retry-After` e ritenta i 5xx con il suo backoff (`error-helper.ts` 1.7.4). Un `500` è `STREAM_FAILED`, definitivo per lo stream (ADR 0003): `errorRetry.shouldRetry` restituisce `false` su 500 in `manifestLoadPolicy`, `playlistLoadPolicy` e `fragLoadPolicy`, così non si aspettano decine di secondi di retry inutili; i `503` restano ritentati |
+| hls.js `ERROR` di rete con 401, 403, 404 o 410 | sessione chiusa: `stopPlayback` (idempotente), poi `StartPlayback` dalla posizione corrente | Una risorsa elencata nella playlist non risponde mai 404 finché la sessione è viva (ADR 0003), quindi 404 e 410 vogliono dire sessione chiusa. Lo `stopPlayback` prima evita `SESSION_LIMIT_REACHED` per la propria sessione |
+| hls.js `ERROR` di rete non fatale | nessuna: retry di hls.js | |
+| `<video>` `error`, `MEDIA_ERR_SRC_NOT_SUPPORTED` in `progressive` | `reportPlaybackFailure`: `container` | |
+| `<video>` `error`, `MEDIA_ERR_DECODE` | `reportPlaybackFailure`: `video` se l'audio è stato decodificato, altrimenti `unknown` | |
+| `<video>` `error`, `MEDIA_ERR_NETWORK` in `progressive` | come i 5xx di hls.js: `reportPlaybackFailure` con `unknown` dopo un nuovo tentativo del browser | |
+| **Audio che sparisce** in `progressive` (Direct Play e fMP4 progressivo): dopo 4 s di `currentTime` avanzato con una traccia audio selezionata, `webkitAudioDecodedByteCount === 0` (Chromium) o `mozHasAudio === false` (Firefox) | `reportPlaybackFailure`: `audio` | Le proprietà non sono standard: se mancano, nessun segnale (S2). L'AAC con PCE in Firefox non si vede: lo previene il server |
+| libpgs: caricamento del `.sup` fallito | `reportPlaybackFailure`: `subtitle` | la riproduzione prosegue |
+| Errore di un motore in sostituzione (§7.8) | ignorato | mai una nuova `StartPlayback` |
+
+- **Esclusioni:**
+  - `bufferFullError` e `mediaSourceRequiresReset` non sono fallimenti del piano;
+  - `bufferStalledError` è un evento di rete, non un fallimento.
+- **Limite:** al massimo **3 tentativi automatici per avvio**, contando insieme le ripianificazioni e le nuove `StartPlayback` dopo una sessione chiusa. Il doc 04 §8 non fissa un numero: questo è il limite del web client. Esauriti i tentativi, il player mostra i motivi della sessione e solo allora offre "Riprova" all'utente.
+- **`422 NO_COMPATIBLE_PLAN`** mostra il motivo del server ("4K: serve un Transcode, non disponibile nell'MVP", P2).
+- **Diagnostica:** il pannello "Informazioni tecniche" del player mostra `mode`, `reasons`, `mimeType`, la capability dichiarata e l'ultimo fallimento, perché si possa capire perché un film non va in Direct Play (doc 03 §4.3).
+
+#### 7.8.6 Tracce audio e sottotitoli
+
+**Audio** (§6: scelta della traccia audio):
+- il menu elenca sempre tutte le tracce audio della sessione, con lingua, codec e canali;
+- il cambio passa **sempre** da `ChangeTracks` con `positionMs`, e il player si ricrea sulla sessione nuova:
+  - in Direct Play, perché il browser non sceglie la traccia (`audioTrackSelection: false`, S2);
+  - in Direct Stream, perché l'audio è muxato nei segmenti video, una traccia per stream (ADR 0003, doc 04 §4.3).
+- Con la build light non c'è `hls.audioTrack`: se un giorno arrivassero rendition separate, servirebbe la build completa (§7.11, H-D).
+
+**Sottotitoli:**
+- **`client_render` (PGS): libpgs 0.9.0** (MIT, 2026-08-27) nella **configurazione misurata in S2**: `new PgsRenderer({ video, workerUrl, subUrl })`, più un ciclo `requestVideoFrameCallback` che chiama `renderAtTimestamp` (S2 H7, ritardo 4–42 ms).
+  - libpgs aggiorna anche sul `timeupdate`, con `currentTime + timeOffset`: i render in più sono ridondanti e restano quelli misurati.
+  - Il client tiene `pgs.timeOffset = timelineOffsetMs / 1000` e il ciclo rVFC chiama `renderAtTimestamp(mediaTime + timelineOffsetMs / 1000)`: le due strade danno lo stesso tempo, sulla timeline originale (§7.8.7). La semantica di `timeOffset` è letta in `pgsRenderer.ts` 0.9.0 (`currentTime + timeOffset`).
+  - Il canvas lo crea libpgs accanto al video, che sta in un contenitore `position: relative`.
+  - Senza rVFC il PGS non si dichiara (§7.8.2).
+  - Il Worker si importa con `libpgs/dist/libpgs.worker.js?url`: Vite lo emette con hash in `/assets/` (§7.4).
+- **`sidecar` (WebVTT):** un `<track kind="subtitles">` con `src` dal locatore, come in S2 v1. I cue sono sulla timeline originale: dopo il `load` del track, il client sposta `startTime`/`endTime` di ogni `VTTCue` di `−timelineOffsetMs`, e li risposta se l'offset cambia.
+- **`embedded` e `burned`:** niente da fare nel client. Una traccia `client_render` non si aggancia mai come `<track>` (descrizione nel contratto).
+- **Disponibilità e `switchWithoutRestart`** (decisione dell'orchestratore, contratto dell'ADR 0003):
+  - `switchWithoutRestart` riguarda solo lo stream: è vero per una traccia `client_render` o `sidecar` che ha un URL;
+  - `availability` ∈ {`complete`, `growing`} dice se l'estrazione è finita;
+  - scegliere una traccia `growing` **non** passa da `ChangeTracks`: il client carica l'URL e la UI la mostra "in preparazione", perché i cue prima dell'inizio dell'estrazione possono mancare;
+  - "Nessuno" spegne i sottotitoli (§6), sempre in locale.
+- **Regola di ricarica.**
+  - `availability` arriva nelle tracce della sessione restituita da `StartPlayback` e da `ChangeTracks`.
+  - Il passaggio a `complete` arriva con l'evento **`playback.subtitle_ready`** `{sessionId, trackId, availability}` su `listEvents`, che il client già interroga: ogni 5 s a pagina visibile, ogni 15 s a pagina nascosta con una sessione attiva (§7.7). `reportProgress` risponde 204 senza corpo, quindi non porta lo stato delle tracce.
+  - Il client ignora l'evento se `sessionId` non è quello della sessione corrente (§7.8, sostituzione del motore).
+  - Quando una traccia scelta passa da `growing` a `complete`, il client rilegge l'URL: per i PGS `pgs.loadFromUrl(url)`, per il WebVTT un `<track>` nuovo con lo stesso `src` al posto del vecchio. Il render in corso non si ferma.
+  - **PGS che cresce:** libpgs legge la risposta come stream e, nel Worker, pubblica i display set letti circa ogni secondo mentre carica (`worker.ts` con `onProgress`, `pgs.ts` 0.9.0). Letto nel sorgente, non misurato. La promessa `ready` si risolve solo a fine file, quindi per una traccia `growing` il client non la aspetta.
+  - **WebVTT che cresce con `<track>`:** non è verificato che il browser aggiunga i cue mentre la risposta cresce. Va verificato in F1c (§7.15). Il ripiego è `fetch` in streaming più un parser WebVTT minimo che aggiunge `VTTCue` a una traccia creata con `addTextTrack('subtitles')`.
+- **Cambio traccia:** con `switchWithoutRestart: true` il cambio è locale (si cambia il `<track>` attivo o si carica un altro `.sup`); altrimenti `ChangeTracks` con la posizione corrente.
+
+#### 7.8.7 Timeline, progress e heartbeat
+
+Decisione dell'orchestratore, che sostituisce l'ipotesi H-B della prima stesura e la richiesta di `stream.timelineOffsetMs`.
+
+- **Offset dei timestamp:** il contratto porta `stream.mediaTimestampOffsetMs`, l'offset costante dei PTS nei segmenti (10000 per `hls-fmp4`, `-output_ts_offset 10` dell'ADR 0003; 0 o assente per `progressive`).
+- **Offset della timeline del player:** a ogni `INIT_PTS_FOUND` di hls.js (frammenti `main`) il player calcola
+
+  ```text
+  timelineOffsetMs = initPTS · 1000 / timescale − mediaTimestampOffsetMs
+  ```
+
+  Per il Direct Play vale 0. Prima del primo `INIT_PTS_FOUND` vale 0: la posizione di partenza può sbagliare di uno scarto δ, che la revisione dell'ADR 0003 ha misurato fra 37 e 203 ms.
+- **Posizione sulla timeline originale (doc 04 §6.1):** `positionMs = round(currentTime · 1000 + timelineOffsetMs)`, per progress, resume, capitoli e PGS. Lo stesso offset sposta i cue WebVTT (§7.8.6).
+- **Seek a un tempo originale X:** `currentTime = (X − timelineOffsetMs) / 1000`.
+- **Resume:** per il Direct Play `currentTime = resumePositionMs / 1000`. Per l'HLS `startLoad` alla posizione nella timeline del player, con l'offset noto (0 al primo avvio).
+- **Test:** la formula si verifica in unit test con i dati di `INIT_PTS_FOUND` registrati da stream veri, e nell'e2e con un seek lontano che riavvia la pipeline: `positionMs` deve coincidere con il PTS originale del frame, e il cue PGS deve comparire al suo tempo (regressione del §7.8.1).
+- **Avvio:** `StartPlayback` può rispondere `503 STREAM_PREPARING` con `Retry-After`. Il player mostra "in preparazione" e ripete la richiesta dopo `Retry-After` (2 s se manca), finché l'utente non annulla o per al più 60 s; poi mostra un errore con "Riprova".
+- **Heartbeat:** `reportProgress` ogni `heartbeatIntervalMs` (10 s se manca), anche in pausa.
+  - Lo stato è `playing`, `paused` o `buffering` (dagli eventi `waiting`/`playing`); `clientTs = Date.now()`.
+  - A `seeked` e a `pause` parte un report subito.
+  - La risposta è un 204 senza corpo: lo stato delle tracce dei sottotitoli arriva da `playback.subtitle_ready` (§7.8.6).
+- **Fine della sessione:** `stopPlayback` quando si esce dal player. Su `pagehide` si usa `fetch` con `keepalive: true`, perché `sendBeacon` non può mandare l'header `Authorization`.
+- **Concorrenza:** `SESSION_LIMIT_REACHED` apre un dialogo con le sessioni attive e "Interrompi l'altra" (`terminateSession`, poi di nuovo `StartPlayback`). `SESSION_EXPIRED` propone di ripartire dall'ultima posizione salvata.
+
+### 7.9 Stile, i18n, stato, accessibilità e test
+
+- **Routing: TanStack Router 1.170.46**, con le route dichiarate nel codice (nessun plugin né generazione di file).
+  - I parametri di ricerca di catalogo e ricerca (filtri, ordinamento, testo) stanno nell'URL e si validano con **zod 4.6.7**, già usato dal backend (Standard Schema). Un link o un "indietro" riportano la stessa vista.
+  - Rispetto a React Router 8.5.1 (§7.4: circa 3 KB gzip in più per React Router) dà parametri tipizzati, e la sua API 1.x è ferma.
+- **Stato:**
+  - lo stato del server è in TanStack Query;
+  - il profilo è in un context React;
+  - il player è nel `PlayerController` (§7.8);
+  - lo stato della vista è nell'URL.
+  - Nessuna libreria di store globale.
+- **Stile:**
+  - CSS Modules, già in Vite, più un file di token con le custom property CSS (colori, spaziature, tipografia) e tema scuro;
+  - font di sistema: nessun font da CDN, perché la LAN deve funzionare offline;
+  - icone SVG inline;
+  - niente Tailwind né CSS-in-JS: dipendenze e runtime in più, senza un bisogno.
+- **i18n, italiano per primo:**
+  - un catalogo tipizzato `src/i18n/it.ts` (oggetto `as const`) con una funzione `t(chiave, parametri)` di poche righe, e una chiave mancante è un errore di compilazione;
+  - date, numeri e durate con `Intl` in `it-IT` ("1 h 47 min", "aggiunto 3 giorni fa");
+  - nessuna libreria finché esiste una sola lingua. Alla seconda lingua si valuta una libreria (per esempio i18next o Lingui), e le chiavi sono già centralizzate.
+- **Accessibilità e tastiera:**
+  - elementi nativi (`button`, `a`, `dialog`, `select`), focus visibile e ordine di tabulazione corretto;
+  - frecce dentro le righe della Home (roving tabindex, un hook di poche righe);
+  - scorciatoie del player: spazio, ←/→ 10 s, F, M, C.
+  - **Lint:** `eslint-plugin-jsx-a11y` 6.10.2 non dichiara ESLint 10 fra i peer, quindi non si adotta. Si adotta il suo fork **`eslint-plugin-jsx-a11y-x` 0.2.0** (MIT, es-tooling, 2026-05-10, peer `eslint ^9 || ^10`). È un fork giovane: se smette di seguire ESLint, si toglie, e resta la rete del punto seguente.
+  - **Seconda rete:** **`@axe-core/playwright` 4.14.0** (MPL-2.0, solo sviluppo, usato senza modifiche) controlla con axe le pagine principali nell'e2e di milestone. Le query per ruolo di Testing Library coprono solo i componenti con un test, quindi non bastano da sole.
+  - Se i menu delle tracce diventano complessi, React Aria Components 1.22.1 (Apache-2.0) è la riserva.
+  - **D-pad:** non è un requisito, perché la TV avrà un'app nativa. Se servisse un browser TV, Norigin Spatial Navigation 3.4.0 (MIT) si aggiunge sopra lo stesso focus nativo.
+- **Test:**
+  - **Unit (Vitest 5.1.0, jsdom 31.0.0):** il player senza DOM reale, cioè tabella delle capability per browser, scomposizione del `mimeType`, regola dei buffer con gli esempi del §7.8.4, tabella dei fallimenti con il limite di 3 tentativi, sostituzione del motore (errori ignorati), calcolo della timeline da `INIT_PTS_FOUND`, regola di ricarica dei sottotitoli, `EventPoller` con timer finti e `410`, middleware del token. Poi i componenti con Testing Library 16.3.3 (`@testing-library/dom` 10.4.2, `user-event` 14.6.8): scelta del profilo, righe della Home, menu delle tracce, coda "Da verificare".
+  - **End-to-end (Playwright 1.64.1, Apache-2.0)**, giustificato perché MSE, hls.js e libpgs si provano solo in un browser vero e il punto 7 della Definition of done di doc 06 chiede un test che riproduca un file.
+    - Gira sullo stack Compose con i browser installati (`channel: 'msedge'` e `'chrome'`), come S2, per avere i decoder di piattaforma (HEVC, AC-3 in Edge).
+    - Scenari: scelta del profilo → Home → dettaglio → play → primo frame → seek → progress salvato → resume; un Direct Stream HLS; un seek lontano con riavvio della pipeline (timeline e PGS); un PGS reso (s3); un fallimento forzato (`forceMode`) con ripianificazione; il controllo axe.
+    - Non entra in `verify`: occupa il browser, che è una risorsa condivisa, e gira come gate di milestone (F2), in sequenza con altre attività che usano il browser.
+    - Firefox resta una verifica manuale: la build di Firefox di Playwright non è il Firefox installato.
+
+### 7.10 Dipendenze
+
+Versioni verificate sul registry npm il 2026-11-05; tutte fissate alla versione esatta, come nel backend.
+
+| Pacchetto | Versione | Licenza | Uso | Tipo |
+|---|---|---|---|---|
+| react, react-dom | 19.3.1 | MIT | UI | runtime |
+| @tanstack/react-router | 1.170.46 | MIT | routing | runtime |
+| @tanstack/react-query | 5.106.1 | MIT | cache dei dati del server | runtime |
+| openapi-fetch | 0.17.0 | MIT | client del control plane (ADR 0004) | runtime |
+| zod | 4.6.7 | MIT | validazione dei parametri di ricerca | runtime |
+| hls.js | 1.7.4 | Apache-2.0 | HLS fMP4 via MSE, build light: `import Hls from 'hls.js/light'`, worker da `hls.js/dist/hls.worker.js?url` | runtime (chunk del player) |
+| libpgs | 0.9.0 | MIT (include core-js e whatwg-fetch, MIT) | render dei PGS | runtime (chunk del player) |
+| vite | 8.3.6 | MIT | build e dev server | sviluppo |
+| @vitejs/plugin-react | 6.2.1 | MIT | JSX/Fast Refresh | sviluppo |
+| openapi-typescript | 7.13.0 | MIT | tipi dal contratto (già nel backend) | sviluppo |
+| @types/react, @types/react-dom | 19.3.0 | MIT | tipi | sviluppo |
+| eslint-plugin-react-hooks | 7.1.1 | MIT | regole degli hook (ESLint 10) | sviluppo |
+| eslint-plugin-jsx-a11y-x | 0.2.0 | MIT | lint di accessibilità (ESLint 10) | sviluppo |
+| vitest | 5.1.0 | MIT | test (già nel backend) | sviluppo |
+| jsdom | 31.0.0 | MIT | DOM per i test | sviluppo |
+| @testing-library/react / dom / user-event | 16.3.3 / 10.4.2 / 14.6.8 | MIT | test dei componenti | sviluppo |
+| @playwright/test | 1.64.1 | Apache-2.0 | end-to-end | sviluppo |
+| @axe-core/playwright | 4.14.0 | MPL-2.0 | controllo di accessibilità nell'e2e, senza modifiche | sviluppo |
+
+TypeScript 6.0.3, ESLint 10.14.0, typescript-eslint 8.72.1 e dependency-cruiser 18.7.2 sono già nel workspace. Nessuna dipendenza ha script di install.
+
+### 7.11 Ipotesi e dipendenze sull'ADR 0003
+
+Il web client regge le varianti indicate. Le ipotesi in grassetto sono già decise dall'orchestratore dopo le due revisioni.
+
+| # | Ipotesi | Se l'ADR 0003 decide diversamente |
+|---|---|---|
+| H-A | Direct Stream = HLS con segmenti fMP4 (`protocol: hls-fmp4`), playlist VOD completa (`#EXT-X-ENDLIST`) | Una playlist EVENT che cresce funziona con hls.js, ma la barra di avanzamento va limitata alla durata da `durationMs` |
+| H-B | **Timeline:** il contratto porta `stream.mediaTimestampOffsetMs` (10000 per `hls-fmp4`) e il player ricava `timelineOffsetMs` da `INIT_PTS_FOUND` (§7.8.7). Sostituisce l'ipotesi `-copyts` della prima stesura: con fMP4 hls.js mappa i frammenti sulla timeline della playlist, e il `currentTime` differisce dal PTS originale di uno scarto δ che dipende da codec e posizione | — |
+| H-C | Il seek oltre la parte già generata è trasparente: il client chiede il segmento e il server riavvia la pipeline (doc 04 §6.2) | Se serve una nuova sessione per i seek lontani, il client usa `ChangeTracks` con `positionMs`: il contratto ha già il campo |
+| H-D | **Audio muxato** nei segmenti video, una sola rendition: build light di hls.js, cambio audio sempre con `ChangeTracks` (§7.8.6) | Con rendition separate (`EXT-X-MEDIA`) servono la build completa e `hls.audioTrack` |
+| H-E | **`stream.bitrate { peakBps, averageBps, audioBps }`** nella sessione; `BANDWIDTH` del master playlist = picco della variante (RFC 8216 §4.3.4.2), usato solo se il campo manca | — |
+| H-F | **Sottotitoli:** il `.sup` o il WebVTT si servono come una sola risposta che cresce finché l'estrazione finisce; `availability: growing`/`complete` sulla traccia; `switchWithoutRestart` riguarda solo lo stream (§7.8.6) | Un `.sup` a segmenti richiederebbe `loadFromBuffer` e un caricatore nostro |
+| H-G | **Codici HTTP:** una risorsa elencata nella playlist non risponde mai 404 finché la sessione è viva; 401, 403, 404 o 410 sul data plane vogliono dire sessione chiusa; un 5xx fatale porta a `reportPlaybackFailure` con `unknown`; `StartPlayback` può rispondere `503 STREAM_PREPARING` con `Retry-After`. hls.js non legge `Retry-After` | — |
+| H-H | **Durata dei segmenti:** `EXT-X-TARGETDURATION` limitata, con un taglio ai keyframe interni sopra 6 s o 32 MiB; entra nella regola dei buffer (§7.8.4) | Segmenti più lunghi alzano il minimo della regola e il rischio di `bufferFullError` |
+| H-I | `stream.mimeType` per `hls-fmp4` è il MIME dei segmenti, `video/mp4; codecs="<video>, <audio>"`, con entrambi i codec (§7.8.3) | Senza i due codec la verifica prima dell'avvio non ha senso |
+| H-J | I locatori dei sottotitoli restano sulla timeline originale anche dopo un riavvio della pipeline (lo stesso `-output_ts_offset` non si applica ai cue, oppure si compensa nel server) | Se i cue fossero spostati dell'offset, il client dovrebbe sottrarre anche `mediaTimestampOffsetMs`: va detto nel contratto |
+
+### 7.12 Richieste sul contratto (congelato; nessuna blocca F1c)
+
+Le prime tre le sta applicando l'autore dell'ADR 0003, su decisione dell'orchestratore.
+
+1. **`stream.mediaTimestampOffsetMs`** (intero, facoltativo, additivo): l'offset costante dei PTS (10000 per `hls-fmp4`). Sostituisce la richiesta di `stream.timelineOffsetMs` della prima stesura, che si ritira.
+2. **`stream.bitrate { peakBps, averageBps, audioBps }`** (oggetto facoltativo, additivo, bit/s): rende la regola dei buffer indipendente da `BANDWIDTH` e dalla stima per codec, anche per il limite audio di 12 MiB (§7.8.4).
+3. **`SessionTrack.availability`** ∈ {`complete`, `growing`} per i sottotitoli serviti a parte, con `switchWithoutRestart` riferito solo allo stream, nelle tracce della sessione (`StartPlayback`, `ChangeTracks`), più l'evento `playback.subtitle_ready` `{sessionId, trackId, availability}` su `listEvents` per il passaggio a `complete` (§7.8.6).
+4. **Errore del preflight:** il valore `MIME_TYPE_UNSUPPORTED` in `FallbackRequest.error` è una stringa libera, quindi va bene così. Basta citarlo nella descrizione del campo.
+5. **`503 STREAM_PREPARING`** per `startPlayback`, con `Retry-After`, nel contratto (§7.8.7).
+6. **Fuori dal contratto:** nel Caddyfile `encode zstd gzip` nel blocco della SPA (§7.6). La cache di `index.html` è già a posto.
+
+### 7.13 Dipendenze con altre aree
+
+- **ADR 0001:** TypeScript 6.0.3, workspace npm, Vitest 5.1.0, ESLint 10, dependency-cruiser, `npm run verify`. Deroga sul `tsconfig` (`types`, `lib`, `moduleResolution`) per il browser (§7.6).
+- **ADR 0004:** openapi-typescript 7.13.0 e openapi-fetch 0.17.0 dal bundle versionato; `profileToken` come Bearer; cursori e `410 CURSOR_EXPIRED`; enum aperti.
+- **ADR 0006:** build in `clients/web/dist`, copiata nell'immagine `gateway` (multi-stage, solo il workspace del web) o montata in sviluppo; dev server sull'host con proxy verso il gateway; compressione degli asset da aggiungere.
+- **ADR 0003:** ipotesi H-A…H-J (§7.11), regola dei buffer, estrazione e disponibilità dei sottotitoli, codici HTTP, offset dei timestamp.
+- **Decision Engine (F1b):** vocabolario delle capability (I6), `maxFrameRate`, `limits.maxBitrate` assente = nessun limite, ripianificazione per dimensione (doc 04 §8), scelta della dimensione per un `unknown` dopo un 5xx. La tabella del §7.8.2 è l'input dei casi di test del Decision Engine per il browser.
+- **Client TV (ADR futura):** nessun codice di UI condiviso. Si condividono il contratto, il vocabolario e il protocollo di ripianificazione.
+
+### 7.14 Raccomandazione
+
+- **Scelta: React 19.3.1 con Vite 8.3.6**, TanStack Router 1.170.46 e TanStack Query 5.106.1, openapi-fetch 0.17.0 sui tipi di openapi-typescript 7.13.0.
+  - Il player è un modulo TypeScript senza framework, con **hls.js 1.7.4 light** per l'HLS, `<video>` nativo per il progressivo e **libpgs 0.9.0** nella configurazione di S2 (`video` più `requestVideoFrameCallback`) per i PGS.
+  - Stile con CSS Modules, i18n con un catalogo tipizzato e `Intl`, test con Vitest e Playwright (con axe).
+- **Criteri decisivi:**
+  - W1: qualità del codice scritto dall'AI e revisione del proprietario;
+  - W3: router e cache dei dati tipizzati e maturi;
+  - W5: TSX controllati da `tsc` nella stessa `verify`.
+  - Il peso del bundle, l'unico punto misurato a sfavore, è dominato dal player e conta poco in LAN (§7.4).
+- **Runner-up: Svelte 5.57.3.** Diventerebbe la scelta se il web client dovesse girare su dispositivi deboli (un browser TV, un tablet vecchio), dove il peso e il costo dei re-render contano. Il motore del player, senza framework, si porterebbe così com'è.
+
+### 7.15 Domande aperte, rischi e verifiche di F1c
+
+- **Da verificare in F1c** (prima del merge di F1c, con il turno sul browser):
+  - **WebVTT che cresce con `<track>`:** se il browser non aggiunge i cue mentre la risposta cresce, si passa al ripiego `fetch` più `VTTCue` (§7.8.6);
+  - **worker ESM di hls.js light** con `workerPath`: che parta, altrimenti `enableWorker: false` (§7.8.1);
+  - **`timelineOffsetMs` da `INIT_PTS_FOUND`:** su un Direct Stream da 0 e dopo un seek lontano con riavvio, `positionMs` uguale al PTS originale e PGS al suo tempo (§7.8.7);
+  - **PGS che cresce:** i cue compaiono mentre l'estrazione è in corso, e la ricarica a `complete` non lascia buchi (§7.8.6).
+- **libpgs è un progetto piccolo.**
+  - Al 2026-11-05 la pagina GitHub mostra un solo autore, 14 stelle e nessuna release; sul registry fra la 0.8.1 (2024-11-07) e la 0.9.0 (2026-08-27) passano 22 mesi.
+  - Porta dentro di sé dei polyfill, e i suoi tipi dichiarano due import a solo effetto: bastano due `declare module` locali (§7.4, §7.6).
+  - È MIT e pesa circa 70 KB: se smette di essere mantenuta, si copia nel repo (vendoring) con la licenza. Le alternative non sono state valutate (S2).
+- **hls.js 1.7.4 non è la versione misurata:** il test di regressione del §7.8.1, con s3 e il seek con riavvio, lo copre.
+- **Buffer:** i valori del §7.8.4 non sono provati su un film intero, né con FLAC multicanale reale; il limite di Firefox non è noto. Con il tetto di 32 MiB per segmento il caso peggiore calcolato, 128 Mbps con segmenti da 6 s, arriva a circa 124 MiB in avanti, sotto i 150 MiB (§7.8.4). Lo supererebbe solo un picco sopra circa 165 Mbps con segmenti da 6 s, oltre il massimo dell'UHD Blu-ray (giudizio), oppure il buffer indietro da 2 s sommato al caso peggiore, che Chromium dovrebbe liberare per primo quando serve spazio (giudizio, non misurato). Da misurare in F2.
+- **Audio che sparisce:** il controllo usa proprietà non standard. Se un browser le toglie, il Direct Play di un MKV con audio non decodificabile torna muto in silenzio: la regola del doc 04 §4.1 (una sola traccia, codec provato) resta la difesa principale.
+- **Windows 10 o 11 in Firefox:** non si distingue. Un override (I2) per sistema in Firefox oggi non è possibile.
+- **Accessibilità:** `eslint-plugin-jsx-a11y-x` è un fork giovane (0.2.0); axe nell'e2e copre il caso in cui venga tolto.
+- **Limite dei tentativi:** il doc 04 §8 non fissa un numero; il web client usa 3. Il valore andrebbe scritto nel doc 04, perché valga anche per la TV.
+- **Fonti** (consultate il 2026-11-05):
+  - registry npm per tutte le versioni e le date;
+  - [hls.js v1.7.4](https://github.com/video-dev/hls.js/releases/tag/v1.7.4) e il pacchetto `hls.js@1.7.4` (`package.json` exports, `dist/hls.d.ts`: `InitPTSFoundData`, `ErrorData.sourceBufferName`, `workerPath`);
+  - [libpgs-js](https://github.com/Arcus92/libpgs-js) e il pacchetto `libpgs@0.9.0` (`src/pgsRenderer.ts`, `src/pgs.ts`, `src/worker.ts`, `dist/pgsRendererOptions.d.ts`);
+  - [changelog React 19.3.0](https://www.gitclear.com/open_repos/facebook/react/release/v19.3.0);
+  - [This Month in Solid](https://dev.to/danieljcafonso/this-month-in-solid-v200-beta-is-over-and-start-v2-on-the-horizon-26jo);
+  - [OpenReplay su Vue Vapor](https://blog.openreplay.com/vue-vapor-mode/);
+  - [Chromium audio/video](https://chromium.org/audio-video) (codec proprietari solo in Chrome);
+  - [S2](../spikes/S2-browser-playback.md), `spikes/w1-web-bundle/`.

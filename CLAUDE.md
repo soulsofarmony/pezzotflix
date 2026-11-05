@@ -14,9 +14,9 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [x] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
 - [x] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` (S1 ✅, S2 ✅, S3 ✅, S4 ✅ incl. TMDB live tests on 2026-11-05, H10 ✅/❌). Pending owner checks: SDR colour check in Chrome/Edge/Firefox (decides P5), 5.1 listening on c1–c7 over HDMI, a DV profile 7 sample (H11)
-- [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/` ← 0001/0002/0004/0006/0007 Accepted (0007 revised after the TMDB tests); 0003 (streaming) and 0005 (web client) ← **next**
+- [x] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`: 0001–0007 all Accepted (0007 revised after the TMDB tests; 0003 streaming and 0005 web client accepted on 2026-11-05)
 - [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
-- [ ] 8. MVP build — F0 scaffold ✅ (commit 78c6713); F1a ingest, F1b playback, F1c web client ← **next**. Resume from `docs/journal/2026-11-06-handoff.md`.
+- [ ] 8. MVP build — F0 scaffold ✅ (78c6713); F1a ingest: F1a.1 library + analyzer ✅ (2ed688f), F1a.2 identifier + catalog write ✅ (21d61b0), F1a.3 catalog read + admin and F1a.4 metadata + artwork ← **in progress**; then F1b playback, F1c web client, F2 integration. Resume from `docs/journal/2026-11-05-sessione-portatile.md`.
 
 ## Hard rules
 

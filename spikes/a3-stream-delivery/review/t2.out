@@ -1,0 +1,24 @@
+## Blade Runner 2049 (2017) - 2160p Remux.mkv size=373447749 dur=30.005000
+4,hdmv_pgs_subtitle,ita 5,hdmv_pgs_subtitle,ita 6,subrip,ita 7,ass,eng 
+   stream 4 packets_pts>0=9 range=2.000000 10.000000 
+   stream 5 packets_pts>0=9 range=2.000000 10.000000 
+   stream 6 packets_pts>0=2 range=2.000000 10.000000 
+   stream 7 packets_pts>0=1 range=3.000000 3.000000 
+hevc,0,60/1,60/1
+## Dune.2021.2160p.UHD.BluRay.REMUX.DV.HDR.mkv size=129044629 dur=30.005000
+3,subrip,ita 
+   stream 3 packets_pts>0=2 range=2.000000 10.000000 
+hevc,2,60/1,60/1,
+## Il.Buono.il.Brutto.il.Cattivo.1966.1080p.BluRay.REMUX.mkv size=117706954 dur=30.005000
+3,hdmv_pgs_subtitle,eng 
+   stream 3 packets_pts>0=9 range=2.000000 10.000000 
+h264,0,60/1,60/1
+## Long Test (2024) - 2160p.mkv size=1663907538 dur=300.000000
+
+hevc,2,60/1,60/1
+## Oppenheimer (2023).mkv size=165810240 dur=30.000000
+
+hevc,2,60/1,60/1,
+## BDMV_DISC1_t00.mkv size=112268131 dur=30.005000
+
+h264,0,60/1,60/1
