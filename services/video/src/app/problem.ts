@@ -15,6 +15,8 @@ const TITLES: Record<ProblemCode, string> = {
   NO_COMPATIBLE_PLAN: 'No compatible playback plan',
   SESSION_EXPIRED: 'Playback session expired',
   PROVIDER_UNAVAILABLE: 'Metadata provider unavailable',
+  STREAM_PREPARING: 'Stream is being prepared, retry later',
+  STREAM_FAILED: 'Stream could not be produced',
   INTERNAL: 'Internal error',
 };
 
@@ -29,6 +31,8 @@ const STATUS: Record<ProblemCode, number> = {
   NO_COMPATIBLE_PLAN: 422,
   SESSION_EXPIRED: 410,
   PROVIDER_UNAVAILABLE: 503,
+  STREAM_PREPARING: 503,
+  STREAM_FAILED: 500,
   INTERNAL: 500,
 };
 

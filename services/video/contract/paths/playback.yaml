@@ -31,7 +31,12 @@ sessions:
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '409': { $ref: '../components/responses.yaml#/Problem' }
       '422': { $ref: '../components/responses.yaml#/Problem' }
-      '503': { $ref: '../components/responses.yaml#/Problem' }
+      '503':
+        $ref: '../components/responses.yaml#/ProblemRetryAfter'
+        description: >-
+          MEDIA_UNAVAILABLE, or STREAM_PREPARING when the file's keyframe index is not ready and needs a slow
+          probe; the index job is moved to the front of the queue and the client shows "preparing" and retries
+          after Retry-After (ADR 0003).
 session:
   parameters:
     - { $ref: '../components/parameters.yaml#/SessionId' }

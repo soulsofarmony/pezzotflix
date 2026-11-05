@@ -625,12 +625,15 @@ export interface paths {
             path: {
                 /** @description Session token (P9). Never logged in clear. */
                 sessionToken: components["parameters"]["SessionToken"];
-                /** @description Playlist (main.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s). */
+                /** @description Multivariant playlist (main.m3u8), media playlist (media-N.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s); N is the rendition index. */
                 resource: string;
             };
             cookie?: never;
         };
-        /** Direct Stream / Transcode — HLS fMP4 playlist or segment. */
+        /**
+         * Direct Stream / Transcode — HLS fMP4 playlist or segment.
+         * @description Segments are produced on demand. A resource listed in the playlist never answers 404 while the session is alive: if it is not ready in time the answer is 503 with Retry-After, and the client retries. 404 is only for a name that is not in the playlist; 410 once the session is closed or re-planned (new token) (ADR 0003).
+         */
         get: operations["getHlsResource"];
         put?: never;
         post?: never;
@@ -652,7 +655,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering). */
+        /**
+         * Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering).
+         * @description While the track's availability is growing, the answer is a single streamed response without Content-Length that grows until the extraction's first pass ends; if the extraction is queued, the response stays open with no bytes until it starts. Once complete, the same url serves the whole file with Range (ADR 0003).
+         */
         get: operations["getSubtitle"];
         put?: never;
         post?: never;
@@ -722,7 +728,7 @@ export interface components {
             detail?: string;
             instance?: string;
             /** @enum {string} */
-            code: "VALIDATION_FAILED" | "NOT_FOUND" | "CONFLICT" | "UNAUTHORIZED" | "CURSOR_EXPIRED" | "SESSION_LIMIT_REACHED" | "MEDIA_UNAVAILABLE" | "NO_COMPATIBLE_PLAN" | "SESSION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "INTERNAL";
+            code: "VALIDATION_FAILED" | "NOT_FOUND" | "CONFLICT" | "UNAUTHORIZED" | "CURSOR_EXPIRED" | "SESSION_LIMIT_REACHED" | "MEDIA_UNAVAILABLE" | "NO_COMPATIBLE_PLAN" | "SESSION_EXPIRED" | "PROVIDER_UNAVAILABLE" | "STREAM_PREPARING" | "STREAM_FAILED" | "INTERNAL";
             errors?: {
                 path: string;
                 message: string;
@@ -752,7 +758,7 @@ export interface components {
         };
         Event: {
             seq: number;
-            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated */
+            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
             type: string;
             at: number;
             payload: {
@@ -980,7 +986,7 @@ export interface components {
         };
         SessionTrack: components["schemas"]["Track"] & {
             selected: boolean;
-            /** @description False for a subtitle track whose extraction is still running (doc 04 §4.4, §6.3). */
+            /** @description About the stream only: true when the client can switch to this track without restarting the stream, e.g. any client_render or sidecar track that has a url. Extraction state is in availability, not here (ADR 0003, doc 04 §6.3). */
             switchWithoutRestart: boolean;
             /**
              * @description embedded: inside the stream; sidecar: text track served separately (WebVTT); burned: in the video (Transcode only); client_render: image track (.sup) served separately for a client-side renderer (doc 04 P3). Never attach a client_render track as a text <track>.
@@ -989,6 +995,11 @@ export interface components {
             delivery?: "embedded" | "sidecar" | "burned" | "client_render";
             /** @description Data-plane locator for sidecar or client-rendered subtitles. */
             url?: string | null;
+            /**
+             * @description Subtitle tracks served separately (sidecar, client_render) only. growing: extraction is running and the url streams a response that grows until the first pass ends; it may not yet cover the part of the film before the session start. complete: the url serves the whole file with Range. The client learns of the change from the playback.subtitle_ready event and then re-reads the url. If the extraction is queued and not started yet, the url keeps the response open with no bytes until it starts (ADR 0003).
+             * @enum {string}
+             */
+            availability?: "complete" | "growing";
         };
         PlaybackSession: {
             sessionId: components["schemas"]["Id"];
@@ -1005,10 +1016,20 @@ export interface components {
                 url: string;
                 /** @enum {string} */
                 protocol: "progressive" | "hls-fmp4";
-                /** @description MIME type with the RFC 6381 `codecs` parameter of the exact streams, e.g. 'video/mp4; codecs="hvc1.2.4.L153.B0, flac"'. A browser checks it with MediaSource.isTypeSupported before starting the player; if false it calls reportPlaybackFailure with the suspect dimension (doc 03 I6). */
+                /** @description MIME type with the RFC 6381 `codecs` parameter of the exact streams, e.g. 'video/mp4; codecs="hvc1.2.4.L153.B0, flac"'. For hls-fmp4 it is the type of the media segments, not of the playlist. A browser checks it with MediaSource.isTypeSupported (canPlayType for progressive) before starting the player; if false it calls reportPlaybackFailure with error MIME_TYPE_UNSUPPORTED and the suspect dimension (doc 03 I6). */
                 mimeType?: string;
-                /** @description Position on the original timeline where the stream starts (keyframe); the player seeks the rest. Subtitle cues stay on the original timeline: if the player timeline starts here, the client applies the same offset to subtitles as to progress reports (doc 04 §4.4). */
+                /** @description Always 0 for every protocol in v1: the progressive file and the hls-fmp4 VOD playlist both cover the whole film, and the player seeks to resumePositionMs (ADR 0003). */
                 startOffsetMs?: number;
+                /** @description Constant offset added to the original timeline (PTS - start_time of the file) in the media timestamps: 10000 for hls-fmp4, 0 for progressive; absent means 0. For progressive the offset is simply 0. For hls-fmp4 only, hls.js adds its own shift from the first loaded fragment, so the client computes timelineOffsetMs = initPTS * 1000 / timescale - mediaTimestampOffsetMs at every INIT_PTS_FOUND and uses original time = currentTime + timelineOffsetMs, both for positions and subtitles and, inverted, for seeks to an original time (ADR 0003, ADR 0005). */
+                mediaTimestampOffsetMs?: number;
+                /** @description Estimated bitrates of the stream as served, for the client's buffer limits (MSE quotas). The same peak and average appear as BANDWIDTH and AVERAGE-BANDWIDTH in the hls-fmp4 multivariant playlist. */
+                bitrate?: {
+                    /** @description Peak over one segment (hls-fmp4) or over the file. */
+                    peakBps?: number;
+                    averageBps?: number;
+                    /** @description Selected audio track alone (separate MSE audio quota). */
+                    audioBps?: number;
+                };
             };
             tracks: {
                 audio: components["schemas"]["SessionTrack"][];
@@ -1040,7 +1061,7 @@ export interface components {
         };
         FallbackRequest: {
             positionMs: number;
-            /** @description Player error, e.g. MEDIA_ERR_SRC_NOT_SUPPORTED. */
+            /** @description Player error, e.g. MEDIA_ERR_SRC_NOT_SUPPORTED. Client vocabulary also includes MIME_TYPE_UNSUPPORTED (stream.mimeType rejected by isTypeSupported or canPlayType before starting) and STREAM_FAILED (a data-plane 5xx that stayed fatal after the player's own retries; send suspect unknown, the server re-plans from its own record of the failure, doc 04 §8). */
             error: string;
             /** @enum {string} */
             suspect?: "container" | "video" | "audio" | "subtitle" | "unknown";
@@ -1183,6 +1204,17 @@ export interface components {
                 [name: string]: unknown;
             };
             content?: never;
+        };
+        /** @description Error (RFC 9457), retry later. */
+        ProblemRetryAfter: {
+            headers: {
+                /** @description Seconds before retrying. Advisory; hls.js ignores it and uses its own backoff. */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
         };
     };
     parameters: {
@@ -1659,7 +1691,8 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
-            503: components["responses"]["Problem"];
+            /** @description MEDIA_UNAVAILABLE, or STREAM_PREPARING when the file's keyframe index is not ready and needs a slow probe; the index job is moved to the front of the queue and the client shows "preparing" and retries after Retry-After (ADR 0003). */
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     terminateSession: {
@@ -2109,7 +2142,7 @@ export interface operations {
             path: {
                 /** @description Session token (P9). Never logged in clear. */
                 sessionToken: components["parameters"]["SessionToken"];
-                /** @description Playlist (main.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s). */
+                /** @description Multivariant playlist (main.m3u8), media playlist (media-N.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s); N is the rendition index. */
                 resource: string;
             };
             cookie?: never;
@@ -2125,6 +2158,9 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description STREAM_FAILED, after one automatic retry by the server. Terminal for the stream: every later data-plane request of the session answers 500 STREAM_FAILED at once; recovery is only through reportPlaybackFailure. */
+            500: components["responses"]["Problem"];
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     getSubtitle: {

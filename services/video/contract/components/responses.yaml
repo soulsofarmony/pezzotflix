@@ -5,3 +5,12 @@ Problem:
       schema: { $ref: './schemas.yaml#/Problem' }
 NoContent:
   description: Done.
+ProblemRetryAfter:
+  description: Error (RFC 9457), retry later.
+  headers:
+    Retry-After:
+      description: Seconds before retrying. Advisory; hls.js ignores it and uses its own backoff.
+      schema: { type: integer, minimum: 0 }
+  content:
+    application/problem+json:
+      schema: { $ref: './schemas.yaml#/Problem' }
