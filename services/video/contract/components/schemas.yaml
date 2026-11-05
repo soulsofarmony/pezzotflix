@@ -1,0 +1,631 @@
+# Shared schemas of the Video Service API (ADR 0004). Additive changes only within v1.
+# Enums are open for clients: unknown values must be tolerated.
+Id:
+  type: string
+  description: Opaque, stable id (UUIDv7). Clients never build ids.
+  examples: ['01936f0e-7b2a-7c3d-9e4f-5a6b7c8d9e0f']
+
+Cursor:
+  type: string
+  description: Opaque keyset cursor.
+
+Problem:
+  type: object
+  description: RFC 9457 problem details with a stable machine-readable code.
+  required: [type, title, status, code]
+  properties:
+    type: { type: string }
+    title: { type: string }
+    status: { type: integer }
+    detail: { type: string }
+    instance: { type: string }
+    code:
+      type: string
+      enum: [VALIDATION_FAILED, NOT_FOUND, CONFLICT, UNAUTHORIZED, CURSOR_EXPIRED, SESSION_LIMIT_REACHED, MEDIA_UNAVAILABLE, NO_COMPATIBLE_PLAN, SESSION_EXPIRED, PROVIDER_UNAVAILABLE, INTERNAL]
+    errors:
+      type: array
+      items:
+        type: object
+        required: [path, message]
+        properties:
+          path: { type: string }
+          message: { type: string }
+    activeSessions:
+      type: array
+      items: { $ref: '#/ActiveSession' }
+
+ServerInfo:
+  type: object
+  required: [name, version, apiVersions, features, ingest, providers]
+  properties:
+    name: { type: string }
+    version: { type: string }
+    apiVersions: { type: array, items: { type: string } }
+    features:
+      type: object
+      required: [transcode, directStream]
+      properties:
+        transcode: { type: boolean }
+        directStream: { type: boolean }
+    ingest:
+      type: object
+      required: [running, queued, needsReview]
+      properties:
+        running: { type: boolean }
+        queued: { type: integer }
+        needsReview: { type: integer }
+    providers:
+      type: array
+      items:
+        type: object
+        required: [name, status]
+        properties:
+          name: { type: string, enum: [tmdb, wikidata] }
+          status: { type: string, enum: [ok, not_configured, degraded, invalid_credentials, disabled] }
+          attribution: { type: string }
+
+ProfilePrefs:
+  type: object
+  required: [audioLanguages, subtitleLanguages, subtitleMode]
+  properties:
+    audioLanguages:
+      type: array
+      description: Ordered ISO 639-2/B or 639-1 codes, e.g. ["ita", "eng"].
+      items: { type: string }
+    subtitleLanguages:
+      type: array
+      items: { type: string }
+    subtitleMode: { type: string, enum: ['off', forced, always] }
+
+Profile:
+  type: object
+  required: [id, name, prefs]
+  properties:
+    id: { $ref: '#/Id' }
+    name: { type: string, minLength: 1, maxLength: 40 }
+    avatar: { type: [string, 'null'] }
+    prefs: { $ref: '#/ProfilePrefs' }
+
+ProfileInput:
+  type: object
+  required: [name]
+  additionalProperties: false
+  properties:
+    name: { type: string, minLength: 1, maxLength: 40 }
+    avatar: { type: [string, 'null'] }
+    prefs: { $ref: '#/ProfilePrefs' }
+
+ProfileSelection:
+  type: object
+  required: [profileToken, profile]
+  properties:
+    profileToken:
+      type: string
+      description: 'Opaque profile context; send it as an Authorization Bearer header.'
+    profile: { $ref: '#/Profile' }
+
+ItemKind: { type: string, enum: [movie, series, season, episode, extra] }
+ItemCategory: { type: [string, 'null'], enum: [film, documentary, null] }
+
+ImageRef:
+  type: object
+  required: [type, url]
+  properties:
+    type: { type: string, enum: [poster, backdrop, logo, still, thumbnail] }
+    url: { type: string, description: Relative URL with a size variant placeholder resolved by the server. }
+    variants:
+      type: object
+      additionalProperties: { type: string }
+
+ProfileItemState:
+  type: object
+  required: [watched, progressPercent, inWatchlist]
+  properties:
+    watched: { type: boolean }
+    progressPercent: { type: number, minimum: 0, maximum: 100 }
+    resumePositionMs: { type: [integer, 'null'] }
+    inWatchlist: { type: boolean }
+    playCount: { type: integer }
+
+ItemSummary:
+  type: object
+  required: [id, kind, title, badges, available]
+  properties:
+    id: { $ref: '#/Id' }
+    kind: { $ref: '#/ItemKind' }
+    category: { $ref: '#/ItemCategory' }
+    title: { type: string }
+    originalTitle: { type: [string, 'null'] }
+    year: { type: [integer, 'null'] }
+    seasonNumber: { type: [integer, 'null'] }
+    episodeNumber: { type: [integer, 'null'] }
+    extraType: { type: [string, 'null'] }
+    editionLabel: { type: [string, 'null'] }
+    durationMs: { type: [integer, 'null'] }
+    images:
+      type: array
+      items: { $ref: '#/ImageRef' }
+    badges:
+      type: array
+      description: Technical badges, e.g. 4K, HDR10, DV, Atmos, TrueHD.
+      items: { type: string }
+    available: { type: boolean, description: At least one linked file is online. }
+    state: { $ref: '#/ProfileItemState' }
+
+Track:
+  type: object
+  required: [id, type, index]
+  properties:
+    id: { type: string, description: 'Stable track id within the file ("s3" embedded stream index, "x:<id>" sidecar).' }
+    type: { type: string, enum: [video, audio, subtitle] }
+    index: { type: integer }
+    codec: { type: [string, 'null'] }
+    profile: { type: [string, 'null'] }
+    language: { type: [string, 'null'] }
+    title: { type: [string, 'null'] }
+    default: { type: boolean }
+    forced: { type: boolean }
+    sdh: { type: boolean }
+    commentary: { type: boolean }
+    channels: { type: [integer, 'null'] }
+    channelLayout: { type: [string, 'null'] }
+    lossless: { type: [boolean, 'null'] }
+    objectAudio: { type: [string, 'null'], description: atmos | dtsx when detectable }
+    width: { type: [integer, 'null'] }
+    height: { type: [integer, 'null'] }
+    frameRate: { type: [number, 'null'] }
+    bitDepth: { type: [integer, 'null'] }
+    hdr: { type: [string, 'null'], description: SDR | HDR10 | HDR10+ | HLG | DV }
+    dolbyVision:
+      type: [object, 'null']
+      properties:
+        profile: { type: integer }
+        level: { type: integer }
+        blCompatId: { type: integer }
+        hasEnhancementLayer: { type: boolean }
+    subtitleKind: { type: [string, 'null'], enum: [text, image, null] }
+    external: { type: boolean }
+
+MediaVersion:
+  type: object
+  required: [fileId, label, available, tracks]
+  properties:
+    fileId: { $ref: '#/Id' }
+    label: { type: string, description: 'Human summary, e.g. "4K · Dolby Vision · TrueHD 7.1 · ITA/ENG".' }
+    available: { type: boolean }
+    container: { type: [string, 'null'] }
+    durationMs: { type: [integer, 'null'] }
+    sizeBytes: { type: integer }
+    bitRate: { type: [integer, 'null'] }
+    tracks:
+      type: array
+      items: { $ref: '#/Track' }
+    chapters:
+      type: array
+      items: { $ref: '#/Chapter' }
+
+Chapter:
+  type: object
+  required: [startMs, endMs]
+  properties:
+    title: { type: [string, 'null'] }
+    startMs: { type: integer }
+    endMs: { type: integer }
+
+Credit:
+  type: object
+  required: [name, role]
+  properties:
+    name: { type: string }
+    role: { type: string }
+    character: { type: [string, 'null'] }
+
+ItemDetail:
+  allOf:
+    - $ref: '#/ItemSummary'
+    - type: object
+      required: [genres, credits, children, extras, versions]
+      properties:
+        overview: { type: [string, 'null'] }
+        genres: { type: array, items: { type: string } }
+        credits: { type: array, items: { $ref: '#/Credit' } }
+        parent: { oneOf: [{ $ref: '#/ItemSummary' }, { type: 'null' }] }
+        children: { type: array, items: { $ref: '#/ItemSummary' } }
+        extras: { type: array, items: { $ref: '#/ItemSummary' } }
+        versions: { type: array, items: { $ref: '#/MediaVersion' } }
+        externalIds:
+          type: object
+          additionalProperties: { type: string }
+        attributions:
+          type: array
+          description: Data sources shown for this item (e.g. TMDB, Wikidata).
+          items: { type: string }
+
+ItemPage:
+  type: object
+  required: [items, nextCursor]
+  properties:
+    items: { type: array, items: { $ref: '#/ItemSummary' } }
+    nextCursor: { oneOf: [{ $ref: '#/Cursor' }, { type: 'null' }] }
+
+HomeRow:
+  type: object
+  required: [id, title, items, nextCursor]
+  properties:
+    id: { type: string, enum: [continue_watching, recently_added, movies, series, documentaries] }
+    title: { type: string }
+    items: { type: array, items: { $ref: '#/ItemSummary' } }
+    nextCursor: { oneOf: [{ $ref: '#/Cursor' }, { type: 'null' }] }
+    query:
+      type: object
+      description: ListItems parameters that reproduce this row, for "see all".
+      additionalProperties: { type: string }
+
+Home:
+  type: object
+  required: [rows]
+  properties:
+    rows: { type: array, items: { $ref: '#/HomeRow' } }
+
+# ---------------------------------------------------------------- playback
+ClientCapabilities:
+  type: object
+  description: Declared by the client (doc 03 §4.1, doc 04 §5). The server may apply per-device overrides.
+  required: [device, containers, protocols, video, audio, subtitles]
+  properties:
+    device:
+      type: object
+      required: [class]
+      properties:
+        class: { type: string, enum: [tv, desktop, mobile, tablet] }
+        model: { type: string }
+        app: { type: string }
+    containers:
+      type: array
+      description: Containers playable directly (Direct Play), e.g. ["mp4", "webm"].
+      items: { type: string }
+    protocols:
+      type: array
+      description: Streaming protocols, e.g. ["hls-fmp4", "progressive"].
+      items: { type: string }
+    video:
+      type: array
+      items:
+        type: object
+        required: [codec]
+        properties:
+          codec: { type: string, description: 'h264 | hevc | av1 | vp9' }
+          profiles: { type: array, items: { type: string } }
+          maxWidth: { type: integer }
+          maxHeight: { type: integer }
+          maxBitDepth: { type: integer }
+          maxFrameRate: { type: number }
+    hdr:
+      type: array
+      description: 'End-to-end HDR formats: HDR10, HLG, HDR10+, DV5, DV8.1 ...'
+      items: { type: string }
+    audio:
+      type: array
+      items:
+        type: object
+        required: [codec]
+        properties:
+          codec: { type: string, description: 'aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm' }
+          maxChannels: { type: integer }
+          mode: { type: string, enum: [decode, passthrough] }
+    subtitles:
+      type: object
+      required: [text, image]
+      properties:
+        text: { type: array, items: { type: string }, description: 'e.g. ["webvtt"]' }
+        image: { type: array, items: { type: string }, description: 'e.g. ["pgs"] if rendered client-side' }
+        ass: { type: boolean }
+    limits:
+      type: object
+      properties:
+        maxBitrate: { type: integer }
+
+StartPlaybackRequest:
+  type: object
+  required: [itemId, capabilities]
+  additionalProperties: false
+  properties:
+    itemId: { $ref: '#/Id' }
+    capabilities: { $ref: '#/ClientCapabilities' }
+    fileId: { $ref: '#/Id' }
+    audioTrackId: { type: string }
+    subtitleTrackId: { type: [string, 'null'] }
+    startPositionMs: { type: integer, minimum: 0 }
+    forceMode: { type: string, enum: [direct_play, direct_stream, transcode], description: Diagnostics only. }
+
+DeliveryMode: { type: string, enum: [direct_play, direct_stream, transcode] }
+
+SessionTrack:
+  allOf:
+    - $ref: '#/Track'
+    - type: object
+      required: [selected, switchWithoutRestart]
+      properties:
+        selected: { type: boolean }
+        switchWithoutRestart: { type: boolean }
+        delivery: { type: string, enum: [embedded, sidecar, burned, client_render] }
+        url: { type: [string, 'null'], description: Data-plane locator for sidecar or client-rendered subtitles. }
+
+PlaybackSession:
+  type: object
+  required: [sessionId, expiresAt, mode, reasons, stream, tracks, resumePositionMs, durationMs, chapters]
+  properties:
+    sessionId: { $ref: '#/Id' }
+    expiresAt: { type: integer, description: ms UTC; extended by heartbeats. }
+    heartbeatIntervalMs: { type: integer }
+    itemId: { $ref: '#/Id' }
+    fileId: { $ref: '#/Id' }
+    mode: { $ref: '#/DeliveryMode' }
+    reasons:
+      type: array
+      description: Human-readable reasons for the chosen mode (doc 04 §3).
+      items: { type: string }
+    stream:
+      type: object
+      required: [url, protocol]
+      properties:
+        url: { type: string, description: Data-plane locator (relative). Never build it client-side. }
+        protocol: { type: string, enum: [progressive, hls-fmp4] }
+        mimeType: { type: string }
+        startOffsetMs: { type: integer, description: 'Position on the original timeline where the stream starts (keyframe); the player seeks the rest.' }
+    tracks:
+      type: object
+      required: [audio, subtitles]
+      properties:
+        audio: { type: array, items: { $ref: '#/SessionTrack' } }
+        subtitles: { type: array, items: { $ref: '#/SessionTrack' } }
+    resumePositionMs: { type: integer }
+    durationMs: { type: integer }
+    chapters: { type: array, items: { $ref: '#/Chapter' } }
+
+ProgressReport:
+  type: object
+  required: [positionMs, state, clientTs]
+  additionalProperties: false
+  properties:
+    positionMs: { type: integer, minimum: 0, description: Original media timeline. }
+    state: { type: string, enum: [playing, paused, buffering] }
+    clientTs: { type: integer, description: Client clock in ms; the latest wins. }
+
+StopRequest:
+  type: object
+  required: [positionMs]
+  additionalProperties: false
+  properties:
+    positionMs: { type: integer, minimum: 0 }
+
+FallbackRequest:
+  type: object
+  required: [positionMs, error]
+  additionalProperties: false
+  properties:
+    positionMs: { type: integer, minimum: 0 }
+    error: { type: string, description: 'Player error, e.g. MEDIA_ERR_SRC_NOT_SUPPORTED.' }
+    suspect: { type: string, enum: [container, video, audio, subtitle, unknown] }
+
+ChangeTracksRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    audioTrackId: { type: string }
+    subtitleTrackId: { type: [string, 'null'] }
+    positionMs: { type: integer, minimum: 0 }
+
+ActiveSession:
+  type: object
+  required: [sessionId, profileId, itemId, mode, startedAt]
+  properties:
+    sessionId: { $ref: '#/Id' }
+    profileId: { $ref: '#/Id' }
+    profileName: { type: string }
+    itemId: { $ref: '#/Id' }
+    itemTitle: { type: string }
+    mode: { $ref: '#/DeliveryMode' }
+    startedAt: { type: integer }
+    positionMs: { type: integer }
+
+PlaybackPlanExplanation:
+  type: object
+  required: [mode, reasons, fileId, actions]
+  properties:
+    mode: { $ref: '#/DeliveryMode' }
+    fileId: { $ref: '#/Id' }
+    reasons: { type: array, items: { type: string } }
+    actions:
+      type: object
+      additionalProperties: { type: string }
+      description: 'Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in'
+    candidates:
+      type: array
+      items:
+        type: object
+        properties:
+          fileId: { $ref: '#/Id' }
+          mode: { $ref: '#/DeliveryMode' }
+          reasons: { type: array, items: { type: string } }
+
+# ---------------------------------------------------------------- events
+Event:
+  type: object
+  required: [seq, type, at, payload]
+  properties:
+    seq: { type: integer }
+    type: { type: string, description: 'library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated' }
+    at: { type: integer }
+    payload: { type: object, additionalProperties: true }
+
+EventPage:
+  type: object
+  required: [events, nextCursor]
+  properties:
+    events: { type: array, items: { $ref: '#/Event' } }
+    nextCursor: { type: string }
+
+# ---------------------------------------------------------------- admin
+LibraryRoot:
+  type: object
+  required: [id, name, mountPath, hint, status]
+  properties:
+    id: { $ref: '#/Id' }
+    name: { type: string }
+    mountPath: { type: string }
+    hint: { type: string, enum: [movies, series, mixed] }
+    status: { type: string, enum: [online, offline] }
+    lastScanAt: { type: [integer, 'null'] }
+    fileCount: { type: integer }
+
+IngestStatus:
+  type: object
+  required: [running, queued, failed, files]
+  properties:
+    running: { type: boolean }
+    queued: { type: integer }
+    failed:
+      type: array
+      items:
+        type: object
+        required: [jobId, type, error]
+        properties:
+          jobId: { $ref: '#/Id' }
+          type: { type: string }
+          error: { type: string }
+          attempts: { type: integer }
+    files:
+      type: object
+      description: Count of media files per state.
+      additionalProperties: { type: integer }
+
+Candidate:
+  type: object
+  required: [ref, kind, title, score]
+  properties:
+    ref:
+      type: object
+      required: [provider, id]
+      properties:
+        provider: { type: string, enum: [wikidata, tmdb] }
+        id: { type: string }
+    kind: { $ref: '#/ItemKind' }
+    title: { type: string }
+    originalTitle: { type: [string, 'null'] }
+    year: { type: [integer, 'null'] }
+    score: { type: number }
+    evidence:
+      type: object
+      additionalProperties: true
+
+IdentificationCase:
+  type: object
+  required: [id, fileId, relPath, state, candidates, updatedAt]
+  properties:
+    id: { $ref: '#/Id' }
+    fileId: { $ref: '#/Id' }
+    rootName: { type: string }
+    relPath: { type: string }
+    state: { type: string, enum: [pending, auto_matched, needs_review, resolved, ignored] }
+    reason: { type: [string, 'null'], enum: [no_title, no_candidates, low_score, ambiguous, multi_part, kind_mismatch, id_mismatch, disc_structure, null] }
+    allowedResolutions:
+      type: array
+      description: 'multi_part and disc_structure allow only ignore (library standard §7.1).'
+      items: { type: string, enum: [link_candidate, link_item, create_manual, ignore] }
+    parsed:
+      type: object
+      additionalProperties: true
+    warnings: { type: array, items: { type: string } }
+    candidates: { type: array, items: { $ref: '#/Candidate' } }
+    linkedItem: { oneOf: [{ $ref: '#/ItemSummary' }, { type: 'null' }] }
+    updatedAt: { type: integer }
+
+CasePage:
+  type: object
+  required: [cases, nextCursor]
+  properties:
+    cases: { type: array, items: { $ref: '#/IdentificationCase' } }
+    nextCursor: { oneOf: [{ $ref: '#/Cursor' }, { type: 'null' }] }
+
+ResolveCaseRequest:
+  type: object
+  additionalProperties: false
+  required: [action]
+  properties:
+    action: { type: string, enum: [link_candidate, link_item, create_manual] }
+    candidate:
+      type: object
+      required: [provider, id]
+      properties:
+        provider: { type: string, enum: [wikidata, tmdb] }
+        id: { type: string }
+    itemId: { $ref: '#/Id' }
+    manual:
+      type: object
+      required: [kind, title]
+      properties:
+        kind: { $ref: '#/ItemKind' }
+        title: { type: string }
+        year: { type: [integer, 'null'] }
+
+MediaFileDetails:
+  type: object
+  required: [id, rootName, relPath, state, sizeBytes, version]
+  properties:
+    id: { $ref: '#/Id' }
+    rootName: { type: string }
+    relPath: { type: string }
+    state: { type: string }
+    sizeBytes: { type: integer }
+    version: { $ref: '#/MediaVersion' }
+    links: { type: array, items: { $ref: '#/ItemSummary' } }
+    facts: { type: object, additionalProperties: true }
+
+Health:
+  type: object
+  required: [status]
+  properties:
+    status: { type: string, enum: [ok, degraded] }
+    db: { type: string, enum: [ok, error] }
+    roots:
+      type: object
+      additionalProperties: { type: string, enum: [online, offline] }
+
+ScanRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    rootId: { $ref: '#/Id' }
+
+Accepted:
+  type: object
+  required: [accepted]
+  properties:
+    accepted: { type: boolean }
+    jobId: { oneOf: [{ $ref: '#/Id' }, { type: 'null' }] }
+
+ExplainRequest:
+  type: object
+  required: [itemId, capabilities]
+  additionalProperties: false
+  properties:
+    itemId: { $ref: '#/Id' }
+    fileId: { $ref: '#/Id' }
+    capabilities: { $ref: '#/ClientCapabilities' }
+    audioTrackId: { type: string }
+    subtitleTrackId: { type: [string, 'null'] }
+
+ProviderSearchResult:
+  type: object
+  required: [candidates]
+  properties:
+    candidates: { type: array, items: { $ref: '#/Candidate' } }
+
+ChangeVersionRequest:
+  type: object
+  required: [fileId]
+  additionalProperties: false
+  properties:
+    fileId: { $ref: '#/Id' }
+    positionMs: { type: integer, minimum: 0 }

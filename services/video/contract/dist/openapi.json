@@ -1,0 +1,3493 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Pezzotflix Video Service API",
+    "version": "1.0.0-mvp",
+    "description": "Contract-first API of the Video Service (ADR 0004). This spec is the source of truth:\nthe server validates against it and clients generate their types from the bundled\n`dist/openapi.json`. Paths are absolute; the server registers them without a prefix.\nControl plane under /video/api/v1, data plane under /video/media.\nEnums are open for clients (tolerate unknown values). Changes within v1 are additive only.\n"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "profileToken": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "system"
+    },
+    {
+      "name": "profiles"
+    },
+    {
+      "name": "catalog"
+    },
+    {
+      "name": "watch-state"
+    },
+    {
+      "name": "playback"
+    },
+    {
+      "name": "admin"
+    },
+    {
+      "name": "media",
+      "description": "Data plane; extractable into a future video-worker."
+    }
+  ],
+  "paths": {
+    "/video/healthz": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "system"
+        ],
+        "security": [],
+        "summary": "Liveness and readiness for the container healthcheck.",
+        "responses": {
+          "200": {
+            "description": "Healthy or degraded (still serving).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/server": {
+      "get": {
+        "operationId": "getServerInfo",
+        "tags": [
+          "system"
+        ],
+        "security": [],
+        "summary": "GetServerInfo — name, API versions, features, ingest and provider status.",
+        "responses": {
+          "200": {
+            "description": "Server info.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/api/v1/events": {
+      "get": {
+        "operationId": "listEvents",
+        "tags": [
+          "system"
+        ],
+        "summary": "Poll notifications (ADR 0004). Without cursor returns the current position and no events.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events after the cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/profiles": {
+      "get": {
+        "operationId": "listProfiles",
+        "tags": [
+          "profiles"
+        ],
+        "security": [],
+        "summary": "ListProfiles — \"Chi guarda?\" screen.",
+        "responses": {
+          "200": {
+            "description": "Profiles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "profiles"
+                  ],
+                  "properties": {
+                    "profiles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Profile"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProfile",
+        "tags": [
+          "profiles"
+        ],
+        "security": [],
+        "summary": "CreateProfile.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/profiles/{profileId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProfileId"
+        }
+      ],
+      "patch": {
+        "operationId": "updateProfile",
+        "tags": [
+          "profiles"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProfile",
+        "tags": [
+          "profiles"
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/profiles/{profileId}/select": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProfileId"
+        }
+      ],
+      "post": {
+        "operationId": "selectProfile",
+        "tags": [
+          "profiles"
+        ],
+        "security": [],
+        "summary": "SelectProfile — returns the profile context token (P2). No auth in the MVP.",
+        "responses": {
+          "200": {
+            "description": "Profile context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSelection"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/home": {
+      "get": {
+        "operationId": "getHome",
+        "tags": [
+          "catalog"
+        ],
+        "summary": "GetHome — rows composed by the server (I1).",
+        "responses": {
+          "200": {
+            "description": "Home rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Home"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items": {
+      "get": {
+        "operationId": "listItems",
+        "tags": [
+          "catalog"
+        ],
+        "summary": "ListItems — filtered, sorted, keyset-paginated summaries.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "series",
+                "season",
+                "episode",
+                "extra"
+              ]
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "film",
+                "documentary"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "watched",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "inWatchlist",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "continueWatching",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "title",
+                "year",
+                "added",
+                "duration",
+                "last_played"
+              ],
+              "default": "title"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page of items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/search": {
+      "get": {
+        "operationId": "search",
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Search by localized and original title (FTS5, diacritics-insensitive).",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "series",
+                "season",
+                "episode",
+                "extra"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching items, best first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items/{itemId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "get": {
+        "operationId": "getItem",
+        "tags": [
+          "catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "Item detail.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items/{itemId}/children": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "get": {
+        "operationId": "getChildren",
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Seasons of a series or episodes of a season, with the profile watch state.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Children.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPage"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items/{itemId}/next-up": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "get": {
+        "operationId": "getNextUp",
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Next episode to watch in a series for the profile.",
+        "responses": {
+          "200": {
+            "description": "Next episode or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "item"
+                  ],
+                  "properties": {
+                    "item": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/ItemSummary"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items/{itemId}/watched": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "put": {
+        "operationId": "markWatched",
+        "tags": [
+          "watch-state"
+        ],
+        "summary": "MarkWatched (idempotent, propagated to episodes for series/season).",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "markUnwatched",
+        "tags": [
+          "watch-state"
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/items/{itemId}/progress": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "delete": {
+        "operationId": "clearProgress",
+        "tags": [
+          "watch-state"
+        ],
+        "summary": "ClearProgress — remove from Continue watching.",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          }
+        }
+      }
+    },
+    "/video/api/v1/watchlist/{itemId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ItemId"
+        }
+      ],
+      "put": {
+        "operationId": "addToWatchlist",
+        "tags": [
+          "watch-state"
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeFromWatchlist",
+        "tags": [
+          "watch-state"
+        ],
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions": {
+      "get": {
+        "operationId": "listActiveSessions",
+        "tags": [
+          "playback"
+        ],
+        "responses": {
+          "200": {
+            "description": "Active sessions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "sessions"
+                  ],
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ActiveSession"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startPlayback",
+        "tags": [
+          "playback"
+        ],
+        "summary": "StartPlayback — the Decision Engine plans the minimum transformation and returns data-plane locators.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlaybackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "delete": {
+        "operationId": "terminateSession",
+        "tags": [
+          "playback"
+        ],
+        "summary": "Terminate a session (also another profile's, to free the slot). Idempotent.",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}/progress": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "post": {
+        "operationId": "reportProgress",
+        "tags": [
+          "playback"
+        ],
+        "summary": "ReportProgress — also the heartbeat. The latest client timestamp wins.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}/stop": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "post": {
+        "operationId": "stopPlayback",
+        "tags": [
+          "playback"
+        ],
+        "summary": "StopPlayback — closes the ViewingRecord and updates WatchState (90%). Idempotent.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}/tracks": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "post": {
+        "operationId": "changeTracks",
+        "tags": [
+          "playback"
+        ],
+        "summary": "ChangeTracks — may re-plan (new locators, possibly a different mode).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTracksRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}/version": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "post": {
+        "operationId": "changeVersion",
+        "tags": [
+          "playback"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/playback/sessions/{sessionId}/failure": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionId"
+        }
+      ],
+      "post": {
+        "operationId": "reportPlaybackFailure",
+        "tags": [
+          "playback"
+        ],
+        "summary": "Client playback failure — the server re-plans with a heavier mode (doc 04).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Re-planned session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackSession"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/roots": {
+      "get": {
+        "operationId": "listLibraryRoots",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "ListLibraryRoots (configured from env in the MVP).",
+        "responses": {
+          "200": {
+            "description": "Roots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "roots"
+                  ],
+                  "properties": {
+                    "roots": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LibraryRoot"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/scan": {
+      "post": {
+        "operationId": "triggerScan",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "TriggerScan — one root or all. Idempotent while a scan is queued.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Scan queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/ingest": {
+      "get": {
+        "operationId": "getIngestStatus",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ingest status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/jobs/{jobId}/retry": {
+      "parameters": [
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "retryJob",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Re-queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/cases": {
+      "get": {
+        "operationId": "listIdentificationCases",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "ListIdentificationCases — the \"Da verificare\" queue.",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "auto_matched",
+                "needs_review",
+                "resolved",
+                "ignored"
+              ],
+              "default": "needs_review"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cases.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/cases/{caseId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CaseId"
+        }
+      ],
+      "get": {
+        "operationId": "getIdentificationCase",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Case with candidates and evidence.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationCase"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/cases/{caseId}/resolve": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CaseId"
+        }
+      ],
+      "post": {
+        "operationId": "resolveCase",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "ResolveCase — link to a candidate, an existing item, or a new manual item.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveCaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved case.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/cases/{caseId}/ignore": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CaseId"
+        }
+      ],
+      "post": {
+        "operationId": "ignoreCase",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ignored case.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationCase"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/provider-search": {
+      "get": {
+        "operationId": "searchProvider",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "SearchProvider — manual match lookup (Wikidata, TMDB when configured).",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "series"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidates.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSearchResult"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/files/{fileId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/FileId"
+        }
+      ],
+      "get": {
+        "operationId": "getMediaFileDetails",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "File details with all tracks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFileDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/api/v1/admin/explain": {
+      "post": {
+        "operationId": "explainPlaybackDecision",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "ExplainPlaybackDecision — Decision Engine output without starting anything.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan and reasons.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackPlanExplanation"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/media/s/{sessionToken}/file": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionToken"
+        }
+      ],
+      "get": {
+        "operationId": "getMediaFile",
+        "tags": [
+          "media"
+        ],
+        "security": [],
+        "summary": "Direct Play — the original file bytes, with Range support.",
+        "parameters": [
+          {
+            "name": "Range",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whole file."
+          },
+          "206": {
+            "description": "Partial content."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "416": {
+            "description": "Range not satisfiable."
+          }
+        }
+      }
+    },
+    "/video/media/s/{sessionToken}/hls/{resource}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionToken"
+        },
+        {
+          "name": "resource",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+          },
+          "description": "Playlist (main.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s)."
+        }
+      ],
+      "get": {
+        "operationId": "getHlsResource",
+        "tags": [
+          "media"
+        ],
+        "security": [],
+        "summary": "Direct Stream / Transcode — HLS fMP4 playlist or segment.",
+        "responses": {
+          "200": {
+            "description": "Playlist or segment."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/media/s/{sessionToken}/subtitles/{track}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/SessionToken"
+        },
+        {
+          "name": "track",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_:.-]{1,64}$"
+          },
+          "description": "Track id plus format extension, e.g. s5.vtt or s7.sup."
+        }
+      ],
+      "get": {
+        "operationId": "getSubtitle",
+        "tags": [
+          "media"
+        ],
+        "security": [],
+        "summary": "Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering).",
+        "responses": {
+          "200": {
+            "description": "Subtitle data."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/video/media/images/{imageKey}": {
+      "parameters": [
+        {
+          "name": "imageKey",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{8,128}$"
+          },
+          "description": "Content-addressed key (hash); a changed image gets a new URL."
+        },
+        {
+          "name": "w",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "enum": [
+              160,
+              320,
+              640,
+              1280,
+              1920
+            ]
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getImage",
+        "tags": [
+          "media"
+        ],
+        "security": [],
+        "summary": "GetImage — size variant (WebP). Cache policy per ADR 0004 (immutable except TMDB images).",
+        "responses": {
+          "200": {
+            "description": "Image bytes."
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "profileToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Profile context from SelectProfile (P2). Not real auth in the MVP (LAN only)."
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ]
+          },
+          "db": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "roots": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "online",
+                "offline"
+              ]
+            }
+          }
+        }
+      },
+      "Id": {
+        "type": "string",
+        "description": "Opaque, stable id (UUIDv7). Clients never build ids.",
+        "examples": [
+          "01936f0e-7b2a-7c3d-9e4f-5a6b7c8d9e0f"
+        ]
+      },
+      "DeliveryMode": {
+        "type": "string",
+        "enum": [
+          "direct_play",
+          "direct_stream",
+          "transcode"
+        ]
+      },
+      "ActiveSession": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "profileId",
+          "itemId",
+          "mode",
+          "startedAt"
+        ],
+        "properties": {
+          "sessionId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "profileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "profileName": {
+            "type": "string"
+          },
+          "itemId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "itemTitle": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DeliveryMode"
+          },
+          "startedAt": {
+            "type": "integer"
+          },
+          "positionMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 problem details with a stable machine-readable code.",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_FAILED",
+              "NOT_FOUND",
+              "CONFLICT",
+              "UNAUTHORIZED",
+              "CURSOR_EXPIRED",
+              "SESSION_LIMIT_REACHED",
+              "MEDIA_UNAVAILABLE",
+              "NO_COMPATIBLE_PLAN",
+              "SESSION_EXPIRED",
+              "PROVIDER_UNAVAILABLE",
+              "INTERNAL"
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "activeSessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActiveSession"
+            }
+          }
+        }
+      },
+      "ServerInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "apiVersions",
+          "features",
+          "ingest",
+          "providers"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "apiVersions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "features": {
+            "type": "object",
+            "required": [
+              "transcode",
+              "directStream"
+            ],
+            "properties": {
+              "transcode": {
+                "type": "boolean"
+              },
+              "directStream": {
+                "type": "boolean"
+              }
+            }
+          },
+          "ingest": {
+            "type": "object",
+            "required": [
+              "running",
+              "queued",
+              "needsReview"
+            ],
+            "properties": {
+              "running": {
+                "type": "boolean"
+              },
+              "queued": {
+                "type": "integer"
+              },
+              "needsReview": {
+                "type": "integer"
+              }
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "status"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "tmdb",
+                    "wikidata"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "ok",
+                    "not_configured",
+                    "degraded",
+                    "invalid_credentials",
+                    "disabled"
+                  ]
+                },
+                "attribution": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "seq",
+          "type",
+          "at",
+          "payload"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "description": "library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated"
+          },
+          "at": {
+            "type": "integer"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "EventPage": {
+        "type": "object",
+        "required": [
+          "events",
+          "nextCursor"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "ProfilePrefs": {
+        "type": "object",
+        "required": [
+          "audioLanguages",
+          "subtitleLanguages",
+          "subtitleMode"
+        ],
+        "properties": {
+          "audioLanguages": {
+            "type": "array",
+            "description": "Ordered ISO 639-2/B or 639-1 codes, e.g. [\"ita\", \"eng\"].",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleLanguages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subtitleMode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "forced",
+              "always"
+            ]
+          }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "prefs"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/ProfilePrefs"
+          }
+        }
+      },
+      "ProfileInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/ProfilePrefs"
+          }
+        }
+      },
+      "ProfileSelection": {
+        "type": "object",
+        "required": [
+          "profileToken",
+          "profile"
+        ],
+        "properties": {
+          "profileToken": {
+            "type": "string",
+            "description": "Opaque profile context; send it as an Authorization Bearer header."
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          }
+        }
+      },
+      "ItemKind": {
+        "type": "string",
+        "enum": [
+          "movie",
+          "series",
+          "season",
+          "episode",
+          "extra"
+        ]
+      },
+      "ItemCategory": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "film",
+          "documentary",
+          null
+        ]
+      },
+      "ImageRef": {
+        "type": "object",
+        "required": [
+          "type",
+          "url"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "poster",
+              "backdrop",
+              "logo",
+              "still",
+              "thumbnail"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "description": "Relative URL with a size variant placeholder resolved by the server."
+          },
+          "variants": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ProfileItemState": {
+        "type": "object",
+        "required": [
+          "watched",
+          "progressPercent",
+          "inWatchlist"
+        ],
+        "properties": {
+          "watched": {
+            "type": "boolean"
+          },
+          "progressPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "resumePositionMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "inWatchlist": {
+            "type": "boolean"
+          },
+          "playCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "ItemSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "badges",
+          "available"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ItemCategory"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "seasonNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "episodeNumber": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "extraType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "editionLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageRef"
+            }
+          },
+          "badges": {
+            "type": "array",
+            "description": "Technical badges, e.g. 4K, HDR10, DV, Atmos, TrueHD.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "available": {
+            "type": "boolean",
+            "description": "At least one linked file is online."
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProfileItemState"
+          }
+        }
+      },
+      "Cursor": {
+        "type": "string",
+        "description": "Opaque keyset cursor."
+      },
+      "HomeRow": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "continue_watching",
+              "recently_added",
+              "movies",
+              "series",
+              "documentaries"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            }
+          },
+          "nextCursor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Cursor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "query": {
+            "type": "object",
+            "description": "ListItems parameters that reproduce this row, for \"see all\".",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Home": {
+        "type": "object",
+        "required": [
+          "rows"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HomeRow"
+            }
+          }
+        }
+      },
+      "ItemPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            }
+          },
+          "nextCursor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Cursor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Credit": {
+        "type": "object",
+        "required": [
+          "name",
+          "role"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "character": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Track": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "index"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable track id within the file (\"s3\" embedded stream index, \"x:<id>\" sidecar)."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio",
+              "subtitle"
+            ]
+          },
+          "index": {
+            "type": "integer"
+          },
+          "codec": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "sdh": {
+            "type": "boolean"
+          },
+          "commentary": {
+            "type": "boolean"
+          },
+          "channels": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "channelLayout": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lossless": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "objectAudio": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "atmos | dtsx when detectable"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "frameRate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bitDepth": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "hdr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SDR | HDR10 | HDR10+ | HLG | DV"
+          },
+          "dolbyVision": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "profile": {
+                "type": "integer"
+              },
+              "level": {
+                "type": "integer"
+              },
+              "blCompatId": {
+                "type": "integer"
+              },
+              "hasEnhancementLayer": {
+                "type": "boolean"
+              }
+            }
+          },
+          "subtitleKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "text",
+              "image",
+              null
+            ]
+          },
+          "external": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Chapter": {
+        "type": "object",
+        "required": [
+          "startMs",
+          "endMs"
+        ],
+        "properties": {
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startMs": {
+            "type": "integer"
+          },
+          "endMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "MediaVersion": {
+        "type": "object",
+        "required": [
+          "fileId",
+          "label",
+          "available",
+          "tracks"
+        ],
+        "properties": {
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "label": {
+            "type": "string",
+            "description": "Human summary, e.g. \"4K · Dolby Vision · TrueHD 7.1 · ITA/ENG\"."
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "container": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "bitRate": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Track"
+            }
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chapter"
+            }
+          }
+        }
+      },
+      "ItemDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ItemSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "genres",
+              "credits",
+              "children",
+              "extras",
+              "versions"
+            ],
+            "properties": {
+              "overview": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "genres": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "credits": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Credit"
+                }
+              },
+              "parent": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ItemSummary"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ItemSummary"
+                }
+              },
+              "extras": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ItemSummary"
+                }
+              },
+              "versions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/MediaVersion"
+                }
+              },
+              "externalIds": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "attributions": {
+                "type": "array",
+                "description": "Data sources shown for this item (e.g. TMDB, Wikidata).",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ClientCapabilities": {
+        "type": "object",
+        "description": "Declared by the client (doc 03 §4.1, doc 04 §5). The server may apply per-device overrides.",
+        "required": [
+          "device",
+          "containers",
+          "protocols",
+          "video",
+          "audio",
+          "subtitles"
+        ],
+        "properties": {
+          "device": {
+            "type": "object",
+            "required": [
+              "class"
+            ],
+            "properties": {
+              "class": {
+                "type": "string",
+                "enum": [
+                  "tv",
+                  "desktop",
+                  "mobile",
+                  "tablet"
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "app": {
+                "type": "string"
+              }
+            }
+          },
+          "containers": {
+            "type": "array",
+            "description": "Containers playable directly (Direct Play), e.g. [\"mp4\", \"webm\"].",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protocols": {
+            "type": "array",
+            "description": "Streaming protocols, e.g. [\"hls-fmp4\", \"progressive\"].",
+            "items": {
+              "type": "string"
+            }
+          },
+          "video": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "codec"
+              ],
+              "properties": {
+                "codec": {
+                  "type": "string",
+                  "description": "h264 | hevc | av1 | vp9"
+                },
+                "profiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "maxWidth": {
+                  "type": "integer"
+                },
+                "maxHeight": {
+                  "type": "integer"
+                },
+                "maxBitDepth": {
+                  "type": "integer"
+                },
+                "maxFrameRate": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "hdr": {
+            "type": "array",
+            "description": "End-to-end HDR formats: HDR10, HLG, HDR10+, DV5, DV8.1 ...",
+            "items": {
+              "type": "string"
+            }
+          },
+          "audio": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "codec"
+              ],
+              "properties": {
+                "codec": {
+                  "type": "string",
+                  "description": "aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm"
+                },
+                "maxChannels": {
+                  "type": "integer"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "decode",
+                    "passthrough"
+                  ]
+                }
+              }
+            }
+          },
+          "subtitles": {
+            "type": "object",
+            "required": [
+              "text",
+              "image"
+            ],
+            "properties": {
+              "text": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "e.g. [\"webvtt\"]"
+              },
+              "image": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "e.g. [\"pgs\"] if rendered client-side"
+              },
+              "ass": {
+                "type": "boolean"
+              }
+            }
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "maxBitrate": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "StartPlaybackRequest": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "capabilities"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ClientCapabilities"
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "audioTrackId": {
+            "type": "string"
+          },
+          "subtitleTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startPositionMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "forceMode": {
+            "type": "string",
+            "enum": [
+              "direct_play",
+              "direct_stream",
+              "transcode"
+            ],
+            "description": "Diagnostics only."
+          }
+        }
+      },
+      "SessionTrack": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Track"
+          },
+          {
+            "type": "object",
+            "required": [
+              "selected",
+              "switchWithoutRestart"
+            ],
+            "properties": {
+              "selected": {
+                "type": "boolean"
+              },
+              "switchWithoutRestart": {
+                "type": "boolean"
+              },
+              "delivery": {
+                "type": "string",
+                "enum": [
+                  "embedded",
+                  "sidecar",
+                  "burned",
+                  "client_render"
+                ]
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Data-plane locator for sidecar or client-rendered subtitles."
+              }
+            }
+          }
+        ]
+      },
+      "PlaybackSession": {
+        "type": "object",
+        "required": [
+          "sessionId",
+          "expiresAt",
+          "mode",
+          "reasons",
+          "stream",
+          "tracks",
+          "resumePositionMs",
+          "durationMs",
+          "chapters"
+        ],
+        "properties": {
+          "sessionId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "description": "ms UTC; extended by heartbeats."
+          },
+          "heartbeatIntervalMs": {
+            "type": "integer"
+          },
+          "itemId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DeliveryMode"
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Human-readable reasons for the chosen mode (doc 04 §3).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stream": {
+            "type": "object",
+            "required": [
+              "url",
+              "protocol"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "Data-plane locator (relative). Never build it client-side."
+              },
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "progressive",
+                  "hls-fmp4"
+                ]
+              },
+              "mimeType": {
+                "type": "string"
+              },
+              "startOffsetMs": {
+                "type": "integer",
+                "description": "Position on the original timeline where the stream starts (keyframe); the player seeks the rest."
+              }
+            }
+          },
+          "tracks": {
+            "type": "object",
+            "required": [
+              "audio",
+              "subtitles"
+            ],
+            "properties": {
+              "audio": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SessionTrack"
+                }
+              },
+              "subtitles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SessionTrack"
+                }
+              }
+            }
+          },
+          "resumePositionMs": {
+            "type": "integer"
+          },
+          "durationMs": {
+            "type": "integer"
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chapter"
+            }
+          }
+        }
+      },
+      "ProgressReport": {
+        "type": "object",
+        "required": [
+          "positionMs",
+          "state",
+          "clientTs"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "positionMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Original media timeline."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "playing",
+              "paused",
+              "buffering"
+            ]
+          },
+          "clientTs": {
+            "type": "integer",
+            "description": "Client clock in ms; the latest wins."
+          }
+        }
+      },
+      "StopRequest": {
+        "type": "object",
+        "required": [
+          "positionMs"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "positionMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ChangeTracksRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "audioTrackId": {
+            "type": "string"
+          },
+          "subtitleTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "positionMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ChangeVersionRequest": {
+        "type": "object",
+        "required": [
+          "fileId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "positionMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "FallbackRequest": {
+        "type": "object",
+        "required": [
+          "positionMs",
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "positionMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "error": {
+            "type": "string",
+            "description": "Player error, e.g. MEDIA_ERR_SRC_NOT_SUPPORTED."
+          },
+          "suspect": {
+            "type": "string",
+            "enum": [
+              "container",
+              "video",
+              "audio",
+              "subtitle",
+              "unknown"
+            ]
+          }
+        }
+      },
+      "LibraryRoot": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "mountPath",
+          "hint",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mountPath": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string",
+            "enum": [
+              "movies",
+              "series",
+              "mixed"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "online",
+              "offline"
+            ]
+          },
+          "lastScanAt": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "fileCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "ScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      },
+      "Accepted": {
+        "type": "object",
+        "required": [
+          "accepted"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "jobId": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "IngestStatus": {
+        "type": "object",
+        "required": [
+          "running",
+          "queued",
+          "failed",
+          "files"
+        ],
+        "properties": {
+          "running": {
+            "type": "boolean"
+          },
+          "queued": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "jobId",
+                "type",
+                "error"
+              ],
+              "properties": {
+                "jobId": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "attempts": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "files": {
+            "type": "object",
+            "description": "Count of media files per state.",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "Candidate": {
+        "type": "object",
+        "required": [
+          "ref",
+          "kind",
+          "title",
+          "score"
+        ],
+        "properties": {
+          "ref": {
+            "type": "object",
+            "required": [
+              "provider",
+              "id"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "wikidata",
+                  "tmdb"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "IdentificationCase": {
+        "type": "object",
+        "required": [
+          "id",
+          "fileId",
+          "relPath",
+          "state",
+          "candidates",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "rootName": {
+            "type": "string"
+          },
+          "relPath": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "auto_matched",
+              "needs_review",
+              "resolved",
+              "ignored"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "no_title",
+              "no_candidates",
+              "low_score",
+              "ambiguous",
+              "multi_part",
+              "kind_mismatch",
+              "id_mismatch",
+              "disc_structure",
+              null
+            ]
+          },
+          "allowedResolutions": {
+            "type": "array",
+            "description": "multi_part and disc_structure allow only ignore (library standard §7.1).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "link_candidate",
+                "link_item",
+                "create_manual",
+                "ignore"
+              ]
+            }
+          },
+          "parsed": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            }
+          },
+          "linkedItem": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ItemSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        }
+      },
+      "CasePage": {
+        "type": "object",
+        "required": [
+          "cases",
+          "nextCursor"
+        ],
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentificationCase"
+            }
+          },
+          "nextCursor": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Cursor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ResolveCaseRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "link_candidate",
+              "link_item",
+              "create_manual"
+            ]
+          },
+          "candidate": {
+            "type": "object",
+            "required": [
+              "provider",
+              "id"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "wikidata",
+                  "tmdb"
+                ]
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          },
+          "itemId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "manual": {
+            "type": "object",
+            "required": [
+              "kind",
+              "title"
+            ],
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/ItemKind"
+              },
+              "title": {
+                "type": "string"
+              },
+              "year": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "ProviderSearchResult": {
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            }
+          }
+        }
+      },
+      "MediaFileDetails": {
+        "type": "object",
+        "required": [
+          "id",
+          "rootName",
+          "relPath",
+          "state",
+          "sizeBytes",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "rootName": {
+            "type": "string"
+          },
+          "relPath": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "version": {
+            "$ref": "#/components/schemas/MediaVersion"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            }
+          },
+          "facts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ExplainRequest": {
+        "type": "object",
+        "required": [
+          "itemId",
+          "capabilities"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "itemId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ClientCapabilities"
+          },
+          "audioTrackId": {
+            "type": "string"
+          },
+          "subtitleTrackId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PlaybackPlanExplanation": {
+        "type": "object",
+        "required": [
+          "mode",
+          "reasons",
+          "fileId",
+          "actions"
+        ],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/DeliveryMode"
+          },
+          "fileId": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "actions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fileId": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "mode": {
+                  "$ref": "#/components/schemas/DeliveryMode"
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "Error (RFC 9457).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      },
+      "NoContent": {
+        "description": "Done."
+      }
+    },
+    "parameters": {
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Opaque cursor from a previous page (nextCursor)."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "ProfileId": {
+        "name": "profileId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ItemId": {
+        "name": "itemId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CaseId": {
+        "name": "caseId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "FileId": {
+        "name": "fileId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SessionToken": {
+        "name": "sessionToken",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128
+        },
+        "description": "Session token (P9). Never logged in clear."
+      }
+    }
+  }
+}

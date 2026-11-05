@@ -4,8 +4,10 @@ media-samples/*
 *.mkv
 *.mp4
 *.m2ts
-*.ts
 *.iso
+# MPEG-TS media: only outside source trees (TypeScript uses .ts too)
+media-samples/**/*.ts
+spikes/**/*.ts
 
 # Runtime / application data
 data/
@@ -31,6 +33,8 @@ venv/
 # Node
 node_modules/
 dist/
+# The bundled API contract is committed: clients generate their types from it (ADR 0004)
+!services/video/contract/dist/
 build/
 .vite/
 coverage/

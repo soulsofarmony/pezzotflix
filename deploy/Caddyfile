@@ -1,0 +1,30 @@
+# Gateway (ADR 0006): the only published port. Serves the web client and proxies the Video Service.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	@api path /video/api/*
+	encode @api zstd gzip
+
+	# Data plane: no buffering, Range passed through (G1).
+	handle /video/media/* {
+		reverse_proxy video:8096 {
+			flush_interval -1
+		}
+	}
+
+	handle /video/* {
+		reverse_proxy video:8096
+	}
+
+	# Web client (SPA): static assets, index.html fallback.
+	handle {
+		root * /srv/web
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

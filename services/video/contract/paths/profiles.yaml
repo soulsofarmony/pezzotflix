@@ -1,0 +1,76 @@
+collection:
+  get:
+    operationId: listProfiles
+    tags: [profiles]
+    security: []
+    summary: ListProfiles — "Chi guarda?" screen.
+    responses:
+      '200':
+        description: Profiles.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profiles]
+              properties:
+                profiles: { type: array, items: { $ref: '../components/schemas.yaml#/Profile' } }
+  post:
+    operationId: createProfile
+    tags: [profiles]
+    security: []
+    summary: CreateProfile.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ProfileInput' }
+    responses:
+      '201':
+        description: Created.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Profile' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
+single:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ProfileId' }
+  patch:
+    operationId: updateProfile
+    tags: [profiles]
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ProfileInput' }
+    responses:
+      '200':
+        description: Updated.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Profile' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+  delete:
+    operationId: deleteProfile
+    tags: [profiles]
+    security: []
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+select:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ProfileId' }
+  post:
+    operationId: selectProfile
+    tags: [profiles]
+    security: []
+    summary: SelectProfile — returns the profile context token (P2). No auth in the MVP.
+    responses:
+      '200':
+        description: Profile context.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ProfileSelection' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }

@@ -1,0 +1,42 @@
+Cursor:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string }
+  description: Opaque cursor from a previous page (nextCursor).
+Limit:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+ItemId:
+  name: itemId
+  in: path
+  required: true
+  schema: { type: string }
+ProfileId:
+  name: profileId
+  in: path
+  required: true
+  schema: { type: string }
+SessionId:
+  name: sessionId
+  in: path
+  required: true
+  schema: { type: string }
+SessionToken:
+  name: sessionToken
+  in: path
+  required: true
+  schema: { type: string, minLength: 16, maxLength: 128 }
+  description: Session token (P9). Never logged in clear.
+CaseId:
+  name: caseId
+  in: path
+  required: true
+  schema: { type: string }
+FileId:
+  name: fileId
+  in: path
+  required: true
+  schema: { type: string }

@@ -1,0 +1,72 @@
+# Data plane (doc 03 §5). Session resources are authorized by the token in the path (P9);
+# they stop working when the session closes. Images do not depend on a session.
+# HEAD is served automatically for every GET route.
+file:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionToken' }
+  get:
+    operationId: getMediaFile
+    tags: [media]
+    security: []
+    summary: Direct Play — the original file bytes, with Range support.
+    parameters:
+      - { name: Range, in: header, required: false, schema: { type: string } }
+    responses:
+      '200': { description: Whole file. }
+      '206': { description: Partial content. }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+      '416': { description: Range not satisfiable. }
+hls:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionToken' }
+    - name: resource
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_.-]{1,64}$' }
+      description: 'Playlist (main.m3u8), init segment (init-N.mp4) or media segment (seg-N-NNNNN.m4s).'
+  get:
+    operationId: getHlsResource
+    tags: [media]
+    security: []
+    summary: Direct Stream / Transcode — HLS fMP4 playlist or segment.
+    responses:
+      '200': { description: Playlist or segment. }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+subtitle:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionToken' }
+    - name: track
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_:.-]{1,64}$' }
+      description: 'Track id plus format extension, e.g. s5.vtt or s7.sup.'
+  get:
+    operationId: getSubtitle
+    tags: [media]
+    security: []
+    summary: Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering).
+    responses:
+      '200': { description: Subtitle data. }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+image:
+  parameters:
+    - name: imageKey
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{8,128}$' }
+      description: Content-addressed key (hash); a changed image gets a new URL.
+    - name: w
+      in: query
+      required: false
+      schema: { type: integer, enum: [160, 320, 640, 1280, 1920] }
+  get:
+    operationId: getImage
+    tags: [media]
+    security: []
+    summary: GetImage — size variant (WebP). Cache policy per ADR 0004 (immutable except TMDB images).
+    responses:
+      '200': { description: Image bytes. }
+      '404': { $ref: '../components/responses.yaml#/Problem' }

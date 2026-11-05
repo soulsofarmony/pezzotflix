@@ -1,0 +1,32 @@
+{
+  "name": "pezzotflix",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "services/video",
+    "clients/web"
+  ],
+  "engines": {
+    "node": ">=26.13.0 <27"
+  },
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify": "npm run verify --workspaces --if-present"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "allowScripts": {
+    "better-sqlite3": false,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  }
+}

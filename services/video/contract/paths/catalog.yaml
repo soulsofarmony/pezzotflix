@@ -1,0 +1,139 @@
+home:
+  get:
+    operationId: getHome
+    tags: [catalog]
+    summary: GetHome — rows composed by the server (I1).
+    responses:
+      '200':
+        description: Home rows.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Home' }
+      '401': { $ref: '../components/responses.yaml#/Problem' }
+items:
+  get:
+    operationId: listItems
+    tags: [catalog]
+    summary: ListItems — filtered, sorted, keyset-paginated summaries.
+    parameters:
+      - { name: kind, in: query, schema: { type: string, enum: [movie, series, season, episode, extra] } }
+      - { name: category, in: query, schema: { type: string, enum: [film, documentary] } }
+      - { name: year, in: query, schema: { type: integer } }
+      - { name: watched, in: query, schema: { type: boolean } }
+      - { name: inWatchlist, in: query, schema: { type: boolean } }
+      - { name: continueWatching, in: query, schema: { type: boolean } }
+      - { name: sort, in: query, schema: { type: string, enum: [title, year, added, duration, last_played], default: title } }
+      - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+      - { $ref: '../components/parameters.yaml#/Cursor' }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Page of items.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ItemPage' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+search:
+  get:
+    operationId: search
+    tags: [catalog]
+    summary: Search by localized and original title (FTS5, diacritics-insensitive).
+    parameters:
+      - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      - { name: kind, in: query, schema: { type: string, enum: [movie, series, season, episode, extra] } }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Matching items, best first.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ItemPage' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+item:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  get:
+    operationId: getItem
+    tags: [catalog]
+    responses:
+      '200':
+        description: Item detail.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ItemDetail' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+children:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  get:
+    operationId: getChildren
+    tags: [catalog]
+    summary: Seasons of a series or episodes of a season, with the profile watch state.
+    parameters:
+      - { $ref: '../components/parameters.yaml#/Cursor' }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Children.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ItemPage' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+nextUp:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  get:
+    operationId: getNextUp
+    tags: [catalog]
+    summary: Next episode to watch in a series for the profile.
+    responses:
+      '200':
+        description: Next episode or null.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item]
+              properties:
+                item: { oneOf: [{ $ref: '../components/schemas.yaml#/ItemSummary' }, { type: 'null' }] }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+watched:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  put:
+    operationId: markWatched
+    tags: [watch-state]
+    summary: MarkWatched (idempotent, propagated to episodes for series/season).
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+  delete:
+    operationId: markUnwatched
+    tags: [watch-state]
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+progress:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  delete:
+    operationId: clearProgress
+    tags: [watch-state]
+    summary: ClearProgress — remove from Continue watching.
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+watchlistItem:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/ItemId' }
+  put:
+    operationId: addToWatchlist
+    tags: [watch-state]
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+  delete:
+    operationId: removeFromWatchlist
+    tags: [watch-state]
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }

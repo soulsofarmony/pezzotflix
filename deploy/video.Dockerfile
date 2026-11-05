@@ -1,0 +1,39 @@
+# Video Service image (ADR 0001, ADR 0006). Build context: repository root.
+# Node 26 LTS runs TypeScript directly (type stripping): no build step.
+FROM node:26.13.0-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS runtime
+
+# jellyfin-ffmpeg 8 (H10: CUDA/NVENC/tonemap_cuda available when the GPU override is used).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+ && install -d -m 0755 /etc/apt/keyrings \
+ && curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg \
+ && echo "deb [signed-by=/etc/apt/keyrings/jellyfin.gpg] https://repo.jellyfin.org/debian trixie main" > /etc/apt/sources.list.d/jellyfin.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends jellyfin-ffmpeg8=8.1.3-2-trixie \
+ && apt-get purge -y curl gnupg && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production \
+    FFMPEG_PATH=/usr/lib/jellyfin-ffmpeg/ffmpeg \
+    FFPROBE_PATH=/usr/lib/jellyfin-ffmpeg/ffprobe \
+    DATA_DIR=/data \
+    PORT=8096
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY services/video/package.json services/video/
+COPY clients/web/package.json clients/web/
+RUN npm ci --omit=dev --workspace services/video --no-audit --no-fund && npm cache clean --force
+
+COPY services/video/ services/video/
+
+# Mount points owned by the runtime user, so named volumes are initialised writable (m2).
+RUN mkdir -p /data/db /data/cache /data/artwork /data/thumbnails /data/scratch /data/backup /media \
+ && chown -R node:node /data
+
+USER node
+WORKDIR /app/services/video
+EXPOSE 8096
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:8096/video/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+CMD ["node", "src/main.ts"]

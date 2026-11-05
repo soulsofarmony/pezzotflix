@@ -10,5 +10,5 @@ La tecnologia deriva dai requisiti, non il contrario (vedi requisiti §20–21).
 | 3 | [03-interfaces.md](03-interfaces.md) — contratti client↔server e interni | ✅ approvato |
 | 4 | [04-playback-architecture.md](04-playback-architecture.md) — Direct Play / Direct Stream / Transcode | ✅ approvato |
 | 5 | Spike di evidenza (`../spikes/`) | ⏳ prossimo |
-| 6 | `05-technology-evaluation.md` + ADR | — |
+| 6 | [05-technology-evaluation.md](05-technology-evaluation.md) + [ADR](../adr/) | — |
 | 7 | `06-mvp-plan.md` — piano vertical slice | — |

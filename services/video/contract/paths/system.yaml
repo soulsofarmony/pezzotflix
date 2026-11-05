@@ -1,0 +1,40 @@
+health:
+  get:
+    operationId: getHealth
+    tags: [system]
+    security: []
+    summary: Liveness and readiness for the container healthcheck.
+    responses:
+      '200':
+        description: Healthy or degraded (still serving).
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Health' }
+      '503': { $ref: '../components/responses.yaml#/Problem' }
+serverInfo:
+  get:
+    operationId: getServerInfo
+    tags: [system]
+    security: []
+    summary: GetServerInfo — name, API versions, features, ingest and provider status.
+    responses:
+      '200':
+        description: Server info.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ServerInfo' }
+events:
+  get:
+    operationId: listEvents
+    tags: [system]
+    summary: Poll notifications (ADR 0004). Without cursor returns the current position and no events.
+    parameters:
+      - { $ref: '../components/parameters.yaml#/Cursor' }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Events after the cursor.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/EventPage' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }

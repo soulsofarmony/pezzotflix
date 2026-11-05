@@ -14,8 +14,8 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [x] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
 - [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 ✅ (TMDB live blocked: no key), H10 ✅/❌, S2 automated run in progress; owner visual/audio check pending)
-- [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`
-- [ ] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
+- [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/` ← 0001/0002/0004/0006/0007 Accepted; 0003 (streaming) and 0005 (web client) after S2
+- [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md` (build F0 in progress)
 
 ## Hard rules
 
@@ -61,7 +61,7 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
 ## Environment
 
 - Dev and first real use: Windows 11 + Docker Desktop (WSL2). A Linux mini-PC/server comes later, so keep everything portable.
-- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node 22, Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
+- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node 22 (system) + portable Node 26.13 in `%LOCALAPPDATA%\pezzotflix-tools\node26` (bash: `export PATH="$LOCALAPPDATA/pezzotflix-tools/node26:$PATH"`) (project runtime, ADR 0001), Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
 - Bind mounts from NTFS into WSL2 containers are slow. Keep this in mind for scanning/watching (inotify does not propagate reliably from Windows paths).
 - Main TV client: Android TV / Google TV device (Chromecast GTV / Google TV Streamer or a Google TV set) → AVR/soundbar over HDMI. Lossless audio passthrough (TrueHD/Atmos, DTS-HD) matters. **Known risk:** Dolby Vision profile 7 (FEL) is unreliable on these devices and usually falls back to HDR10, so it is not an MVP requirement.
 - No real media yet: use public test samples. Subtitle formats are unknown, so treat PGS as likely.

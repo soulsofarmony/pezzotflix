@@ -1,0 +1,8 @@
+extends:
+  - recommended
+rules:
+  info-license: off
+  tag-description: off
+  operation-summary: off
+  security-defined: error
+  operation-4xx-response: off  # every error is a Problem (ADR 0004)

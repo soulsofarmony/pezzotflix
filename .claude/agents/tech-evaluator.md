@@ -21,7 +21,7 @@ You evaluate **one technology decision area** for Pezzotflix. Technology follows
 5. Identify cross-area dependencies (e.g. runtime ↔ ffmpeg process control ↔ streaming library).
 
 ## Outputs (Italian, accented characters correct)
-- A section file `docs/architecture/05-technology-evaluation/<area>.md` (the orchestrator merges sections into `05-technology-evaluation.md`).
+- A section draft returned in your report or written to `docs/architecture/05-technology-evaluation.md` as a new `## N. <area>` section (single merged document; renumber headings N.k).
 - A draft ADR `docs/adr/NNNN-<short-title>.md` in **Proposed** state using the template. Use the number the orchestrator assigns you.
 - Do not mark anything Accepted, do not write product code, do not commit.
 

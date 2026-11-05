@@ -1,0 +1,175 @@
+roots:
+  get:
+    operationId: listLibraryRoots
+    tags: [admin]
+    security: []
+    summary: ListLibraryRoots (configured from env in the MVP).
+    responses:
+      '200':
+        description: Roots.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roots]
+              properties:
+                roots: { type: array, items: { $ref: '../components/schemas.yaml#/LibraryRoot' } }
+scan:
+  post:
+    operationId: triggerScan
+    tags: [admin]
+    security: []
+    summary: TriggerScan — one root or all. Idempotent while a scan is queued.
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ScanRequest' }
+    responses:
+      '202':
+        description: Scan queued.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Accepted' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+ingest:
+  get:
+    operationId: getIngestStatus
+    tags: [admin]
+    security: []
+    responses:
+      '200':
+        description: Ingest status.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/IngestStatus' }
+retryJob:
+  parameters:
+    - { name: jobId, in: path, required: true, schema: { type: string } }
+  post:
+    operationId: retryJob
+    tags: [admin]
+    security: []
+    responses:
+      '202':
+        description: Re-queued.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Accepted' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+cases:
+  get:
+    operationId: listIdentificationCases
+    tags: [admin]
+    security: []
+    summary: ListIdentificationCases — the "Da verificare" queue.
+    parameters:
+      - { name: state, in: query, schema: { type: string, enum: [pending, auto_matched, needs_review, resolved, ignored], default: needs_review } }
+      - { $ref: '../components/parameters.yaml#/Cursor' }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Cases.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/CasePage' }
+case:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/CaseId' }
+  get:
+    operationId: getIdentificationCase
+    tags: [admin]
+    security: []
+    responses:
+      '200':
+        description: Case with candidates and evidence.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/IdentificationCase' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+resolve:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/CaseId' }
+  post:
+    operationId: resolveCase
+    tags: [admin]
+    security: []
+    summary: ResolveCase — link to a candidate, an existing item, or a new manual item.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ResolveCaseRequest' }
+    responses:
+      '200':
+        description: Resolved case.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/IdentificationCase' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
+      '503': { $ref: '../components/responses.yaml#/Problem' }
+ignore:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/CaseId' }
+  post:
+    operationId: ignoreCase
+    tags: [admin]
+    security: []
+    responses:
+      '200':
+        description: Ignored case.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/IdentificationCase' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+providerSearch:
+  get:
+    operationId: searchProvider
+    tags: [admin]
+    security: []
+    summary: SearchProvider — manual match lookup (Wikidata, TMDB when configured).
+    parameters:
+      - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      - { name: kind, in: query, schema: { type: string, enum: [movie, series] } }
+      - { name: year, in: query, schema: { type: integer } }
+    responses:
+      '200':
+        description: Candidates.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ProviderSearchResult' }
+      '503': { $ref: '../components/responses.yaml#/Problem' }
+file:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/FileId' }
+  get:
+    operationId: getMediaFileDetails
+    tags: [admin]
+    security: []
+    responses:
+      '200':
+        description: File details with all tracks.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/MediaFileDetails' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+explain:
+  post:
+    operationId: explainPlaybackDecision
+    tags: [admin]
+    security: []
+    summary: ExplainPlaybackDecision — Decision Engine output without starting anything.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ExplainRequest' }
+    responses:
+      '200':
+        description: Plan and reasons.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/PlaybackPlanExplanation' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }

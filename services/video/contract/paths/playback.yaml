@@ -1,0 +1,133 @@
+sessions:
+  get:
+    operationId: listActiveSessions
+    tags: [playback]
+    responses:
+      '200':
+        description: Active sessions.
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessions]
+              properties:
+                sessions: { type: array, items: { $ref: '../components/schemas.yaml#/ActiveSession' } }
+  post:
+    operationId: startPlayback
+    tags: [playback]
+    summary: StartPlayback — the Decision Engine plans the minimum transformation and returns data-plane locators.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/StartPlaybackRequest' }
+    responses:
+      '201':
+        description: Session started.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
+      '422': { $ref: '../components/responses.yaml#/Problem' }
+      '503': { $ref: '../components/responses.yaml#/Problem' }
+session:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  delete:
+    operationId: terminateSession
+    tags: [playback]
+    summary: Terminate a session (also another profile's, to free the slot). Idempotent.
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+progress:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  post:
+    operationId: reportProgress
+    tags: [playback]
+    summary: ReportProgress — also the heartbeat. The latest client timestamp wins.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ProgressReport' }
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+stop:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  post:
+    operationId: stopPlayback
+    tags: [playback]
+    summary: StopPlayback — closes the ViewingRecord and updates WatchState (90%). Idempotent.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/StopRequest' }
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContent' }
+tracks:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  post:
+    operationId: changeTracks
+    tags: [playback]
+    summary: ChangeTracks — may re-plan (new locators, possibly a different mode).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ChangeTracksRequest' }
+    responses:
+      '200':
+        description: Updated session.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
+      '422': { $ref: '../components/responses.yaml#/Problem' }
+version:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  post:
+    operationId: changeVersion
+    tags: [playback]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/ChangeVersionRequest' }
+    responses:
+      '200':
+        description: Updated session.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '422': { $ref: '../components/responses.yaml#/Problem' }
+failure:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/SessionId' }
+  post:
+    operationId: reportPlaybackFailure
+    tags: [playback]
+    summary: Client playback failure — the server re-plans with a heavier mode (doc 04).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/FallbackRequest' }
+    responses:
+      '200':
+        description: Re-planned session.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '422': { $ref: '../components/responses.yaml#/Problem' }

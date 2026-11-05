@@ -1,0 +1,71 @@
+openapi: 3.1.1
+info:
+  title: Pezzotflix Video Service API
+  version: 1.0.0-mvp
+  description: |
+    Contract-first API of the Video Service (ADR 0004). This spec is the source of truth:
+    the server validates against it and clients generate their types from the bundled
+    `dist/openapi.json`. Paths are absolute; the server registers them without a prefix.
+    Control plane under /video/api/v1, data plane under /video/media.
+    Enums are open for clients (tolerate unknown values). Changes within v1 are additive only.
+servers:
+  - url: /
+tags:
+  - { name: system }
+  - { name: profiles }
+  - { name: catalog }
+  - { name: watch-state }
+  - { name: playback }
+  - { name: admin }
+  - { name: media, description: Data plane; extractable into a future video-worker. }
+security:
+  - profileToken: []
+paths:
+  /video/healthz: { $ref: './paths/system.yaml#/health' }
+  /video/api/v1/server: { $ref: './paths/system.yaml#/serverInfo' }
+  /video/api/v1/events: { $ref: './paths/system.yaml#/events' }
+
+  /video/api/v1/profiles: { $ref: './paths/profiles.yaml#/collection' }
+  /video/api/v1/profiles/{profileId}: { $ref: './paths/profiles.yaml#/single' }
+  /video/api/v1/profiles/{profileId}/select: { $ref: './paths/profiles.yaml#/select' }
+
+  /video/api/v1/home: { $ref: './paths/catalog.yaml#/home' }
+  /video/api/v1/items: { $ref: './paths/catalog.yaml#/items' }
+  /video/api/v1/search: { $ref: './paths/catalog.yaml#/search' }
+  /video/api/v1/items/{itemId}: { $ref: './paths/catalog.yaml#/item' }
+  /video/api/v1/items/{itemId}/children: { $ref: './paths/catalog.yaml#/children' }
+  /video/api/v1/items/{itemId}/next-up: { $ref: './paths/catalog.yaml#/nextUp' }
+  /video/api/v1/items/{itemId}/watched: { $ref: './paths/catalog.yaml#/watched' }
+  /video/api/v1/items/{itemId}/progress: { $ref: './paths/catalog.yaml#/progress' }
+  /video/api/v1/watchlist/{itemId}: { $ref: './paths/catalog.yaml#/watchlistItem' }
+
+  /video/api/v1/playback/sessions: { $ref: './paths/playback.yaml#/sessions' }
+  /video/api/v1/playback/sessions/{sessionId}: { $ref: './paths/playback.yaml#/session' }
+  /video/api/v1/playback/sessions/{sessionId}/progress: { $ref: './paths/playback.yaml#/progress' }
+  /video/api/v1/playback/sessions/{sessionId}/stop: { $ref: './paths/playback.yaml#/stop' }
+  /video/api/v1/playback/sessions/{sessionId}/tracks: { $ref: './paths/playback.yaml#/tracks' }
+  /video/api/v1/playback/sessions/{sessionId}/version: { $ref: './paths/playback.yaml#/version' }
+  /video/api/v1/playback/sessions/{sessionId}/failure: { $ref: './paths/playback.yaml#/failure' }
+
+  /video/api/v1/admin/roots: { $ref: './paths/admin.yaml#/roots' }
+  /video/api/v1/admin/scan: { $ref: './paths/admin.yaml#/scan' }
+  /video/api/v1/admin/ingest: { $ref: './paths/admin.yaml#/ingest' }
+  /video/api/v1/admin/jobs/{jobId}/retry: { $ref: './paths/admin.yaml#/retryJob' }
+  /video/api/v1/admin/cases: { $ref: './paths/admin.yaml#/cases' }
+  /video/api/v1/admin/cases/{caseId}: { $ref: './paths/admin.yaml#/case' }
+  /video/api/v1/admin/cases/{caseId}/resolve: { $ref: './paths/admin.yaml#/resolve' }
+  /video/api/v1/admin/cases/{caseId}/ignore: { $ref: './paths/admin.yaml#/ignore' }
+  /video/api/v1/admin/provider-search: { $ref: './paths/admin.yaml#/providerSearch' }
+  /video/api/v1/admin/files/{fileId}: { $ref: './paths/admin.yaml#/file' }
+  /video/api/v1/admin/explain: { $ref: './paths/admin.yaml#/explain' }
+
+  /video/media/s/{sessionToken}/file: { $ref: './paths/media.yaml#/file' }
+  /video/media/s/{sessionToken}/hls/{resource}: { $ref: './paths/media.yaml#/hls' }
+  /video/media/s/{sessionToken}/subtitles/{track}: { $ref: './paths/media.yaml#/subtitle' }
+  /video/media/images/{imageKey}: { $ref: './paths/media.yaml#/image' }
+components:
+  securitySchemes:
+    profileToken:
+      type: http
+      scheme: bearer
+      description: Profile context from SelectProfile (P2). Not real auth in the MVP (LAN only).

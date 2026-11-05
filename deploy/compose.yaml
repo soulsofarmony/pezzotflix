@@ -1,0 +1,62 @@
+# Pezzotflix — Docker Compose (ADR 0006). Run from the repo root:
+#   docker compose -f deploy/compose.yaml --env-file .env up -d --build
+name: pezzotflix
+
+services:
+  gateway:
+    image: caddy:2.11.8
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../clients/web/dist:/srv/web:ro
+      - gateway-data:/data
+    networks: [edge, internal]
+
+  video:
+    build:
+      context: ..
+      dockerfile: deploy/video.Dockerfile
+    image: pezzotflix/video:dev
+    restart: unless-stopped
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # App settings come from the repo-root .env (see .env.example); unset keys use the defaults in config.ts.
+    env_file:
+      - path: ../.env
+        required: false
+    volumes:
+      # Media library: read-only, always (architectural invariant).
+      - ${MEDIA_DIR:-../media-samples/library}:/media:ro
+      - video-db:/data/db
+      - video-cache:/data/cache
+      - video-artwork:/data/artwork
+      - video-thumbnails:/data/thumbnails
+      - video-scratch:/data/scratch
+      - video-backup:/data/backup
+    networks: [internal]
+    develop:
+      watch:
+        - action: sync+restart
+          path: ../services/video/src
+          target: /app/services/video/src
+        - action: sync+restart
+          path: ../services/video/contract/dist
+          target: /app/services/video/contract/dist
+        - action: rebuild
+          path: ../services/video/package.json
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  gateway-data: {}
+  video-db: {}
+  video-cache: {}
+  video-artwork: {}
+  video-thumbnails: {}
+  video-scratch: {}
+  video-backup: {}

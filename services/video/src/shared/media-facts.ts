@@ -1,0 +1,105 @@
+// MediaFacts (doc 03 §8, MediaProbe): what the Media Analyzer knows about one file.
+// Serializable plain data. Produced by modules/analyzer, stored in media_file.facts and
+// normalised into media_stream/chapter; consumed by catalog (badges, versions) and playback.
+// Never contains absolute host paths: a file is always (rootName, relPath).
+
+export interface MediaLocation {
+  rootName: string;
+  relPath: string;
+}
+
+export type HdrFormat = 'SDR' | 'HDR10' | 'HDR10+' | 'HLG' | 'DV';
+
+export interface DolbyVisionInfo {
+  profile: number;
+  level: number;
+  /** dv_bl_signal_compatibility_id: 1 = HDR10, 2 = SDR, 4 = HLG, 6 = BT.2020 (P7), 0 = none. */
+  blCompatId: number;
+  hasEnhancementLayer: boolean;
+  rpuPresent: boolean;
+}
+
+interface StreamBase {
+  /** ffprobe stream index within the container. */
+  index: number;
+  codec: string; // ffprobe codec_name, lower case (hevc, h264, truehd, dts, hdmv_pgs_subtitle, subrip ...)
+  profile: string | null; // ffprobe profile (Main 10, DTS-HD MA, ...)
+  language: string | null; // ISO 639-2/B as tagged, normalised lower case; null if und/missing
+  title: string | null;
+  default: boolean;
+  forced: boolean;
+}
+
+export interface VideoStreamFacts extends StreamBase {
+  type: 'video';
+  width: number;
+  height: number;
+  frameRate: number | null;
+  bitDepth: number | null;
+  pixFmt: string | null;
+  colorTransfer: string | null; // smpte2084, arib-std-b67, bt709 ...
+  colorPrimaries: string | null;
+  hdr: HdrFormat;
+  /** Additional HDR layers present besides the base (e.g. DV + HDR10 base => ['HDR10']). */
+  hdrFallback: HdrFormat[];
+  dolbyVision: DolbyVisionInfo | null;
+  bitRate: number | null;
+  attachedPic: boolean;
+}
+
+export interface AudioStreamFacts extends StreamBase {
+  type: 'audio';
+  channels: number;
+  channelLayout: string | null;
+  sampleRate: number | null;
+  bitRate: number | null;
+  lossless: boolean;
+  /** Object audio detected from profile/title: 'atmos' (TrueHD/E-AC-3 JOC) or 'dtsx'. */
+  objectAudio: 'atmos' | 'dtsx' | null;
+  commentary: boolean;
+}
+
+export interface SubtitleStreamFacts extends StreamBase {
+  type: 'subtitle';
+  kind: 'text' | 'image';
+  sdh: boolean;
+  /** Number of events if cheaply known (e.g. from tags); null otherwise. */
+  eventCount: number | null;
+}
+
+export type StreamFacts = VideoStreamFacts | AudioStreamFacts | SubtitleStreamFacts;
+
+export interface ChapterFacts {
+  index: number;
+  title: string | null;
+  startMs: number;
+  endMs: number;
+}
+
+export interface SidecarSubtitleFacts {
+  /** Stable id within the file: "x:<n>". */
+  id: string;
+  relPath: string;
+  format: 'srt' | 'ass' | 'ssa' | 'vtt' | 'sup';
+  language: string | null;
+  forced: boolean;
+  sdh: boolean;
+}
+
+export interface MediaFacts {
+  location: MediaLocation;
+  sizeBytes: number;
+  mtimeMs: number;
+  /** ffprobe format_name normalised: 'matroska' | 'mp4' | 'mpegts' | 'webm' | 'avi' ... */
+  container: string;
+  durationMs: number | null;
+  bitRate: number | null;
+  streams: StreamFacts[];
+  chapters: ChapterFacts[];
+  sidecars: SidecarSubtitleFacts[];
+  /** ffprobe/analyzer version, for re-analysis when the analyzer changes. */
+  analyzerVersion: number;
+}
+
+/** Track id as exposed by the API: "s<index>" for embedded streams, "x:<n>" for sidecars. */
+export const streamTrackId = (index: number): string => `s${index}`;
