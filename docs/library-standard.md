@@ -236,7 +236,9 @@ L'elenco definitivo dei codici e dei loro valori nell'API si fissa nell'allineam
 
 ### 7.3 File ignorati
 
-- Cartelle di sistema o nascoste: `$RECYCLE.BIN`, `@eaDir`, `.Trash…`, `lost+found`, `System Volume Information`, cartelle che iniziano con `.`.
+- Cartelle di sistema o nascoste: `$RECYCLE.BIN`, `.Trash…`, `lost+found`, `System Volume Information`, cartelle che iniziano con `.`.
+- Cartelle di servizio dei NAS (Synology, QNAP): `@eaDir`, `#snapshot`, `#recycle`, `@Recycle`, `@Recently-Snapshot`, `.@__thumb`.
+- **Collegamenti simbolici** (e junction di Windows): non vengono seguiti, così un collegamento non può portare fuori dalla radice né creare cicli. La scansione li conta e li registra nel log. Un film va messo nella radice come file vero.
 - **Sample:** solo una cartella `sample/` o `samples/` (Jellyfin la tratta come extra; Pezzotflix la ignora) o un nome che finisce con `-sample`, **mai** "sample" come parola qualunque del titolo.
 - Estensioni che non sono né video né sottotitoli. **Eccezione:** `.iso`, `BDMV/` e `VIDEO_TS/` non vengono ignorati, ma vanno in coda come `disc_structure`.
 
