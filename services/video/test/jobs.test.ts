@@ -46,4 +46,30 @@ describe('job queue', () => {
     expect(row).toEqual({ state: 'failed', last_error: 'boom' });
     await runner.stop();
   });
+
+  it('defers a job that asks for a later run without counting the attempt', async () => {
+    db = await openDb({ path: ':memory:' });
+    let t = 0;
+    let calls = 0;
+    enqueueJob(db, t, { type: 'x', payload: null });
+    const later = Object.assign(new Error('provider not ready'), { retryAfterMs: 60_000 });
+    const jobTypes = new Map<string, JobTypeSpec>([
+      ['x', { concurrency: 1, maxAttempts: 1, handler: async () => { calls++; if (calls <= 3) throw later; } }],
+    ]);
+    const runner = createJobRunner({ db, log, jobTypes, periodic: [], now: () => t });
+    const state = () => db.$client.prepare('SELECT state, attempts, run_at FROM job').get() as { state: string; attempts: number; run_at: number };
+    for (let i = 1; i <= 3; i++) {
+      await runner.drain();
+      expect(calls).toBe(i);
+      // With maxAttempts 1 a counted attempt would have failed the job: a deferral never does.
+      expect(state()).toEqual({ state: 'queued', attempts: 0, run_at: t + 60_000 });
+      await runner.drain(); // not due yet
+      expect(calls).toBe(i);
+      t += 60_000;
+    }
+    await runner.drain();
+    expect(calls).toBe(4);
+    expect(state().state).toBe('done');
+    await runner.stop();
+  });
 });

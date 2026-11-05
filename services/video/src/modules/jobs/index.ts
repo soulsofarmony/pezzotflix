@@ -93,6 +93,11 @@ export function createJobRunner(args: {
   const done = db.$client.prepare("UPDATE job SET state = 'done', last_error = NULL, updated_at = ? WHERE id = ?");
   const retry = db.$client.prepare("UPDATE job SET state = 'queued', run_at = ?, last_error = ?, updated_at = ? WHERE id = ?");
   const fail = db.$client.prepare("UPDATE job SET state = 'failed', last_error = ?, updated_at = ? WHERE id = ?");
+  // A handler that asks for a later run (provider Retry-After, no provider yet) is not a failure:
+  // the attempt counted by the claim is given back.
+  const defer = db.$client.prepare(
+    "UPDATE job SET state = 'queued', run_at = ?, last_error = ?, attempts = attempts - 1, updated_at = ? WHERE id = ?",
+  );
 
   const runOne = async (job: ClaimedJob, spec: JobTypeSpec): Promise<void> => {
     const jl = log.child({ jobId: job.id, jobType: job.type, attempt: job.attempts });
@@ -102,7 +107,11 @@ export function createJobRunner(args: {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const max = spec.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-      if (job.attempts >= max || abort.signal.aborted) {
+      const asked = (err as { retryAfterMs?: unknown } | null)?.retryAfterMs;
+      if (typeof asked === 'number' && asked > 0 && !abort.signal.aborted) {
+        defer.run(now() + asked, msg, now(), job.id);
+        jl.info({ err: msg, retryAfterMs: asked }, 'job deferred');
+      } else if (job.attempts >= max || abort.signal.aborted) {
         if (abort.signal.aborted) retry.run(now(), msg, now(), job.id);
         else fail.run(msg, now(), job.id);
         jl.warn({ err: msg }, 'job failed');

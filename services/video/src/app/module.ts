@@ -5,8 +5,10 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from '../db/index.ts';
 import type {
   CatalogReadPort,
+  CatalogWritePort,
   EventPublisher,
   JobQueuePort,
+  MetadataSearchPort,
   ProfileStatePort,
   ProfileTokenVerifier,
 } from '../shared/ports.ts';
@@ -15,6 +17,8 @@ import type { Handlers } from './http.ts';
 
 export interface Ports {
   catalogRead: CatalogReadPort;
+  catalogWrite: CatalogWritePort;
+  metadataSearch: MetadataSearchPort;
   profileState: ProfileStatePort;
   profileTokens: ProfileTokenVerifier;
   jobs: JobQueuePort;
