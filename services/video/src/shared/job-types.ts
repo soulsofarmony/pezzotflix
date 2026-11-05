@@ -8,6 +8,11 @@ export const JOB_TYPES = {
   analyzerProbe: 'analyzer.probe',
   /** Enqueued by analyzer (after a probe) and library (after a rename), handled by identifier. */
   identifierIdentify: 'identifier.identify',
+  /**
+   * Enqueued by catalog when a work is created or gains external ids (auto match or manual
+   * resolution), and by metadata's own refresh sweep; handled by metadata (Enricher).
+   */
+  metadataEnrich: 'metadata.enrich',
 } as const;
 
 export interface LibraryScanPayload {
@@ -20,4 +25,8 @@ export interface AnalyzerProbePayload {
 
 export interface IdentifierIdentifyPayload {
   fileId: string;
+}
+
+export interface MetadataEnrichPayload {
+  itemId: string;
 }
