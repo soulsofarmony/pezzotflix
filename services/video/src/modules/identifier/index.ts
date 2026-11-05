@@ -3,6 +3,7 @@
 import type { ModuleFactory } from '../../app/module.ts';
 import { JOB_TYPES } from '../../shared/job-types.ts';
 import type { Resolver } from './resolvers.ts';
+import { createCaseSettlement } from './settle.ts';
 import { createIdentifier, IDENTIFY_MAX_ATTEMPTS, REQUEUE_PENDING_EVERY_MS, requeuePending } from './service.ts';
 
 export { IDENTIFY_MAX_ATTEMPTS } from './service.ts';
@@ -34,6 +35,7 @@ export function identifierModule(options: IdentifierModuleOptions = {}): ModuleF
     });
     return {
       name: 'identifier',
+      provides: { caseSettlement: createCaseSettlement({ db: ctx.db, now: ctx.now, events: () => ports.events }) },
       // Concurrency 1 (ADR 0001): providers are rate limited per host anyway.
       jobs: { [JOB_TYPES.identifierIdentify]: { concurrency: 1, maxAttempts: IDENTIFY_MAX_ATTEMPTS, handler: identifier.identify } },
       periodic: [

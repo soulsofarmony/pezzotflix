@@ -5,6 +5,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from '../../db/index.ts';
 import type { JobTypeSpec, ModuleFactory, PeriodicTask } from '../../app/module.ts';
 import { newId } from '../../shared/ids.ts';
+import type { JobStats } from '../../shared/ports.ts';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const BACKOFF_BASE_MS = 30_000;
@@ -184,7 +185,36 @@ export function createJobRunner(args: {
   };
 }
 
+/** RetryJob (admin): a failed job goes back to queued, due now, with attempts 0. */
+export function retryJob(db: Db, now: number, jobId: string): 'requeued' | 'not_failed' | 'not_found' {
+  const r = db.$client
+    .prepare("UPDATE job SET state = 'queued', attempts = 0, run_at = ?, last_error = NULL, updated_at = ? WHERE id = ? AND state = 'failed'")
+    .run(now, now, jobId);
+  if (r.changes > 0) return 'requeued';
+  return db.$client.prepare('SELECT 1 FROM job WHERE id = ?').get(jobId) ? 'not_failed' : 'not_found';
+}
+
+/** Job counts per type and state, and the most recent failures (GetIngestStatus). */
+export function jobStats(db: Db, failedLimit: number): JobStats {
+  const counts: JobStats['counts'] = {};
+  const rows = db.$client.prepare('SELECT type, state, count(*) AS n FROM job GROUP BY type, state ORDER BY type, state').all() as {
+    type: string;
+    state: string;
+    n: number;
+  }[];
+  for (const r of rows) (counts[r.type] ??= {})[r.state] = r.n;
+  const failed = (
+    db.$client
+      .prepare("SELECT id, type, last_error AS error, attempts, updated_at AS updatedAt FROM job WHERE state = 'failed' ORDER BY updated_at DESC, id DESC LIMIT ?")
+      .all(failedLimit) as { id: string; type: string; error: string | null; attempts: number; updatedAt: number }[]
+  ).map((r) => ({ jobId: r.id, type: r.type, error: r.error ?? '', attempts: r.attempts, updatedAt: r.updatedAt }));
+  return { counts, failed };
+}
+
 export const createJobsModule: ModuleFactory = ({ db, now }) => ({
   name: 'jobs',
-  provides: { jobs: { enqueue: (input) => enqueueJob(db, now(), input) } },
+  provides: {
+    jobs: { enqueue: (input) => enqueueJob(db, now(), input) },
+    jobAdmin: { retry: (jobId) => retryJob(db, now(), jobId), stats: (failedLimit) => jobStats(db, failedLimit) },
+  },
 });

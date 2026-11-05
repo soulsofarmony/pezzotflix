@@ -14,6 +14,25 @@ roots:
               required: [roots]
               properties:
                 roots: { type: array, items: { $ref: '../components/schemas.yaml#/LibraryRoot' } }
+confirmRootContents:
+  parameters:
+    - { name: rootId, in: path, required: true, schema: { type: string } }
+  post:
+    operationId: confirmRootContents
+    tags: [admin]
+    security: []
+    summary: >-
+      ConfirmRootContents — the owner confirms that the files a held root lacks were really removed.
+      A root held offline by the unmounted-root guard (LibraryRoot.held) gets a scan that marks up to
+      held.missingFiles absent files missing; if more are absent by then, the root is held again.
+    responses:
+      '202':
+        description: Confirmation recorded, scan queued.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Accepted' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
 scan:
   post:
     operationId: triggerScan
@@ -73,6 +92,7 @@ cases:
         content:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/CasePage' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
 case:
   parameters:
     - { $ref: '../components/parameters.yaml#/CaseId' }

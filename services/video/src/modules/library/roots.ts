@@ -10,6 +10,8 @@ import { fold } from './rules.ts';
 
 export type RootRow = typeof libraryRoot.$inferSelect;
 
+const NO_HOLD = { holdReason: null, heldMissing: null, confirmedMissing: null, confirmedAt: null } as const;
+
 export interface SkippedRoot {
   spec: LibraryRootSpec;
   reason: 'duplicate_name' | 'duplicate_path' | 'nested';
@@ -72,9 +74,10 @@ export function syncRoots(db: Db, specs: readonly LibraryRootSpec[], now: number
         rows.find((r) => r.name === spec.name && !configuredPaths.has(r.mountPath) && !claimed.has(r.id));
       if (row) {
         claimed.add(row.id);
-        if (row.name !== spec.name || row.hint !== spec.hint || row.mountPath !== spec.path) {
+        const moved = row.mountPath !== spec.path;
+        if (row.name !== spec.name || row.hint !== spec.hint || moved) {
           tx.update(libraryRoot)
-            .set({ name: spec.name, hint: spec.hint, mountPath: spec.path })
+            .set({ name: spec.name, hint: spec.hint, mountPath: spec.path, ...(moved ? NO_HOLD : {}) })
             .where(eq(libraryRoot.id, row.id))
             .run();
         }
@@ -85,7 +88,7 @@ export function syncRoots(db: Db, specs: readonly LibraryRootSpec[], now: number
             .where(and(eq(mediaFile.rootId, row.id), isNotNull(mediaFile.facts)))
             .run();
         }
-        roots.push({ ...row, name: spec.name, hint: spec.hint, mountPath: spec.path });
+        roots.push({ ...row, name: spec.name, hint: spec.hint, mountPath: spec.path, ...(moved ? NO_HOLD : {}) });
       } else {
         const created: RootRow = {
           id: newId(),
@@ -95,16 +98,45 @@ export function syncRoots(db: Db, specs: readonly LibraryRootSpec[], now: number
           status: 'online',
           lastScanAt: null,
           createdAt: now,
+          holdReason: null,
+          heldMissing: null,
+          confirmedMissing: null,
+          confirmedAt: null,
         };
         tx.insert(libraryRoot).values(created).run();
         roots.push(created);
       }
     }
+    // A hold (and its confirmation) describes the contents seen at one mount path: it does not
+    // survive the root leaving the config or moving elsewhere.
     for (const r of rows) {
-      if (!claimed.has(r.id) && r.status !== 'offline') {
-        tx.update(libraryRoot).set({ status: 'offline' }).where(eq(libraryRoot.id, r.id)).run();
+      const held = r.holdReason !== null || r.heldMissing !== null || r.confirmedMissing !== null || r.confirmedAt !== null;
+      if (!claimed.has(r.id) && (r.status !== 'offline' || held)) {
+        tx.update(libraryRoot).set({ status: 'offline', ...NO_HOLD }).where(eq(libraryRoot.id, r.id)).run();
       }
     }
     return { roots, skipped };
+  });
+}
+
+/**
+ * ConfirmRootContents: records that the files a held root lacks were really removed. The next scan
+ * of the root marks up to heldMissing files missing despite the guard, then clears the confirmation.
+ * confirmedAt only grows, so a scan clears the confirmation it saw and never a later one.
+ */
+export function confirmRootContents(
+  db: Db,
+  specs: readonly LibraryRootSpec[],
+  rootId: string,
+  now: number,
+): 'queued' | 'not_found' | 'not_held' | 'not_configured' {
+  return db.transaction((tx) => {
+    const row = tx.select().from(libraryRoot).where(eq(libraryRoot.id, rootId)).get();
+    if (!row) return 'not_found';
+    if (!validateRoots(specs).accepted.some((s) => s.path === row.mountPath)) return 'not_configured';
+    if (!row.holdReason || row.heldMissing === null) return 'not_held';
+    const confirmedAt = row.confirmedAt === null ? now : Math.max(now, row.confirmedAt + 1);
+    tx.update(libraryRoot).set({ confirmedMissing: row.heldMissing, confirmedAt }).where(eq(libraryRoot.id, rootId)).run();
+    return 'queued';
   });
 }

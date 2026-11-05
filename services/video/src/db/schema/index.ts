@@ -23,6 +23,7 @@ const bool = (name: string) => integer(name, { mode: 'boolean' });
 // ---------------------------------------------------------------- enums
 export const ROOT_HINTS = ['movies', 'series', 'mixed'] as const;
 export const ROOT_STATUS = ['online', 'offline'] as const;
+export const ROOT_HOLD_REASONS = ['empty_walk', 'mass_missing'] as const;
 export const FILE_STATES = ['discovered', 'analyzed', 'identified', 'needs_review', 'missing', 'removed', 'ignored'] as const;
 export const STREAM_TYPES = ['video', 'audio', 'subtitle', 'attachment', 'data'] as const;
 export const ITEM_KINDS = ['movie', 'series', 'season', 'episode', 'extra'] as const;
@@ -48,6 +49,14 @@ export const libraryRoot = sqliteTable('library_root', {
   status: text('status', { enum: ROOT_STATUS }).notNull().default('online'),
   lastScanAt: ts('last_scan_at'),
   createdAt: ts('created_at').notNull(),
+  /** Unmounted-root guard of the last scan (empty_walk | mass_missing): reachable, but held offline. No CHECK: adding one would rebuild the table. */
+  holdReason: text('hold_reason', { enum: ROOT_HOLD_REASONS }),
+  /** Files the held scan did not mark missing. */
+  heldMissing: integer('held_missing'),
+  /** Set by the owner (ConfirmRootContents): the next scan may mark up to this many files missing despite the guard. */
+  confirmedMissing: integer('confirmed_missing'),
+  /** When the owner confirmed (strictly increasing): a scan clears only the confirmation it saw. */
+  confirmedAt: ts('confirmed_at'),
 }, (t) => [
   uniqueIndex('library_root_mount_uq').on(t.mountPath),
   check('library_root_hint_ck', inList('hint', ROOT_HINTS)),
@@ -199,6 +208,7 @@ export const identificationCase = sqliteTable('identification_case', {
 }, (t) => [
   uniqueIndex('identification_case_file_uq').on(t.fileId),
   index('identification_case_state_ix').on(t.state, t.updatedAt),
+  index('identification_case_queue_ix').on(t.state, t.createdAt, t.id),
   check('identification_case_state_ck', inList('state', CASE_STATES)),
 ]);
 

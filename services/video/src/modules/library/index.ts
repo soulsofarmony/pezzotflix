@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { ModuleFactory } from '../../app/module.ts';
 import { JOB_TYPES, type LibraryScanPayload } from '../../shared/job-types.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
-import { syncRoots } from './roots.ts';
+import { confirmRootContents, syncRoots } from './roots.ts';
 import { createScanner } from './scan.ts';
 
 /** A file modified within the last minute is assumed to be still copying (doc 02 §3.1). */
@@ -47,6 +47,15 @@ export function libraryModule(options: LibraryModuleOptions = {}): ModuleFactory
     });
     return {
       name: 'library',
+      provides: {
+        library: {
+          requestScan: (rootId) => requestScan(ports.jobs, rootId),
+          confirmRootContents: (rootId) => {
+            const found = confirmRootContents(db, config.LIBRARY_ROOTS, rootId, now());
+            return found === 'queued' ? { status: 'queued', jobId: requestScan(ports.jobs, rootId) } : { status: found };
+          },
+        },
+      },
       start: () => {
         // The config cannot change while running: skipped roots are reported once.
         for (const s of syncRoots(db, config.LIBRARY_ROOTS, now()).skipped) {

@@ -15,6 +15,13 @@
       "when": 1793838482708,
       "tag": "0001_catalog_search",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793889052963,
+      "tag": "0002_root_hold",
+      "breakpoints": true
     }
   ]
 }

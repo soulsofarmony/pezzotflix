@@ -79,6 +79,7 @@ children:
         content:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/ItemPage' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
 nextUp:
   parameters:

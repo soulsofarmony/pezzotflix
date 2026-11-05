@@ -373,16 +373,32 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
     const summaries: RootScanSummary[] = [];
     const rootNames = new Map(db.select({ id: libraryRoot.id, name: libraryRoot.name }).from(libraryRoot).all().map((r) => [r.id, r.name]));
     const fpOf = (rootId: string, relPath: string) => fingerprints.get(`${rootId}\u0000${relPath}`) ?? null;
-    const setStatus = (rootId: string, status: 'online' | 'offline') =>
+    // The hold of the guard is kept on the root (listLibraryRoots). The owner confirmation this scan saw
+    // is consumed; one recorded while it ran (a newer confirmedAt) is left for the follow-up scan.
+    const setStatus = (root: RootRow, status: 'online' | 'offline', hold: { reason: RootWarning; missing: number } | null) =>
       ops.push(() => {
         db.update(libraryRoot)
-          .set(status === 'online' ? { status, lastScanAt: t } : { status })
-          .where(eq(libraryRoot.id, rootId))
+          .set({
+            status,
+            ...(status === 'online' ? { lastScanAt: t } : {}),
+            holdReason: hold?.reason ?? null,
+            heldMissing: hold?.missing ?? null,
+          })
+          .where(eq(libraryRoot.id, root.id))
           .run();
+        if (root.confirmedAt !== null) {
+          db.update(libraryRoot)
+            .set({ confirmedMissing: null, confirmedAt: null })
+            .where(and(eq(libraryRoot.id, root.id), eq(libraryRoot.confirmedAt, root.confirmedAt)))
+            .run();
+        }
       });
 
+    // Nothing was seen of an unreachable root: its hold and any confirmation stay as they are.
     for (const root of unreachable) {
-      setStatus(root.id, 'offline');
+      ops.push(() => {
+        db.update(libraryRoot).set({ status: 'offline' }).where(eq(libraryRoot.id, root.id)).run();
+      });
       summaries.push(emptySummary(root, 'offline'));
     }
 
@@ -455,6 +471,12 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
       const wouldMiss = p.diff.gone.filter((f) => !claimed.has(f.id)).length;
       const emptyWalk = p.walk.entries.length === 0 && p.walk.skipped.length === 0;
       p.summary.warning = unmountedWarning(present, wouldMiss, emptyWalk);
+      const confirmed = p.root.confirmedMissing;
+      if (p.summary.warning && confirmed !== null && wouldMiss <= confirmed) {
+        // ConfirmRootContents: the owner said these files are gone. More absent files than confirmed hold the root again.
+        log.info({ root: p.root.name, warning: p.summary.warning, wouldMiss, confirmed }, 'owner confirmed the root contents: guard released');
+        p.summary.warning = null;
+      }
       if (p.summary.warning) {
         p.summary.status = 'offline';
         p.summary.heldMissing = wouldMiss;
@@ -643,7 +665,7 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
           db.update(mediaFile).set({ state: 'missing', missingSince: t, updatedAt: t }).where(eq(mediaFile.id, file.id)).run();
         });
       }
-      setStatus(root.id, summary.status);
+      setStatus(root, summary.status, summary.warning ? { reason: summary.warning, missing: summary.heldMissing } : null);
     }
 
     await runInBatches(db, ops);

@@ -4,10 +4,15 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from '../db/index.ts';
 import type {
+  CaseSettlementPort,
+  CatalogLinkPort,
   CatalogReadPort,
+  CatalogViewPort,
   CatalogWritePort,
   EventPublisher,
+  JobAdminPort,
   JobQueuePort,
+  LibraryControlPort,
   MetadataSearchPort,
   ProfilePlaybackPort,
   ProfileStatePort,
@@ -27,6 +32,11 @@ export interface Ports {
   jobs: JobQueuePort;
   events: EventPublisher;
   streamDelivery: StreamDeliveryPort;
+  catalogViews: CatalogViewPort;
+  library: LibraryControlPort;
+  jobAdmin: JobAdminPort;
+  catalogLinks: CatalogLinkPort;
+  caseSettlement: CaseSettlementPort;
 }
 
 export interface JobContext {

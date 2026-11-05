@@ -571,6 +571,19 @@ LibraryRoot:
     status: { type: string, enum: [online, offline] }
     lastScanAt: { type: [integer, 'null'] }
     fileCount: { type: integer }
+    held:
+      description: >-
+        Set when the last scan reached the root but held it offline (unmounted-root guard): its files were not
+        marked missing. empty_walk = the mount point looked empty; mass_missing = most files vanished at once.
+        Released by ConfirmRootContents or by the files coming back.
+      oneOf:
+        - type: 'null'
+        - type: object
+          required: [reason, missingFiles, confirmed]
+          properties:
+            reason: { type: string, enum: [empty_walk, mass_missing] }
+            missingFiles: { type: integer, description: Files the held scan did not mark missing. }
+            confirmed: { type: boolean, description: The owner confirmed; the next scan applies it. }
 
 IngestStatus:
   type: object
@@ -592,6 +605,12 @@ IngestStatus:
       type: object
       description: Count of media files per state.
       additionalProperties: { type: integer }
+    jobs:
+      type: object
+      description: 'Count of jobs per type, then per state (queued, running, done, failed).'
+      additionalProperties:
+        type: object
+        additionalProperties: { type: integer }
 
 Candidate:
   type: object

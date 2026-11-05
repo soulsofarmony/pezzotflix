@@ -423,6 +423,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video/api/v1/admin/roots/{rootId}/confirm-contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rootId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ConfirmRootContents — the owner confirms that the files a held root lacks were really removed. A root held offline by the unmounted-root guard (LibraryRoot.held) gets a scan that marks up to held.missingFiles absent files missing; if more are absent by then, the root is held again. */
+        post: operations["confirmRootContents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/api/v1/admin/scan": {
         parameters: {
             query?: never;
@@ -1076,13 +1095,22 @@ export interface components {
             status: "online" | "offline";
             lastScanAt?: number | null;
             fileCount?: number;
-        };
-        ScanRequest: {
-            rootId?: components["schemas"]["Id"];
+            /** @description Set when the last scan reached the root but held it offline (unmounted-root guard): its files were not marked missing. empty_walk = the mount point looked empty; mass_missing = most files vanished at once. Released by ConfirmRootContents or by the files coming back. */
+            held?: null | {
+                /** @enum {string} */
+                reason: "empty_walk" | "mass_missing";
+                /** @description Files the held scan did not mark missing. */
+                missingFiles: number;
+                /** @description The owner confirmed; the next scan applies it. */
+                confirmed: boolean;
+            };
         };
         Accepted: {
             accepted: boolean;
             jobId?: components["schemas"]["Id"] | null;
+        };
+        ScanRequest: {
+            rootId?: components["schemas"]["Id"];
         };
         IngestStatus: {
             running: boolean;
@@ -1096,6 +1124,12 @@ export interface components {
             /** @description Count of media files per state. */
             files: {
                 [key: string]: number;
+            };
+            /** @description Count of jobs per type, then per state (queued, running, done, failed). */
+            jobs?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
             };
         };
         Candidate: {
@@ -1542,6 +1576,7 @@ export interface operations {
                     "application/json": components["schemas"]["ItemPage"];
                 };
             };
+            400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
         };
     };
@@ -1854,6 +1889,30 @@ export interface operations {
             };
         };
     };
+    confirmRootContents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rootId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Confirmation recorded, scan queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
     triggerScan: {
         parameters: {
             query?: never;
@@ -1945,6 +2004,7 @@ export interface operations {
                     "application/json": components["schemas"]["CasePage"];
                 };
             };
+            400: components["responses"]["Problem"];
         };
     };
     getIdentificationCase: {

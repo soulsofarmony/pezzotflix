@@ -526,6 +526,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
           "404": {
             "$ref": "#/components/responses/Problem"
           }
@@ -984,6 +987,44 @@
         }
       }
     },
+    "/video/api/v1/admin/roots/{rootId}/confirm-contents": {
+      "parameters": [
+        {
+          "name": "rootId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "confirmRootContents",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "summary": "ConfirmRootContents — the owner confirms that the files a held root lacks were really removed. A root held offline by the unmounted-root guard (LibraryRoot.held) gets a scan that marks up to held.missingFiles absent files missing; if more are absent by then, the root is held again.",
+        "responses": {
+          "202": {
+            "description": "Confirmation recorded, scan queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
     "/video/api/v1/admin/scan": {
       "post": {
         "operationId": "triggerScan",
@@ -1115,6 +1156,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
           }
         }
       }
@@ -3011,15 +3055,39 @@
           },
           "fileCount": {
             "type": "integer"
-          }
-        }
-      },
-      "ScanRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "rootId": {
-            "$ref": "#/components/schemas/Id"
+          },
+          "held": {
+            "description": "Set when the last scan reached the root but held it offline (unmounted-root guard): its files were not marked missing. empty_walk = the mount point looked empty; mass_missing = most files vanished at once. Released by ConfirmRootContents or by the files coming back.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "reason",
+                  "missingFiles",
+                  "confirmed"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "empty_walk",
+                      "mass_missing"
+                    ]
+                  },
+                  "missingFiles": {
+                    "type": "integer",
+                    "description": "Files the held scan did not mark missing."
+                  },
+                  "confirmed": {
+                    "type": "boolean",
+                    "description": "The owner confirmed; the next scan applies it."
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -3041,6 +3109,15 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "ScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "$ref": "#/components/schemas/Id"
           }
         }
       },
@@ -3089,6 +3166,16 @@
             "description": "Count of media files per state.",
             "additionalProperties": {
               "type": "integer"
+            }
+          },
+          "jobs": {
+            "type": "object",
+            "description": "Count of jobs per type, then per state (queued, running, done, failed).",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
             }
           }
         }

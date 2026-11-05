@@ -48,6 +48,7 @@ paths:
   /video/api/v1/playback/sessions/{sessionId}/failure: { $ref: './paths/playback.yaml#/failure' }
 
   /video/api/v1/admin/roots: { $ref: './paths/admin.yaml#/roots' }
+  /video/api/v1/admin/roots/{rootId}/confirm-contents: { $ref: './paths/admin.yaml#/confirmRootContents' }
   /video/api/v1/admin/scan: { $ref: './paths/admin.yaml#/scan' }
   /video/api/v1/admin/ingest: { $ref: './paths/admin.yaml#/ingest' }
   /video/api/v1/admin/jobs/{jobId}/retry: { $ref: './paths/admin.yaml#/retryJob' }

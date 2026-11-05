@@ -27,6 +27,7 @@ export type ItemSummary = ApiSchemas['ItemSummary'];
 export type ProfileItemState = ApiSchemas['ProfileItemState'];
 export type ProfilePrefs = ApiSchemas['ProfilePrefs'];
 export type ClientCapabilities = ApiSchemas['ClientCapabilities'];
+export type MediaVersion = ApiSchemas['MediaVersion'];
 
 /** A playable file linked to an item, as the Playback module needs it. Implemented by catalog. */
 export interface PlayableFile {
@@ -102,6 +103,70 @@ export interface ProfileStatePort {
   continueWatching(profileId: string, limit: number): string[];
   /** Episode id to watch next in a series, or null. */
   nextUp(profileId: string, seriesId: string): string | null;
+  /**
+   * Last time (ms UTC) each item was played by the profile; items never played are left out.
+   * Optional: ListItems sort=last_played falls back to the Continue watching order without it.
+   */
+  lastPlayed?(profileId: string, itemIds: readonly string[]): Map<string, number>;
+}
+
+/** Implemented by modules/catalog: catalog views the admin API shows next to cases and files. */
+export interface CatalogViewPort {
+  /** Summaries without profile state, in the order of itemIds; unknown ids are left out. */
+  summaries(itemIds: readonly string[]): ItemSummary[];
+  /** Technical summary of one file, as GetItem shows it in versions, or null if unknown. */
+  mediaVersion(fileId: string): MediaVersion | null;
+}
+
+/**
+ * Implemented by modules/catalog: manual MediaLinks, which the catalog owns (doc 02 §4).
+ * Synchronous: a call joins the caller's open transaction. Publishes library.item_updated.
+ */
+export interface CatalogLinkPort {
+  /** The file's manual links become exactly itemIds (which must exist). Returns the items that lost a manual link. */
+  replaceManualLinks(fileId: string, itemIds: readonly string[]): { removed: string[] };
+  /** Removes the file's manual links; returns the items they pointed to. */
+  removeManualLinks(fileId: string): string[];
+}
+
+/**
+ * Implemented by modules/identifier, which owns IdentificationCase, the file state it implies and
+ * the auto links. Synchronous: a call joins the caller's open transaction.
+ */
+export interface CaseSettlementPort {
+  /**
+   * The owner's decision: the case takes that state, the file follows ('identified' or 'ignored';
+   * a missing or removed file keeps its state) and the file's auto links are removed.
+   * Null if the case does not exist.
+   */
+  settleCase(caseId: string, decision: 'resolved' | 'ignored'): { fileId: string; removedAutoLinks: string[] } | null;
+}
+
+/** Implemented by modules/library (Library Monitor). */
+export interface LibraryControlPort {
+  /** Enqueues library.scan for one root or all, at most one queued plus one follow-up. Returns the job id or null. */
+  requestScan(rootId?: string): string | null;
+  /**
+   * The owner confirms that the files a held root lacks were really removed: the next scan may
+   * mark up to that many files missing despite the unmounted-root guard. Queues that scan.
+   */
+  confirmRootContents(
+    rootId: string,
+  ): { status: 'queued'; jobId: string | null } | { status: 'not_found' } | { status: 'not_configured' } | { status: 'not_held' };
+}
+
+export interface JobStats {
+  /** Jobs per type, then per state. */
+  counts: Record<string, Record<string, number>>;
+  /** Failed jobs, most recent first. */
+  failed: { jobId: string; type: string; error: string; attempts: number; updatedAt: number }[];
+}
+
+/** Implemented by modules/jobs: what the admin API needs on top of JobQueuePort. */
+export interface JobAdminPort {
+  /** A failed job goes back to queued with attempts 0. */
+  retry(jobId: string): 'requeued' | 'not_failed' | 'not_found';
+  stats(failedLimit: number): JobStats;
 }
 
 /** Implemented by modules/profiles. Used by the HTTP security handler. */
