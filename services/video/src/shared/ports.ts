@@ -13,6 +13,14 @@ import type {
   ProviderStatus,
   WorkKind,
 } from './metadata.ts';
+import type {
+  DeliveryMode,
+  PlanExclusion,
+  PlaybackPlan,
+  StreamProtocol,
+  SubtitleAvailability,
+  SuspectDimension,
+} from './playback-plan.ts';
 
 export type ApiSchemas = components['schemas'];
 export type ItemSummary = ApiSchemas['ItemSummary'];
@@ -164,4 +172,143 @@ export interface CatalogWritePort {
   getItem(itemId: string): CatalogItemRef | null;
   /** The item itself if it has that kind, else its nearest ancestor of that kind. */
   findAncestor(itemId: string, kind: CatalogItemKind): string | null;
+}
+
+// ---------------------------------------------------------------- stream delivery (F1b)
+
+/** One started stream. A re-plan stops it and starts a new one, with a new token (ADR 0003 D7). */
+export interface StreamRef {
+  streamId: string;
+}
+
+/** A subtitle track served separately: one per plan.subtitles.served, in the same order. */
+export interface SubtitleLocator {
+  trackId: string;
+  /** Relative data-plane URL: /video/media/s/<token>/subtitles/<trackId>.<sup|vtt>. */
+  url: string;
+  availability: SubtitleAvailability;
+}
+
+/** contract stream.bitrate (ADR 0003 D14), estimated from the keyframe index for the stream as served. */
+export interface StreamBitrate {
+  peakBps: number;
+  averageBps: number;
+  audioBps: number;
+}
+
+/** Result of StreamDeliveryPort.start: what the Session Manager needs for PlaybackSession.stream and the subtitle tracks. */
+export interface StreamHandle extends StreamRef {
+  sessionId: string;
+  mode: DeliveryMode;
+  protocol: StreamProtocol;
+  locators: {
+    /** Relative data-plane URL: /video/media/s/<token>/file (progressive) or …/hls/main.m3u8 (hls-fmp4). */
+    stream: string;
+    subtitles: SubtitleLocator[];
+  };
+  /** RFC 6381 type of what is served; for hls-fmp4 the segments' type, both codecs read from the init (ADR 0003 D1, D11). */
+  mimeType: string;
+  bitrate: StreamBitrate;
+  /** 10000 for hls-fmp4, 0 for progressive (ADR 0003 D5). stream.startOffsetMs is always 0. */
+  mediaTimestampOffsetMs: number;
+  startedAt: number;
+}
+
+/**
+ * What went wrong, classified by delivery from the process exit, its stderr and its own checks:
+ * - process_exit: ffmpeg exited with a code ≠ 0;
+ * - restart_mismatch: a restart's first kept keyframe is more than 1 ms from Bₖ (ADR 0003 D4);
+ * - init_mismatch: a restart's init segment differs from the first one (ADR 0003 D4, t1);
+ * - aac_channel_config: the AAC encoder wrote channelConfiguration 0 (PCE) in the esds (ADR 0003 D11);
+ * - no_output: no init segment within the start timeout;
+ * - file_unavailable: root offline, file missing, or size/mtime differ from the plan;
+ * - io_error: a scratch or cache write failed (quota, disk).
+ */
+export type StreamFailureKind =
+  | 'process_exit'
+  | 'restart_mismatch'
+  | 'init_mismatch'
+  | 'aac_channel_config'
+  | 'no_output'
+  | 'file_unavailable'
+  | 'io_error';
+
+export type StderrClass = 'demux' | 'decode' | 'filter' | 'encode' | 'mux' | 'io' | 'unknown';
+
+/**
+ * Delivery's own record of a failure (doc 04 §8, ADR 0003 D7, doc 02 §3.11). The Session Manager
+ * re-plans from this record, never from the client's suspect.
+ */
+export interface StreamFailure {
+  at: number;
+  kind: StreamFailureKind;
+  /** format: the plan's format cannot work (re-plan excluding it); stream: producing the stream failed. */
+  class: 'format' | 'stream';
+  suspect: SuspectDimension;
+  /** The minimal exclusion delivery can name (cause 'server'), or null; the Session Manager decides. */
+  exclusion: PlanExclusion | null;
+  exitCode: number | null;
+  signal: string | null;
+  stderrClass: StderrClass | null;
+  /** Last stderr lines, at most 4 KiB, for diagnostics only: playback never parses it. */
+  stderrTail: string;
+  /** Original-timeline position of the failed segment or request, if known. */
+  positionMs: number | null;
+  segment: number | null;
+  /** True once the data plane answers 500 STREAM_FAILED for this stream, after delivery's one automatic retry. */
+  terminal: boolean;
+}
+
+/**
+ * Typed outcome of start. Codes are the contract's Problem codes, so playback maps them 1:1.
+ * - STREAM_PREPARING (503 + Retry-After): only the slow probe can build the keyframe index; delivery
+ *   has already enqueued delivery.keyframe_index at urgent priority (ADR 0003 D8).
+ * - MEDIA_UNAVAILABLE (503): root not configured or offline, file missing or changed, unsafe path.
+ * - STREAM_FAILED: no usable init segment after delivery's automatic retry. With failure.class
+ *   'format' (e.g. aac_channel_config) the Session Manager re-plans at once with failure.exclusion,
+ *   within the 3 automatic attempts of doc 04 §8.
+ * A plan of another planVersion is a programming error and throws.
+ */
+export type StreamStartResult =
+  | { ok: true; handle: StreamHandle }
+  | { ok: false; code: 'STREAM_PREPARING'; retryAfterMs: number }
+  | { ok: false; code: 'MEDIA_UNAVAILABLE'; detail: string }
+  | { ok: false; code: 'STREAM_FAILED'; failure: StreamFailure };
+
+/** Why a stream stops. For replanned and expired the output is discarded, so the process is killed at once (ADR 0003 D7). */
+export type StreamStopReason = 'stopped' | 'terminated' | 'expired' | 'replanned' | 'shutdown';
+
+export interface StreamStatus extends StreamRef {
+  sessionId: string;
+  /** active also covers an idle-killed process that restarts on the next request (DELIVERY_IDLE_KILL_S). */
+  state: 'active' | 'failed' | 'stopped';
+  /** Latest failure record, also one delivery's automatic retry recovered from; null if none. */
+  failure: StreamFailure | null;
+  subtitles: { trackId: string; availability: SubtitleAvailability }[];
+  /** Last data-plane request for this stream (ms UTC), null if none yet. */
+  lastRequestAt: number | null;
+}
+
+/**
+ * Implemented by modules/delivery, consumed by the Session Manager in modules/playback (doc 03 §8,
+ * ADR 0003 D9). Plain JSON in and out, and every call is async, so the port becomes an RPC
+ * unchanged when delivery moves into video-worker (C1).
+ *
+ * Tokens: delivery owns the token table (ADR 0003 D9), so there is no token port. start mints a
+ * random token, keeps only its SHA-256 and returns the token inside the locators. The data-plane
+ * handlers look the hash up in the map, resolve {track} against the plan's served tracks (never
+ * joined into a path), and answer 410 for a tombstoned token (stop, re-plan) until its TTL ends,
+ * 404 after that.
+ *
+ * Failures are pulled, not pushed: every recovery starts either in start (typed result) or in the
+ * client's reportPlaybackFailure, which then reads status(ref).failure. A pull keeps the port
+ * one-directional for an RPC, with no callback across the C1 boundary.
+ */
+export interface StreamDeliveryPort {
+  /** sessionId is the session's current id: delivery uses it in playback.subtitle_ready events. */
+  start(plan: PlaybackPlan, sessionId: string): Promise<StreamStartResult>;
+  /** Idempotent. Kills the process, clears the scratch, tombstones the token. Subtitle extraction is per file and keeps running. */
+  stop(ref: StreamRef, reason: StreamStopReason): Promise<void>;
+  /** null for an unknown stream, or a stopped one past its tombstone TTL. */
+  status(ref: StreamRef): Promise<StreamStatus | null>;
 }

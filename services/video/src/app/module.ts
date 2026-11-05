@@ -11,6 +11,7 @@ import type {
   MetadataSearchPort,
   ProfileStatePort,
   ProfileTokenVerifier,
+  StreamDeliveryPort,
 } from '../shared/ports.ts';
 import type { Config } from './config.ts';
 import type { Handlers } from './http.ts';
@@ -23,6 +24,7 @@ export interface Ports {
   profileTokens: ProfileTokenVerifier;
   jobs: JobQueuePort;
   events: EventPublisher;
+  streamDelivery: StreamDeliveryPort;
 }
 
 export interface JobContext {
