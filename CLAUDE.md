@@ -16,7 +16,7 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` (S1 ✅, S2 ✅, S3 ✅, S4 ✅ incl. TMDB live tests on 2026-11-05, H10 ✅/❌). Pending owner checks: SDR colour check in Chrome/Edge/Firefox (decides P5), 5.1 listening on c1–c7 over HDMI, a DV profile 7 sample (H11)
 - [x] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`: 0001–0007 all Accepted (0007 revised after the TMDB tests; 0003 streaming and 0005 web client accepted on 2026-11-05)
 - [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
-- [ ] 8. MVP build — F0 scaffold ✅ (78c6713); F1a ingest: F1a.1 library + analyzer ✅ (2ed688f), F1a.2 identifier + catalog write ✅ (21d61b0), F1a.3 catalog read + admin ✅ (9c96f38), F1a.4 metadata + artwork ✅ (e5c57c1); F1b playback: F1b.0 plan + delivery port ✅ (c15320d), F1b.1 profiles ✅ (c08a5ec), F1b.2 decision engine + sessions and F1b.3 stream delivery ← **in review**, then F1b.4 subtitles + transcode; then F1c web client, F2 integration. Resume from `docs/journal/2026-11-05-sessione-portatile.md`.
+- [ ] 8. MVP build — F0 scaffold ✅ (78c6713); F1a ingest: F1a.1 library + analyzer ✅ (2ed688f), F1a.2 identifier + catalog write ✅ (21d61b0), F1a.3 catalog read + admin ✅ (9c96f38), F1a.4 metadata + artwork ✅ (e5c57c1); F1b playback: F1b.0 plan + delivery port ✅ (c15320d), F1b.1 profiles ✅ (c08a5ec), F1b.2 decision engine + sessions ✅ (3e2b8c1), F1b.3 stream delivery ✅ (4c60f78), F1b.4 subtitles + transcode ← **in progress**; F1c web client ✅ (8111756); then F2 integration. Resume from `docs/journal/2026-11-05-sessione-portatile.md`.
 
 ## Hard rules
 

@@ -25,24 +25,25 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `8ad6a84` | Solo episodi con un file fra i discendenti riproducibili; ultima scelta delle tracce nella porta dei profili |
 | `c08a5ec` | **F1b.1**, profili e stato di visione: progressi, cronologia, watchlist, "continua a guardare", prossimo episodio. 818 test |
 | `e5c57c1` | **F1a.4**, metadata, arricchimento e locandine: adapter TMDB e Wikidata, cache locale con scadenza, locandine validate e salvate per contenuto, pulizia delle orfane, attribuzioni. 960 test; test live TMDB e Wikidata verdi |
+| `3e2b8c1` | **F1b.2**, motore di decisione e gestore delle sessioni: scelta della versione per qualità (P6), audio per lingua, qualità e conversione minima, tracce ricordate per file, ripianificazione automatica (3 tentativi), sessioni concorrenti, attesa senza stream mentre l'indice si prepara. Due revisioni approfondite e una rilettura. 1161 test |
+| `8111756` | **F1c**, web client: profili, Home, catalogo, ricerca, dettaglio, player (Direct Play e HLS, PGS e WebVTT, ripianificazione automatica), admin "Da verificare", attribuzioni. Revisione del player con correzioni (posizione di ripresa, motore staccato durante i cambi). 349 test |
+| `4c60f78` | **F1b.3**, Stream Delivery: indice dei keyframe, token, Direct Play con Range, HLS fMP4 con segmentatore proprio; riavvii con video identico e audio convertito allineato (scarto misurato 0 ms). Due revisioni approfondite e una rilettura. 1396 test |
 
 ## 2. In corso
 
-- **F1b.2**, motore di decisione e gestore delle sessioni: pronto, in revisione approfondita (due revisori, uno sul motore e uno sulle sessioni). Nuova decisione **P6** nel doc 04: fra le versioni in Direct Play e Direct Stream vince la qualità più alta, il transcode video sempre per ultimo, la modalità più leggera solo a parità di qualità.
-- **F1b.3**, Stream Delivery: indice dei keyframe dalle Cues MKV, token, Direct Play con Range, HLS fMP4 in Direct Stream con segmentatore proprio e ripartenza. Pronto, in revisione approfondita (sicurezza e ciclo di vita; correttezza HLS).
+- **F1b.4**: estrazione dei sottotitoli interni al file (due passate, risposta che cresce, evento `subtitle_ready`) e transcode software fino a 1080p (tone-mapping, burn-in). Revisione approfondita dopo.
+- **Piccole richieste dal web client**: titolo della serie sugli episodi, riga "prossimo episodio" in Home, motivi di `session_terminated`, campo strutturato "sessione chiusa" sul 422, stato di visione che segue un file ricollegato, `ANALYZER_VERSION` a 2.
 
 ## 3. Prossimi passi
 
-1. Correggere quanto emerge dalle revisioni di F1b.2 e F1b.3 e integrarli. All'integrazione:
-   - aggiungere al contratto gli stati mancanti (fra cui 503 su `getSubtitle`);
-   - aggiungere `level` al `VideoSource` del piano;
-   - portare `fileId` nelle esclusioni dei sottotitoli create da Stream Delivery.
-2. **F1b.4**: estrazione dei sottotitoli embedded in due passate con risposte "growing" ed evento `subtitle_ready`; transcode software fino a 1080p.
-3. **F1c**, web client (ADR 0005).
-4. **F2**, integrazione con revisione approfondita, poi report finale.
+1. Integrare F1b.4 e le richieste del web client.
+2. **F2**: stack in Compose, test end-to-end Playwright (riproduzione, streaming, regressione di S2, accessibilità) sui sample, revisione approfondita finale, correzioni.
+3. Report finale per il proprietario.
 
 ## 4. Lacune note, da riprendere
 
+- **Nessun timeout sulle chiamate a Stream Delivery**: un avvio che si blocca ferma anche gli avvii successivi dello stesso profilo. Oggi lo limita il timeout di avvio di Delivery; servirà quando Delivery andrà in un container separato.
+- **Conteggio degli avvii bloccati in memoria**: si azzera al riavvio del servizio.
 - **Stato di visione orfano** quando un file viene ricollegato a un altro item (`reassignItemState` non c'è ancora).
 - **Flag di revisione dei metadata** non salvato (ADR 0007 §2/§3): per ora solo un warning nel log.
 - **Autore e licenza delle immagini Commons** non salvati: serve una migrazione della tabella `artwork`.
