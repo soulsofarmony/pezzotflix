@@ -74,7 +74,9 @@ These agreements used to live only in Claude's local memory; they are here so th
 ## Environment
 
 - Dev and first real use: Windows 11 + Docker Desktop (WSL2). A Linux mini-PC/server comes later, so keep everything portable.
-- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), **Node 26.13 LTS** (project runtime, ADR 0001, `.nvmrc`; on the original PC it is a portable copy, see `docs/journal/2026-11-06-handoff.md`), Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
+- Host tools: **Node 26.13 LTS** (project runtime, ADR 0001, `.nvmrc`), Python 3.12, ffmpeg/ffprobe ≥ 7 on PATH, Docker with Compose v2. No .NET or Go installed. Two dev machines so far:
+  - **original PC** (desktop): Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node as a portable copy (see `docs/journal/2026-11-06-handoff.md`). S2/S3/H10 numbers come from here;
+  - **laptop** (since 2026-11-05): Docker Desktop with engine 28.1, WSL 2.5.7, Intel iGPU + NVIDIA RTX 1000 Ada Laptop (driver 595.95, 16 GB to Docker). Node 26.13 is installed with nvm-windows but **not** made the default, because other projects need Node 22: prepend `C:\Users\SimoneMen\AppData\Local\nvm\v26.13.0` to PATH for project commands. ffmpeg 8.1.2 (Gyan build via winget, pinned to 8.1.*) is under `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_*\ffmpeg-8.1.2-full_build\bin`. Its NVENC needs driver ≥ 610, so GPU encoding on this host goes through the project image (jellyfin-ffmpeg) with `--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all`.
 - Bind mounts from NTFS into WSL2 containers are slow. Keep this in mind for scanning/watching (inotify does not propagate reliably from Windows paths).
 - Main TV client: Android TV / Google TV device (Chromecast GTV / Google TV Streamer or a Google TV set) → AVR/soundbar over HDMI. Lossless audio passthrough (TrueHD/Atmos, DTS-HD) matters. **Known risk:** Dolby Vision profile 7 (FEL) is unreliable on these devices and usually falls back to HDR10, so it is not an MVP requirement.
 - No real media yet: use public test samples. Subtitle formats are unknown, so treat PGS as likely.

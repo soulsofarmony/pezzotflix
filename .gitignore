@@ -47,6 +47,9 @@ local.properties
 # Spike outputs
 spikes/**/out/
 
+# Agent worktrees (Claude Code, isolation: worktree)
+.claude/worktrees/
+
 # OS / editors
 .DS_Store
 Thumbs.db
