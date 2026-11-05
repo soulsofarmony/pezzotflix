@@ -521,6 +521,18 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
     return rows.map((r) => r.id);
   }
 
+  /** Episodes of a series/season that have at least one linked file, in viewing order. */
+  function playableEpisodeIds(itemId: string): string[] {
+    const ids = episodeIds(itemId);
+    if (!ids.length) return ids;
+    const linked = new Set(
+      (prep('SELECT DISTINCT item_id AS id FROM media_link WHERE item_id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)) as { id: string }[]).map(
+        (r) => r.id,
+      ),
+    );
+    return ids.filter((id) => linked.has(id));
+  }
+
   function nextUp(seriesId: string, profileId: string | null): { item: ItemSummary | null } | null {
     const item = itemById.get(seriesId) as ItemRow | undefined;
     if (!item) return null;
@@ -619,7 +631,7 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
         : [];
       return { itemId: item.id, kind: item.kind, title: item.title, durationMs: item.durationMs, files };
     },
-    listPlayableDescendants: episodeIds,
+    listPlayableDescendants: playableEpisodeIds,
     itemExists: (itemId) => itemById.get(itemId) !== undefined,
     describeItems(itemIds) {
       const out = new Map<string, CatalogItemPosition>();

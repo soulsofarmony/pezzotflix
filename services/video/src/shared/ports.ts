@@ -47,7 +47,7 @@ export interface PlayableItem {
 /** Implemented by modules/catalog. */
 export interface CatalogReadPort {
   getPlayableItem(itemId: string): PlayableItem | null;
-  /** Ids of episodes of a series/season (for watched propagation), in order. */
+  /** Ids of the episodes of a series/season that have at least one linked file, in viewing order. */
   listPlayableDescendants(itemId: string): string[];
   itemExists(itemId: string): boolean;
   /**
@@ -81,6 +81,17 @@ export interface ProgressSample {
   at: number;
   /** True when the session ended at the end of the item (credits reached or stream finished). */
   ended: boolean;
+  /** Audio track playing (`s<index>`), when known. Stored as the last choice for the item (doc 01 §7.2). */
+  audioTrackId?: string;
+  /** Subtitle track shown (`s<index>` or `x:<id>`), null when subtitles are off, absent when unknown. */
+  subtitleTrackId?: string | null;
+}
+
+/** The last track choice of a profile on an item, reused by StartPlayback (doc 03, doc 01 §7.2). */
+export interface TrackChoice {
+  audioTrackId: string | null;
+  /** Null: subtitles were off. */
+  subtitleTrackId: string | null;
 }
 
 /**
@@ -94,6 +105,8 @@ export interface ProfilePlaybackPort {
   recordProgress(sample: ProgressSample): void;
   /** Resume position for an item on the original timeline, or null to start from the beginning. */
   resumePositionMs(profileId: string, itemId: string): number | null;
+  /** Last tracks chosen on this item, or null when never played with known tracks. */
+  lastTrackChoice(profileId: string, itemId: string): TrackChoice | null;
 }
 
 /** Implemented by modules/profiles. Used by catalog to compose Home and summaries. */
