@@ -11,17 +11,23 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `2ed688f` | **F1a.1**, moduli library (scansione, fingerprint, spostamenti, radici smontate, sidecar) e analyzer (ffprobe → MediaFacts). 242 test |
 | `3b79530` | Standard di libreria: cartelle dei NAS ignorate, collegamenti simbolici non seguiti |
 | `b99d99a` | ADR 0007: il contatto Wikidata di default è l'URL pubblico del repository |
-| (questo commit) | **S2 chiuso**: report, revisione (54 rilievi applicati), propagazione nei doc 02/03/04, nuove decisioni P5, I5, I6 e ipotesi H11 |
-| (commit successivo) | Contratto: campi `audioTrackSelection` e `displayHdr`, vocabolario fisso dei codec, definizioni di `delivery`, `stream.mimeType` con i `codecs` |
+| `128f531` | **S2 chiuso**: report, revisione (54 rilievi applicati), propagazione nei doc 02/03/04, nuove decisioni P5, I5, I6 e ipotesi H11 |
+| `84f26e5` | Contratto: campi `audioTrackSelection` e `displayHdr`, vocabolario fisso dei codec, definizioni di `delivery`, `stream.mimeType` con i `codecs` |
+| `9d46b07` | Gateway: `index.html` e le rotte della SPA con `Cache-Control: no-cache`, così una nuova build arriva subito |
+| `21d61b0` | **F1a.2**, identifier e scrittura nel catalogo: parser dei percorsi, catena Wikidata → TMDB (ADR 0007 opzione A), coda "Da verificare", ripresa giornaliera dei casi in sospeso. 561 test |
 
 ## 2. In corso
 
-- **F1a.2**, identifier e scrittura nel catalogo: agente in worktree.
+- **ADR 0003** (streaming) e **ADR 0005** (web client): revisioni arrivate, correzioni in corso. Per lo 0003 un problema bloccante: con GOP aperto, comune nei Blu-ray, la ripartenza da un keyframe non riproduce gli stessi timestamp; ora si riparte dal keyframe precedente.
+
+**Note da F1a.2:**
+- un match TMDB senza anno non diventa mai automatico, perché TMDB entra solo quando Wikidata non ha candidati e il controllo di unicità su Wikidata fallisce sempre. È voluto (scelta prudente, D6): finisce in "Da verificare";
+- da fare in F1a.3: la protezione contro la sparizione di massa tiene offline una radice a tempo indeterminato se il proprietario cancella davvero più di metà dei file. Serve una conferma dall'admin.
 
 ## 3. Prossimi passi
 
-1. ADR 0003 (streaming) e ADR 0005 (web client), un tech-evaluator e un design-reviewer ciascuno.
-2. F1a.2 → review e commit; poi F1a.3 (lettura del catalogo e admin) in parallelo con F1a.4 (adapter Wikidata e TMDB, Enricher, artwork, scadenza e purge).
+1. ADR 0003 e 0005: applicare le correzioni, fare una breve seconda revisione della ripartenza, della timeline e dei sottotitoli dello 0003, aggiornare il contratto (un solo blocco di aggiunte), poi accettarli.
+2. F1a.3 (lettura del catalogo e admin) in parallelo con F1a.4 (adapter Wikidata e TMDB, Enricher, artwork, scadenza e purge).
 3. F1b (playback) dopo l'ADR 0003. Il brief in `.claude/prompts/f1b-profiles-playback-delivery.md` è superato e va riscritto con gli esiti di S2:
    - AC-3/E-AC-3 solo in Edge;
    - FLAC, AAC 5.1 con channelConfiguration 6 e Opus in Chrome e Firefox;
