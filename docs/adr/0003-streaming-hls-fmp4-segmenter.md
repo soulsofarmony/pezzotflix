@@ -239,7 +239,7 @@
 - **Più facile:**
   - il player vede un film normale, con la barra di seek completa;
   - la timeline originale si ottiene da un solo offset, ricalcolato dal client a ogni `INIT_PTS_FOUND`;
-  - i riavvii sono invisibili anche con GOP aperti;
+  - i riavvii sono invisibili anche con GOP aperti. Regola verificata in F1b (2026-11-05), su ogni confine di segmento: il video di un riavvio è identico byte per byte; l'audio copiato ha gli stessi byte dei campioni e PTS entro 1 ms; l'audio convertito ha lo stesso numero di frame e PTS entro 1 ms (i byte codificati dipendono dallo stato dell'encoder, quindi non coincidono). Per l'audio copiato da MKV ffmpeg ricalcola i tempi dal primo pacchetto dopo il seek, e su alcuni confini il `tfdt` si sposta di una frazione di millisecondo (0,167 ms a 48 kHz): lo scarto è sotto la soglia udibile. Per l'audio convertito i frame dell'encoder sono ancorati alla timeline da 0, e lo scarto misurato è 0. Le lacune sotto 0,1 s nell'audio sorgente possono dare uno scarto fino a 100 ms al punto di riavvio;
   - il throttling non usa segnali, quindi funziona uguale su Windows e Linux;
   - la stringa di codec e il controllo dell'AAC vengono da ciò che si serve davvero;
   - `video-worker` prende il modulo `delivery` così com'è, con le sue cache.

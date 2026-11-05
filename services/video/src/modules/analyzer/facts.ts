@@ -212,6 +212,8 @@ function mapStream(s: FfprobeStream, hdr10Plus: boolean): StreamFacts | OtherStr
         ...classifyHdr(s, hdr10Plus),
         bitRate,
         attachedPic: flag(s, 'attached_pic'),
+        // ffprobe prints -99 for an unknown level.
+        level: toPositiveInt(s.level),
       } satisfies VideoStreamFacts;
     case 'audio':
       return {
@@ -283,12 +285,16 @@ export interface MapInput {
 export function mapFacts(input: MapInput): MappedProbe {
   const { probe } = input;
   const mapped = probe.streams.map((s) => mapStream(s, input.hdr10PlusStreams?.has(s.index) ?? false));
-  const duration = msFromSeconds(probe.format?.duration);
+  const container = normalizeContainer(probe.format?.format_name, input.location.relPath);
+  // Zero-based like the keyframe index: Matroska's Duration is the last timestamp, so start_time comes off.
+  const rawDuration = msFromSeconds(probe.format?.duration);
+  const start = msFromSeconds(probe.format?.start_time) ?? 0;
+  const duration = rawDuration !== null && (container === 'matroska' || container === 'webm') && start > 0 && rawDuration > start ? rawDuration - start : rawDuration;
   const facts: MediaFacts = {
     location: input.location,
     sizeBytes: input.sizeBytes,
     mtimeMs: input.mtimeMs,
-    container: normalizeContainer(probe.format?.format_name, input.location.relPath),
+    container,
     durationMs: duration !== null && duration > 0 ? duration : null,
     bitRate: toPositiveInt(probe.format?.bit_rate),
     streams: mapped.filter(isStreamFacts),

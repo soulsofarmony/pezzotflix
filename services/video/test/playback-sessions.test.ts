@@ -1009,3 +1009,55 @@ describe('sessions waiting without a stream (S3 follow-ups)', () => {
   });
 
 });
+
+describe('waiting without a stream is capped (PLAYBACK_PREPARING_MAX_S, M3)', () => {
+  const preparing = () => ({ ok: false as const, code: 'STREAM_PREPARING' as const, retryAfterMs: 1_000 });
+  beforeEach(async () => {
+    await h.close();
+    h = await playbackHarness({ env: { PLAYBACK_PREPARING_MAX_S: '30' } });
+    h.catalog.items.set(ITEM, uhd());
+    h.catalog.items.set(ITEM_HD, hd());
+  });
+
+  it('StartPlayback retried on STREAM_PREPARING: 500 STREAM_FAILED past the cap, then a fresh start works', async () => {
+    for (let i = 0; i < 3; i++) {
+      h.delivery.next.push(preparing());
+      expect((await start({ itemId: ITEM })).status).toBe(503);
+      h.clock.now += 10_000;
+    }
+    h.delivery.next.push(preparing());
+    const r = await h.callProblem('POST', SESSIONS, { capabilities: chrome(), itemId: ITEM });
+    expect(r.body).toMatchObject({ status: 500, code: 'STREAM_FAILED' });
+    expect(r.body.detail).toContain('PLAYBACK_PREPARING_MAX_S');
+    expect((await start({ itemId: ITEM })).status).toBe(201);
+  });
+
+  it('the wait is per profile and item, and a pause longer than the session timeout starts a new one', async () => {
+    h.delivery.next.push(preparing());
+    expect((await start({ itemId: ITEM })).status).toBe(503);
+    h.clock.now += 20_000;
+    h.delivery.next.push(preparing());
+    expect((await start({ itemId: ITEM_HD })).status).toBe(503); // another item: its own wait
+    h.clock.now += 61_000; // longer than the session timeout: the client gave up
+    h.delivery.next.push(preparing());
+    expect((await start({ itemId: ITEM })).status).toBe(503);
+  });
+
+  it('a session waiting for its stream (re-plan) ends with 500 STREAM_FAILED past the cap', async () => {
+    const fail = (id: string) => h.callProblem('POST', `${SESSIONS}/${id}/failure`, { positionMs: 60_000, error: 'MEDIA_ERR_DECODE', suspect: 'audio' });
+    const id = (await start({ itemId: ITEM_HD })).body.sessionId;
+    h.delivery.next.push(preparing());
+    expect((await fail(id)).body).toMatchObject({ status: 503, code: 'STREAM_PREPARING' });
+    h.clock.now += 20_000;
+    h.delivery.next.push(preparing());
+    expect((await fail(id)).body).toMatchObject({ status: 503, code: 'STREAM_PREPARING' });
+    h.clock.now += 10_000;
+    h.delivery.next.push(preparing());
+    const r = await fail(id);
+    expect(r.body).toMatchObject({ status: 500, code: 'STREAM_FAILED' });
+    expect(h.events.at(-1)).toMatchObject({ type: 'playback.session_terminated', payload: { sessionId: id, reason: 'failed' } });
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
+    // The stream was stopped by the first re-plan: no second stop.
+    expect(h.delivery.ops()).toEqual(['start direct_play', 'stop st1 replanned', 'start direct_stream', 'start direct_stream', 'start direct_stream']);
+  });
+});

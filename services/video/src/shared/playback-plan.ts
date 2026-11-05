@@ -57,8 +57,15 @@ export interface VideoSource {
   frameRate: number | null;
   bitDepth: number | null;
   hdr: HdrFormat;
+  /**
+   * MediaFacts hdrFallback: the base layer under DV (P8.1 HDR10, P8.4 HLG), so delivery signals the
+   * range the client actually gets. Empty: HDR10 is assumed under DV.
+   */
+  hdrFallback: HdrFormat[];
   dolbyVisionProfile: number | null;
   bitRate: number | null;
+  /** ffprobe level (HEVC 30×, AVC 10×), for the Direct Play codec string; null when unknown. */
+  level: number | null;
 }
 
 /**

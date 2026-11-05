@@ -56,4 +56,6 @@ export interface DeliveryKeyframeIndexPayload {
   mtimeMs: number;
   /** MediaFacts.container: 'matroska' reads the Cues, anything else uses the ffprobe probe. */
   container: string;
+  /** Video stream to index (the plan's); null: the first video stream that is not cover art. */
+  videoStreamIndex: number | null;
 }

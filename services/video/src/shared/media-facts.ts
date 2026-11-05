@@ -46,6 +46,11 @@ export interface VideoStreamFacts extends StreamBase {
   dolbyVision: DolbyVisionInfo | null;
   bitRate: number | null;
   attachedPic: boolean;
+  /**
+   * ffprobe level: HEVC general_level_idc (30 × level, e.g. 153 = 5.1), AVC level_idc (10 × level, 41).
+   * Optional: facts stored before F1b.3 lack it. Used for the Direct Play codec string (ADR 0003 D10).
+   */
+  level?: number | null;
 }
 
 export interface AudioStreamFacts extends StreamBase {

@@ -241,8 +241,10 @@ function videoSource(v: VideoStreamFacts): VideoSource {
     frameRate: v.frameRate,
     bitDepth: v.bitDepth,
     hdr: v.hdr,
+    hdrFallback: [...v.hdrFallback],
     dolbyVisionProfile: v.dolbyVision?.profile ?? null,
     bitRate: v.bitRate,
+    level: v.level ?? null,
   };
 }
 

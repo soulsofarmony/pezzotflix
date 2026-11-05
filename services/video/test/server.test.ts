@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildServer, maskUrl } from '../src/app/server.ts';
+import { Writable } from 'node:stream';
+import { buildServer, createLogger, maskUrl } from '../src/app/server.ts';
 
 let app: FastifyInstance;
 
@@ -60,7 +61,38 @@ describe('server skeleton', () => {
     expect(r.json().code).toBe('NOT_FOUND');
   });
 
-  it('masks session tokens in urls', () => {
-    expect(maskUrl('/video/media/s/abcDEF123/file?x=1')).toBe('/video/media/s/***/file?x=1');
+  it('masks session tokens in urls: everything after /media/, on the decoded path; images kept', () => {
+    expect(maskUrl('/video/media/s/abcDEF123/file?x=1')).toBe('/video/media/***');
+    expect(maskUrl('/video/media/%73/abcDEF123/hls/main.m3u8')).toBe('/video/media/***');
+    expect(maskUrl('/video/MEDIA/s/abcDEF123/file')).toBe('/video/MEDIA/***');
+    expect(maskUrl('/video/media/images/a1/poster.webp')).toBe('/video/media/images/a1/poster.webp');
+    expect(maskUrl('/video/catalog/items')).toBe('/video/catalog/items');
+  });
+
+  it('the real logger never writes a token, encoded or not', async () => {
+    const token = 'SECRETtokenSECRETtokenSECRETtokenSECRETtok';
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString());
+        cb();
+      },
+    });
+    const logger = createLogger('info', sink);
+    const logged = await buildServer({ logger, handlers: {}, profileTokens: { verify: () => null } });
+    await logged.ready();
+    for (const url of [`/video/media/s/${token}/file`, `/video/media/%73/${token}/hls/main.m3u8`, `/video/media/s/${encodeURIComponent(token)}/subtitles/x%3Ait.vtt`]) {
+      await logged.inject({ method: 'GET', url });
+    }
+    await logged.close();
+    const text = lines.join('');
+    expect(text).toContain('/video/media/***');
+    expect(text).not.toContain(token);
+  });
+
+  it('session resources answer no-store even on a 400 or 404', async () => {
+    const r = await app.inject({ method: 'GET', url: '/video/media/s/bad!token/file' });
+    expect(r.statusCode).toBeGreaterThanOrEqual(400);
+    expect(r.headers['cache-control']).toBe('no-store');
   });
 });

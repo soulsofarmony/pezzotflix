@@ -141,13 +141,15 @@ describe.skipIf(skipReason !== null)('identification of the sample library (scan
   });
 
   it('runs every job to completion', () => {
-    expect(all('SELECT DISTINCT type, state FROM job ORDER BY type')).toEqual([
+    expect(all("SELECT DISTINCT type, state FROM job WHERE type <> 'delivery.keyframe_index' ORDER BY type")).toEqual([
       { type: 'analyzer.probe', state: 'done' },
       { type: 'identifier.identify', state: 'done' },
       { type: 'library.scan', state: 'done' },
       // Enqueued by the catalog for the new works; the fake metadata module here has no Enricher.
       { type: 'metadata.enrich', state: 'queued' },
     ]);
+    // The analyzer enqueues the keyframe index for delivery, which is not composed here.
+    expect(all("SELECT DISTINCT state FROM job WHERE type = 'delivery.keyframe_index'")).toEqual([{ state: 'queued' }]);
   });
 
   it('identifies the films, each once, with the container duration', () => {

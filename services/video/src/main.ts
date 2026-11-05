@@ -27,9 +27,12 @@ const shutdown = async (signal: string) => {
   if (closing) return;
   closing = true;
   app.log.info({ signal }, 'shutting down');
-  await app.close();
+  // Delivery stops with the server: its ffmpeg runs and the media bodies it is sending end now, so
+  // close() is not held by a paused client.
+  const delivery = comp.modules.find((m) => m.name === 'delivery');
+  await Promise.all([app.close(), delivery?.stop?.()]);
   await runner.stop();
-  for (const m of [...comp.modules].reverse()) await m.stop?.();
+  for (const m of [...comp.modules].reverse()) if (m !== delivery) await m.stop?.();
   closeDb(db);
   process.exit(0);
 };

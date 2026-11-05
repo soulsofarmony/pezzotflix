@@ -230,6 +230,15 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
     expect(plan(d).reasons.find((r) => r.code === 'dv_p81_as_hdr10')?.message).toBe('Dolby Vision 8.1 served as HDR10 with hvc1, RPU kept');
   });
 
+  it('the plan carries the ffprobe level and the HDR fallback for delivery (codec string, VIDEO-RANGE)', () => {
+    const withLevel = plan(decide(input([file(F1, facts([dv(8, 4, { level: 153 }), aac(1, 'ita', { channels: 6, channelLayout: '5.1' })]))], chrome())));
+    expect(withLevel.video.source).toMatchObject({ level: 153, hdrFallback: ['HLG'] });
+    // Facts stored before F1b.3 have no level: null, never undefined.
+    const noLevel = plan(decide(input([file(F1, facts([sdr1080(), aac(1, 'ita')]))], chrome())));
+    expect(noLevel.video.source.level).toBeNull();
+    expect(noLevel.video.source.hdrFallback).toEqual([]);
+  });
+
   it('DV P7 → Direct Stream with remove_dovi and the provisional H11 reason', () => {
     const d = decide(input([file(F1, facts([dv(7, 6), audio(1)]))], edge()));
     expect(plan(d).video).toMatchObject({ kind: 'copy', tag: 'hvc1', dolbyVision: 'remove_dovi' });

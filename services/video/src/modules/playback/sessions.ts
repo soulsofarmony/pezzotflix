@@ -52,6 +52,8 @@ export interface SessionManagerOptions {
   sessionTimeoutMs: number;
   overrides: readonly CapabilityOverride[];
   transcodeMaxBitrateBps?: number;
+  /** PLAYBACK_PREPARING_MAX_S: longest wait without a stream (STREAM_PREPARING), then STREAM_FAILED. Default 900 s. */
+  preparingMaxMs?: number;
 }
 
 export interface SessionManagerDeps {
@@ -104,6 +106,8 @@ interface Session {
   handle: StreamHandle | null;
   /** The re-plan to run again while handle is null. */
   waiting: ReplanOptions | null;
+  /** When the session started waiting without a stream (STREAM_PREPARING), null with a stream. */
+  waitingSince: number | null;
   exclusions: PlanExclusion[];
   /** Automatic attempts used since StartPlayback (doc 04 §8). */
   attempts: number;
@@ -202,6 +206,14 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
   /** One StartPlayback per profile at a time (m5). */
   const startChains = new Map<string, Promise<unknown>>();
   let closing = false;
+  const preparingMaxMs = opts.preparingMaxMs ?? 900_000;
+  /**
+   * StartPlayback calls answered STREAM_PREPARING, per profile and item: since when, and the last one.
+   * A pause longer than the session timeout starts a new wait.
+   */
+  const startWaits = new Map<string, { since: number; last: number }>();
+  const tooLongPreparing = (sinceMs: number): ProblemError =>
+    new ProblemError('STREAM_FAILED', `The stream was still not ready after ${Math.round((now() - sinceMs) / 1000)} s of waiting (PLAYBACK_PREPARING_MAX_S).`);
   const heartbeatIntervalMs = Math.max(2_000, Math.min(10_000, Math.floor(opts.sessionTimeoutMs / 4)));
 
   // ------------------------------------------------------------ helpers
@@ -574,7 +586,14 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
         started = await run(a, s, first);
       } catch (err) {
         const waitable = err instanceof RetryLater || (!o.automatic && err instanceof ProblemError && err.code === 'MEDIA_UNAVAILABLE');
+        // M3: a session cannot wait without a stream for longer than PLAYBACK_PREPARING_MAX_S.
+        const since = s.waitingSince ?? now();
+        if (waitable && !closing && now() - since >= preparingMaxMs) {
+          await end(s, 'failed', { positionMs: o.positionMs, streamStopped: true, detail: 'Session closed: the stream was never ready' });
+          throw tooLongPreparing(since);
+        }
         if (waitable && !closing) {
+          s.waitingSince = since;
           // S3: the session stays open without a stream; the next call runs this re-plan again.
           s.exclusions = a.exclusions;
           s.attempts = a.attempts - (o.automatic ? 1 : 0); // this re-plan's own attempt is given back
@@ -606,6 +625,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
         plan: started.plan,
         handle: started.handle,
         waiting: null,
+        waitingSince: null,
         exclusions: a.exclusions,
         attempts: a.attempts,
         subtitleSelected: undefined,
@@ -687,7 +707,27 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
         attempts: 0,
         requireSubtitle: undefined,
       };
-      const { plan, handle } = await run(a, { sessionId, capabilities });
+      const waitKey = `${profileId}\u0000${item.itemId}`;
+      let started: { plan: PlaybackPlan; handle: StreamHandle };
+      try {
+        started = await run(a, { sessionId, capabilities });
+      } catch (err) {
+        if (err instanceof RetryLater) {
+          // M3: StartPlayback retried on STREAM_PREPARING is capped like a waiting session.
+          const t = now();
+          for (const [k, w] of startWaits) if (t - w.last > opts.sessionTimeoutMs) startWaits.delete(k);
+          const w = startWaits.get(waitKey) ?? { since: t, last: t };
+          w.last = t;
+          startWaits.set(waitKey, w);
+          if (t - w.since >= preparingMaxMs) {
+            startWaits.delete(waitKey);
+            throw tooLongPreparing(w.since);
+          }
+        }
+        throw err;
+      }
+      startWaits.delete(waitKey);
+      const { plan, handle } = started;
       if (closing) {
         try {
           await ports.streamDelivery.stop(handle, 'shutdown');
@@ -712,6 +752,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
         plan,
         handle,
         waiting: null,
+        waitingSince: null,
         exclusions: a.exclusions,
         attempts: a.attempts,
         subtitleSelected: undefined,

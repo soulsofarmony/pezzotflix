@@ -488,8 +488,12 @@ export interface StreamFailure {
 /**
  * Typed outcome of start. Codes are the contract's Problem codes, so playback maps them 1:1.
  * - STREAM_PREPARING (503 + Retry-After): only the slow probe can build the keyframe index; delivery
- *   has already enqueued delivery.keyframe_index at urgent priority (ADR 0003 D8).
- * - MEDIA_UNAVAILABLE (503): root not configured or offline, file missing or changed, unsafe path.
+ *   has already enqueued delivery.keyframe_index at urgent priority (ADR 0003 D8). Also a start whose
+ *   ffmpeg wrote no init segment in time without exiting (an overloaded host): bounded, the same file
+ *   and stream shape timing out twice in a row is STREAM_FAILED, and the Session Manager caps the
+ *   total wait (PLAYBACK_PREPARING_MAX_S).
+ * - MEDIA_UNAVAILABLE (503): root not configured or offline, file missing or changed, unsafe path; also
+ *   the host's faults at start: scratch full or not writable, ffmpeg missing or not spawnable.
  * - STREAM_FAILED: no usable init segment after delivery's automatic retry. With failure.class
  *   'format' (e.g. aac_channel_config) the Session Manager re-plans at once with failure.exclusion,
  *   within the 3 automatic attempts of doc 04 §8.

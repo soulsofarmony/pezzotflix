@@ -14,6 +14,7 @@ export const FfprobeStream = z.looseObject({
   codec_type: z.string().optional(),
   codec_tag_string: z.string().optional(),
   profile: numeric.optional(),
+  level: z.number().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
   pix_fmt: z.string().optional(),
@@ -48,6 +49,7 @@ export const FfprobeOutput = z.looseObject({
   format: z
     .looseObject({
       format_name: z.string().optional(),
+      start_time: numeric.optional(),
       duration: numeric.optional(),
       bit_rate: numeric.optional(),
     })

@@ -11,17 +11,42 @@ import { notImplemented, ProblemError } from './problem.ts';
 
 export const SPEC_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'contract', 'dist', 'openapi.json');
 
-/** Masks session tokens in data-plane URLs (P9) so they never reach the logs. */
-export const maskUrl = (url: string): string => url.replace(/\/s\/[^/?#]+/, '/s/***');
+const MEDIA_PREFIX = '/media/';
 
-/** Root logger (pino): token-masking request serializer. Shared by Fastify and the modules. */
-export function createLogger(level = 'info'): FastifyBaseLogger {
-  return pino({
+function decodePath(url: string): string {
+  try {
+    return decodeURIComponent(url);
+  } catch {
+    return url;
+  }
+}
+
+/** Session resources of the data plane (/video/media/…, images excepted), on the decoded path. */
+export function isSessionResource(url: string): boolean {
+  const path = decodePath(url);
+  const i = path.toLowerCase().indexOf(MEDIA_PREFIX);
+  return i >= 0 && !/^images\//i.test(path.slice(i + MEDIA_PREFIX.length));
+}
+
+/**
+ * Masks session tokens in data-plane URLs (P9) so they never reach the logs: everything after /media/
+ * is dropped, on the decoded path (so /video/media/%73/<token> is masked too). Images keep their URL.
+ */
+export function maskUrl(url: string): string {
+  if (!isSessionResource(url)) return url;
+  const path = decodePath(url);
+  return `${path.slice(0, path.toLowerCase().indexOf(MEDIA_PREFIX) + MEDIA_PREFIX.length)}***`;
+}
+
+/** Root logger (pino): token-masking request serializer. Shared by Fastify and the modules. Tests pass a destination. */
+export function createLogger(level = 'info', destination?: pino.DestinationStream): FastifyBaseLogger {
+  const options = {
     level,
     serializers: {
       req: (req: { method: string; url: string; id: string }) => ({ method: req.method, url: maskUrl(req.url), id: req.id }),
     },
-  });
+  };
+  return destination ? pino(options, destination) : pino(options);
 }
 
 export interface ServerOptions {
@@ -36,7 +61,14 @@ export async function buildServer(opts: ServerOptions): Promise<FastifyInstance>
     ...(opts.logger === false ? { logger: false } : { loggerInstance: opts.logger }),
     // Behind the Caddy gateway (ADR 0006).
     trustProxy: true,
+    // close() must not wait for media bodies a paused client holds open (delivery cuts its own too).
+    forceCloseConnections: true,
     ajv: { customOptions: { strict: false, removeAdditional: false, coerceTypes: 'array', useDefaults: true } },
+  });
+
+  // Session resources are never cached, errors (400 included) too (ADR 0003 D10).
+  app.addHook('onRequest', async (req, reply) => {
+    if (isSessionResource(req.url)) void reply.header('Cache-Control', 'no-store');
   });
 
   app.setErrorHandler((err: FastifyError | ProblemError, req, reply) => {

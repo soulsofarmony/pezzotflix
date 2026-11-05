@@ -627,7 +627,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Direct Play — the original file bytes, with Range support. */
+        /**
+         * Direct Play — the original file bytes, with Range support.
+         * @description Read-only, with Range, ETag and Last-Modified; every answer, errors included, has Cache-Control no-store.
+         */
         get: operations["getMediaFile"];
         put?: never;
         post?: never;
@@ -676,7 +679,7 @@ export interface paths {
         };
         /**
          * Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering).
-         * @description While the track's availability is growing, the answer is a single streamed response without Content-Length that grows until the extraction's first pass ends; if the extraction is queued, the response stays open with no bytes until it starts. Once complete, the same url serves the whole file with Range (ADR 0003).
+         * @description While the track's availability is growing, the answer is a single streamed response without Content-Length that grows until the extraction's first pass ends; if the extraction is queued, the response stays open with no bytes until it starts. Once complete, the same url serves the whole file with Range (ADR 0003). Until the extraction exists (F1b.4) an embedded track answers 503 STREAM_PREPARING with Retry-After.
          */
         get: operations["getSubtitle"];
         put?: never;
@@ -2207,8 +2210,23 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Not modified (If-None-Match or If-Modified-Since). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description Precondition failed (If-Match or If-Unmodified-Since). */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Range not satisfiable. */
             416: {
                 headers: {
@@ -2216,6 +2234,9 @@ export interface operations {
                 };
                 content?: never;
             };
+            500: components["responses"]["Problem"];
+            /** @description MEDIA_UNAVAILABLE, the file is no longer reachable or readable. */
+            503: components["responses"]["Problem"];
         };
     };
     getHlsResource: {
@@ -2239,8 +2260,37 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Partial content of an init or media segment. */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified (init and media segments). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description Precondition failed. */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range not satisfiable. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description STREAM_FAILED, after one automatic retry by the server. Terminal for the stream: every later data-plane request of the session answers 500 STREAM_FAILED at once; recovery is only through reportPlaybackFailure. */
             500: components["responses"]["Problem"];
             503: components["responses"]["ProblemRetryAfter"];
@@ -2267,8 +2317,41 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Partial content of a sidecar file served as is (.sup, .vtt). */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified (sidecar files served as is). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description Precondition failed (sidecar files served as is). */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range not satisfiable (sidecar files served as is). */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description STREAM_FAILED, terminal for the stream (see getHlsResource). */
+            500: components["responses"]["Problem"];
+            /** @description STREAM_PREPARING with Retry-After (the track is not extracted yet), or MEDIA_UNAVAILABLE (the sidecar file is unreachable or could not be converted). */
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     getImage: {

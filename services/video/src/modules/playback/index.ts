@@ -28,7 +28,13 @@ export const playbackModule =
   ({ config, ports, now, log }) => {
     const sessionTimeoutMs = config.SESSION_TIMEOUT_S * 1000;
     const mgr = createSessionManager(
-      { maxSessions: config.MAX_SESSIONS, maxTranscodes: config.MAX_TRANSCODES, sessionTimeoutMs, overrides: opts.overrides ?? DEFAULT_OVERRIDES },
+      {
+        maxSessions: config.MAX_SESSIONS,
+        maxTranscodes: config.MAX_TRANSCODES,
+        sessionTimeoutMs,
+        preparingMaxMs: config.PLAYBACK_PREPARING_MAX_S * 1000,
+        overrides: opts.overrides ?? DEFAULT_OVERRIDES,
+      },
       { ports, now, log, ...(opts.newId ? { newId: opts.newId } : {}), ...(opts.onQueued ? { onQueued: opts.onQueued } : {}) },
     );
     return {

@@ -264,4 +264,15 @@ describe('small parsers', () => {
     expect(facts.chapters).toEqual([{ index: 0, title: null, startMs: 1500, endMs: 3250 }]);
     expect(facts.durationMs).toBeNull();
   });
+
+  it.each([
+    // Matroska's Duration is the last timestamp: zero-based, start_time comes off (the keyframe index rule).
+    ['x/x.mkv', 'matroska,webm', '23.500', '3.500', 20_000],
+    ['x/x.mkv', 'matroska,webm', '20.000', '0.000', 20_000],
+    // Other containers already report the length.
+    ['x/x.mp4', 'mov,mp4,m4a,3gp,3g2,mj2', '20.000', '3.500', 20_000],
+    ['x/x.m2ts', 'mpegts', '20.000', '600.000', 20_000],
+  ])('duration of %s (%s, duration %s, start_time %s) is %i ms', (relPath, format_name, duration, start_time, want) => {
+    expect(map({ streams: [], chapters: [], format: { format_name, duration, start_time } }, relPath).facts.durationMs).toBe(want);
+  });
 });

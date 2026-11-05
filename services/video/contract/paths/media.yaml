@@ -9,14 +9,23 @@ file:
     tags: [media]
     security: []
     summary: Direct Play — the original file bytes, with Range support.
+    description: >-
+      Read-only, with Range, ETag and Last-Modified; every answer, errors included, has Cache-Control no-store.
     parameters:
       - { name: Range, in: header, required: false, schema: { type: string } }
     responses:
       '200': { description: Whole file. }
       '206': { description: Partial content. }
+      '304': { description: Not modified (If-None-Match or If-Modified-Since). }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
+      '412': { description: Precondition failed (If-Match or If-Unmodified-Since). }
       '416': { description: Range not satisfiable. }
+      '500': { $ref: '../components/responses.yaml#/Problem' }
+      '503':
+        $ref: '../components/responses.yaml#/Problem'
+        description: MEDIA_UNAVAILABLE, the file is no longer reachable or readable.
 hls:
   parameters:
     - { $ref: '../components/parameters.yaml#/SessionToken' }
@@ -38,8 +47,13 @@ hls:
       for a name that is not in the playlist; 410 once the session is closed or re-planned (new token) (ADR 0003).
     responses:
       '200': { description: Playlist or segment. }
+      '206': { description: Partial content of an init or media segment. }
+      '304': { description: Not modified (init and media segments). }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
+      '412': { description: Precondition failed. }
+      '416': { description: Range not satisfiable. }
       '500':
         $ref: '../components/responses.yaml#/Problem'
         description: >-
@@ -63,11 +77,25 @@ subtitle:
       While the track's availability is growing, the answer is a single streamed response without Content-Length
       that grows until the extraction's first pass ends; if the extraction is queued, the response stays open
       with no bytes until it starts. Once complete, the same url serves the whole file with
-      Range (ADR 0003).
+      Range (ADR 0003). Until the extraction exists (F1b.4) an embedded track answers 503 STREAM_PREPARING with
+      Retry-After.
     responses:
       '200': { description: Subtitle data. }
+      '206': { description: 'Partial content of a sidecar file served as is (.sup, .vtt).' }
+      '304': { description: Not modified (sidecar files served as is). }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
+      '412': { description: Precondition failed (sidecar files served as is). }
+      '416': { description: Range not satisfiable (sidecar files served as is). }
+      '500':
+        $ref: '../components/responses.yaml#/Problem'
+        description: STREAM_FAILED, terminal for the stream (see getHlsResource).
+      '503':
+        $ref: '../components/responses.yaml#/ProblemRetryAfter'
+        description: >-
+          STREAM_PREPARING with Retry-After (the track is not extracted yet), or MEDIA_UNAVAILABLE (the sidecar
+          file is unreachable or could not be converted).
 image:
   parameters:
     - name: imageKey

@@ -8,7 +8,12 @@ import type { JobContext } from '../../app/module.ts';
 import type { Db } from '../../db/index.ts';
 import { chapter, externalSubtitle, libraryRoot, mediaFile, mediaStream } from '../../db/schema/index.ts';
 import { newId } from '../../shared/ids.ts';
-import { type AnalyzerProbePayload, type IdentifierIdentifyPayload, JOB_TYPES } from '../../shared/job-types.ts';
+import {
+  type AnalyzerProbePayload,
+  type DeliveryKeyframeIndexPayload,
+  type IdentifierIdentifyPayload,
+  JOB_TYPES,
+} from '../../shared/job-types.ts';
 import { type MediaFacts, type SidecarSubtitleFacts, sidecarTrackId, type StreamFacts } from '../../shared/media-facts.ts';
 import { resolveInsideRoot } from '../../shared/media-path.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
@@ -128,6 +133,21 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
       if (pending) {
         const payload: IdentifierIdentifyPayload = { fileId };
         jobs().enqueue({ type: JOB_TYPES.identifierIdentify, payload, idempotencyKey: `identify:${fileId}` });
+      }
+      // ADR 0003 D8: the keyframe index is mandatory after every successful probe (delivery caches it per
+      // size + mtime, so a job for unchanged content returns at once).
+      if (facts.streams.some((s) => s.type === 'video' && !s.attachedPic)) {
+        const index: DeliveryKeyframeIndexPayload = {
+          fileId,
+          location: facts.location,
+          sizeBytes: facts.sizeBytes,
+          mtimeMs: facts.mtimeMs,
+          container: facts.container,
+          videoStreamIndex: null,
+        };
+        // The stamp is in the key: a job still queued for older content does not hide this one.
+        const key = `keyframes:${fileId}:${facts.sizeBytes}:${facts.mtimeMs}`;
+        jobs().enqueue({ type: JOB_TYPES.deliveryKeyframeIndex, payload: index, idempotencyKey: key });
       }
     });
   }

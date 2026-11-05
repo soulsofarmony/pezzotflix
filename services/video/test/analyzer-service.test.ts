@@ -121,7 +121,15 @@ describe('analyzer.probe', () => {
       { i: 1, title: 'Capitolo 2', s: 10000, e: 20000 },
       { i: 2, title: 'Capitolo 3', s: 20000, e: 30000 },
     ]);
-    expect(jobs()).toEqual([{ type: 'identifier.identify', payload: '{"fileId":"f1"}', key: 'identify:f1' }]);
+    expect(jobs().filter((j) => j.type !== 'delivery.keyframe_index')).toEqual([{ type: 'identifier.identify', payload: '{"fileId":"f1"}', key: 'identify:f1' }]);
+    // ADR 0003 D8: the keyframe index follows every successful probe.
+    expect(jobs().filter((j) => j.type === 'delivery.keyframe_index')).toEqual([
+      {
+        type: 'delivery.keyframe_index',
+        payload: JSON.stringify({ fileId: 'f1', location: { rootName: 'Film', relPath: REL }, sizeBytes: 11, mtimeMs: facts()?.mtimeMs, container: 'matroska', videoStreamIndex: null }),
+        key: `keyframes:f1:11:${facts()?.mtimeMs}`,
+      },
+    ]);
   });
 
   it('re-analysis keeps later states and does not re-identify', async () => {
@@ -133,7 +141,9 @@ describe('analyzer.probe', () => {
     await analyzer().probe({ fileId: 'f1' }, ctx());
     expect(file().state).toBe('identified');
     expect(db.$client.prepare('SELECT count(*) AS n FROM media_stream').get()).toEqual({ n: 8 });
-    expect(db.$client.prepare('SELECT state FROM job').all()).toEqual([{ state: 'done' }]);
+    expect(db.$client.prepare("SELECT state FROM job WHERE type = 'identifier.identify'").all()).toEqual([{ state: 'done' }]);
+    // The keyframe index is queued again: delivery returns at once if size and mtime did not change.
+    expect(db.$client.prepare("SELECT state FROM job WHERE type = 'delivery.keyframe_index'").all()).toEqual([{ state: 'queued' }]);
   });
 
   it('stores the current location when a scan moved the file during the probe', async () => {
