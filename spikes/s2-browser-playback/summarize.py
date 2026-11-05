@@ -1,11 +1,13 @@
-"""S2 (throwaway): print markdown tables from out/auto/*-report.json and *-players.json.
+"""S2 (throwaway): print markdown tables from <dir>/*-report.json and *-players.json.
 
-python -I spikes/s2-browser-playback/summarize.py > spikes/s2-browser-playback/out/auto/summary.md
+python -I spikes/s2-browser-playback/summarize.py [dir] > spikes/s2-browser-playback/out/summary.md
+dir defaults to results/auto/ (the committed runs of 2026-11-05); run.mjs writes fresh runs to out/auto/.
 """
 import json
+import sys
 from pathlib import Path
 
-AUTO = Path(__file__).resolve().parent / "out" / "auto"
+AUTO = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent / "results" / "auto"
 TAGS = ["msedge", "chrome", "firefox", "msedge-headless", "chrome-headless"]
 
 

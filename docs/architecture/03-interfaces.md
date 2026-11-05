@@ -1,6 +1,6 @@
 # 03 — Interfacce
 
-- **Stato:** Approvato (2026-10-01)
+- **Stato:** Approvato (2026-10-01). Aggiornato il 2026-11-05 con gli esiti di S2 e della loro revisione (§4.1, §4.2, §4.3, §5, I5, I6)
 - **Deriva da:** [Requisiti v0.1](../requirements/0001-video-service-requirements-v0.1.md), [01 — Domain Model](01-domain-model.md), [02 — Componenti](02-components.md)
 - **Non definisce:** protocollo (REST, GraphQL, gRPC…), formato di serializzazione, protocollo di streaming (HLS, DASH, progressive…). Queste sono decisioni tecnologiche (doc 05 + ADR). Qui si definiscono **operazioni, dati scambiati e semantica**.
 
@@ -90,11 +90,17 @@ Il client **dichiara** cosa sa fare. Solo lui conosce il proprio decoder, il dis
 ```text
 ClientCapabilities
 ├── device: classe (tv | desktop | mobile | tablet), modello, versione dell'app
+│           (nel browser il modello porta browser, versione e sistema, per gli override I2)
 ├── containers: supportati per Direct Play
+├── audioTrackSelection: il client sa scegliere la traccia audio dentro un container
+│                        multi-traccia (sì/no; il browser no, S2)
 ├── protocols: protocolli di streaming supportati
-├── video[]: codec + profili/livelli, risoluzione max, frame rate max, bit depth
-├── hdr: formati supportati end-to-end (display incluso): HDR10, HDR10+, HLG, DV (profili)
-├── audio[]: codec, canali max, modalità ∈ {decode, passthrough}
+├── video[]: codec + profili (vocabolario fisso, I6), risoluzione max, frame rate max, bit depth
+├── hdr: formati che il client accetta e presenta, anche convertendoli da sé
+│        su un display SDR: HDR10, HDR10+, HLG, DV (profili)
+├── displayHdr: il display mostra HDR (sì/no; se manca, vale sì quando hdr non è vuoto)
+├── audio[]: codec, canali max che il client decodifica (non i canali dell'uscita),
+│            modalità ∈ {decode, passthrough}
 │            (es. TrueHD passthrough verso l'AVR ≠ TrueHD decodificato)
 ├── subtitles: formati renderizzabili dal client (testo, immagine), stili ASS sì/no
 └── limits: bitrate max (anche impostato dall'utente), rete (hint)
@@ -102,13 +108,17 @@ ClientCapabilities
 
 Il formato preciso e il metodo di rilevamento per piattaforma sono in `04-playback-architecture.md`.
 
+- Nel browser le capability video e audio si ricavano da un **elenco fisso di stringhe di codec** sondate con `isTypeSupported` e si dichiarano con un vocabolario fisso; la stringa esatta dello stream arriva nella sessione (`stream.mimeType`) e il client la verifica prima di avviare il player (I6, Playback §5, S2).
+- `hdr` con HDR10 e `displayHdr` = no vuol dire che il client presenta da sé l'HDR10 su un display SDR (Playback P5). `displayHdr` cambia solo il motivo nella sessione, non il piano: il web client lo legge all'avvio della sessione, e un cambio di schermo durante la sessione non richiede una nuova decisione.
+- `audioTrackSelection` = no limita il Direct Play ai file con una sola traccia audio, supportata (Playback §4.1).
+
 ### 4.2 Operazioni
 
 | Operazione | Input | Output / semantica |
 |---|---|---|
 | `StartPlayback` | item, capability, (opzionali) versione/file scelto, traccia audio, traccia sub, posizione di partenza | **PlaybackSession** (§4.3). Se la posizione non è indicata, usa il resume del profilo. Tracce preselezionate dalle preferenze del profilo, poi dall'ultima scelta su quell'item |
 | `ReportProgress` | sessione, posizione, stato (playing/paused/buffering), timestamp del client | Funziona anche da **heartbeat** (intervallo nell'ordine dei secondi). **Vince l'ultimo timestamp**: i report fuori ordine vengono ignorati |
-| `ChangeTracks` | sessione, audio e/o sub | Nuova PlaybackSession o locatori aggiornati. Può cambiare modalità: un sub PGS scelto su un browser può imporre il burn-in |
+| `ChangeTracks` | sessione, audio e/o sub | Nuova PlaybackSession o locatori aggiornati. Può cambiare modalità: un sub PGS scelto su un client senza renderer PGS può imporre il burn-in, cioè un Transcode, che per il 4K nell'MVP non c'è (Playback P2). Nel browser no: il PGS lo rende il client (Playback P3) |
 | `ChangeVersion` | sessione, file | Come `ChangeTracks` ma sul file (es. 4K → 1080p) |
 | `StopPlayback` | sessione, posizione finale | Chiude il ViewingRecord, aggiorna WatchState (soglia del 90%, Domain Model D3) e libera le risorse. **Idempotente** |
 | `ListActiveSessions` | — | Sessioni attive (per la gestione e per l'errore di limite raggiunto) |
@@ -121,10 +131,18 @@ Una sessione senza heartbeat oltre un timeout viene **chiusa dal server**, che s
 PlaybackSession
 ├── sessionId, scadenza
 ├── mode: direct_play | direct_stream | transcode   (+ motivo leggibile, es. "audio TrueHD non supportato")
-├── stream: locatore del data plane + protocollo
+├── stream: locatore del data plane + protocollo + tipo MIME con il parametro codecs
+│           (RFC 6381) degli stream esatti, es. video/mp4; codecs="hvc1.2.4.L153.B0, flac" (I6)
 ├── tracks
 │   ├── audio[]: id, lingua, codec, canali, selezionata, "cambio senza riavvio" sì/no
-│   └── subtitles[]: id, lingua, forced/SDH, selezionata, delivery ∈ {embedded, sidecar URL, burned}
+│   └── subtitles[]: id, lingua, forced/SDH, selezionata, "cambio senza riavvio" sì/no
+│                    (no per una traccia ancora in estrazione, Playback §4.4),
+│                    delivery ∈ {embedded, sidecar, burned, client_render}, più l'URL se servita a parte
+│                    - embedded: dentro lo stream
+│                    - sidecar: traccia di testo servita a parte (WebVTT)
+│                    - burned: bruciata nel video (solo Transcode)
+│                    - client_render: traccia immagine (.sup) servita a parte per un
+│                      renderer lato client (Playback P3); distinta da sidecar
 ├── resumePositionMs, durationMs
 ├── chapters[]
 └── trickplay / thumbnail di anteprima [futuro]
@@ -149,7 +167,7 @@ Il **motivo** della modalità serve alla diagnostica: si deve poter capire perch
 |---|---|
 | **File originale** (Direct Play) | Byte del file così com'è, con **richieste a intervalli** (seek) e dimensione nota. Nessuna modifica |
 | **Stream elaborato** (Direct Stream / Transcode) | Forma dipendente dal protocollo scelto. Deve supportare **seek** senza ricominciare dall'inizio e un avvio rapido |
-| **Sottotitoli sidecar** | Tracce testuali convertite in un formato che il client sa rendere |
+| **Sottotitoli serviti a parte** | Tracce testuali convertite in un formato che il client sa rendere (WebVTT; delivery `sidecar`). Tracce immagine (PGS) estratte senza ricodifica come `.sup`, con delivery `client_render` (§4.3), per il render lato client (Playback P3). Se il `.sup` è completo o cresce durante l'estrazione dipende dall'ADR 0003 (Playback §4.4): il client non deve assumere un file completo finché la traccia non lo dichiara |
 | **Immagini** | Varianti di dimensione, cacheabili a lungo (immutabili per URL) |
 
 Tutte le risorse di sessione sono autorizzate dal **token di sessione nell'URL** (P9) e smettono di funzionare alla chiusura della sessione. Le immagini non dipendono dalla sessione.
@@ -215,3 +233,5 @@ Servono a disaccoppiare la pipeline di ingest e ad alimentare le notifiche del �
 | I2 | Capability del client: dichiarate, profili per dispositivo lato server, o ibrido? | **Ibrido**: dichiarate dal client + tabella di override lato server per dispositivi con quirk noti |
 | I3 | Notifiche push dall'MVP o polling? | **Polling nell'MVP**, contratto degli eventi già definito; push quando serve (TV/mobile) |
 | I4 | Contract-first (specifica leggibile dalla macchina nel repo, client generati) o code-first? | **Contract-first**: tre client di tecnologie diverse devono restare allineati; il formato della specifica segue la scelta del protocollo |
+| I5 | Cosa aggiungere alle capability dopo S2? | **Decisa il 2026-11-05 (Claude, su delega).** Due campi facoltativi, aggiunti al contratto in modo compatibile (P8):<br>- `audioTrackSelection`: il browser non sa scegliere la traccia audio di un MKV e scarta in silenzio quelle che non decodifica. Se il campo manca vale no, la scelta prudente;<br>- `displayHdr`: separa ciò che il client decodifica e presenta (`hdr`) da ciò che il display mostra. Serve per il motivo della sessione e per P5. Se il campo manca, il server lo considera vero quando `hdr` non è vuoto (semantica precedente): il piano usa solo `hdr` e il motivo non parla di conversione.<br>Cambia anche il significato di `hdr`: da «formati supportati end-to-end (display incluso)» a «formati che il client accetta e presenta, anche convertendoli da sé». Nessun client lo usa ancora: il web client non esiste e il server ne ha solo il tipo generato. Un client che segue la vecchia definizione dichiara meno formati e ottiene il comportamento di prima.<br>[S2](../spikes/S2-browser-playback.md), Playback §4.1, §5 e P5 |
+| I6 | Come diventano capability le stringhe di codec del browser? | **Decisa il 2026-11-05 (Claude, su delega), dopo la revisione di S2.** Nessun campo nuovo: cambiamento additivo (P8), solo descrizioni e vocabolario.<br>- **Sonda.** Il web client prova con `MediaSource.isTypeSupported` un elenco fisso di stringhe (quelle di S2: `avc1.640028`, `hvc1.2.4.L153.B0`, `hvc1.2.4.H153.B0`, `hvc1.2.4.L183.B0`, `flac`, `opus`, `mp4a.40.2`, `ac-3`, `ec-3`).<br>- **Dichiarazione.** Il risultato va nei campi esistenti con un vocabolario fisso, documentato nel contratto: `video[].codec` ∈ {h264, hevc, av1, vp9}, `video[].profiles` (es. high, main, main10), `audio[].codec` ∈ {aac, ac3, eac3, flac, opus, truehd, dts, dtshd, pcm}.<br>- **Confronto.** Il Decision Engine confronta codec, profilo, bit depth e risoluzione, non livello e tier.<br>- **Verifica.** La sessione porta in `stream.mimeType` il parametro `codecs` (RFC 6381) degli stream esatti, es. `video/mp4; codecs="hvc1.2.4.L153.B0, flac"`. Il client lo verifica con `isTypeSupported` prima di avviare il player; se è false chiama `reportPlaybackFailure` con la dimensione sospetta (Playback §8).<br>**Perché:** il client dichiara le capability prima di sapere quale file e quali stringhe userà il piano, e livello e tier non sono nel contratto. Un rifiuto per livello o tier si scopre con la verifica e passa dalla ripianificazione.<br>[S2](../spikes/S2-browser-playback.md), Playback §5 e §8 |

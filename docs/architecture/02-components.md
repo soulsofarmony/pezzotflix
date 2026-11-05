@@ -1,6 +1,6 @@
 # 02 — Componenti e responsabilità
 
-- **Stato:** Approvato (2026-10-01)
+- **Stato:** Approvato (2026-10-01). Aggiornato il 2026-11-05 con gli esiti di S2 (§3.11)
 - **Deriva da:** [Requisiti v0.1](../requirements/0001-video-service-requirements-v0.1.md), [01 — Domain Model](01-domain-model.md)
 - **Non definisce:** tecnologie, protocolli, formati di API. I componenti sono **logici**: l'ultima sezione propone come raggrupparli in container.
 
@@ -139,12 +139,13 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
 ### 3.11 Stream Delivery
 - **Fa:** esegue la decisione.
   - **Direct Play:** serve il file originale così com'è, con accesso a intervalli per il seek.
-  - **Direct Stream:** rimpacchetta al volo copiando il video. Converte solo ciò che serve (container, audio).
+  - **Direct Stream:** rimpacchetta al volo copiando il video. Converte solo ciò che serve (container, audio). Prima di un AAC o di un Opus multicanale porta il layout a `5.1` e, dopo l'AAC, controlla il channelConfiguration del risultato (Playback §4.3).
   - **Transcode:** ricodifica (fallback).
-  - **Sottotitoli:** i testuali vengono serviti in un formato leggibile dal client; quelli immagine passano in pass-through se il client li supporta, altrimenti vengono bruciati nel video.
-- **Gestisce:** processi di elaborazione media, file temporanei/segmenti (volume **scratch** effimero), futura accelerazione hardware.
+  - **Sottotitoli:** i testuali vengono serviti in un formato leggibile dal client. Quelli immagine passano in pass-through se il client li supporta; per il browser si estraggono come file `.sup` a parte, da rendere lato client (Playback P3; delivery in Interfacce §4.3). Solo in ultima risorsa vengono bruciati nel video.
+  - **Estrazione dei sottotitoli embedded** (immagine e testo): legge tutto il file. Quando e dove farla è aperto (ADR 0003, Playback §4.4); il risultato va nella cache persistente, non nello scratch.
+- **Gestisce:** processi di elaborazione media, file temporanei/segmenti (volume **scratch** effimero), sottotitoli estratti (volume **cache**, persistente), futura accelerazione hardware.
 - **Proprietà:** è il componente più **pesante** e l'unico con picchi di CPU/GPU. Deve essere isolabile (vedi §6, C1).
-- **Dipende da:** Media Storage (lettura), scratch.
+- **Dipende da:** Media Storage (lettura), scratch, cache (sottotitoli estratti).
 
 ### 3.12 Job Runner
 - **Fa:** esegue il lavoro in background dell'ingest (analisi, identificazione, metadata, artwork, generazione dei frame).

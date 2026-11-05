@@ -88,7 +88,7 @@ F1a, F1b e F1c lavorano in parallelo **sul contratto e sullo schema congelati in
 
 | Rischio | Mitigazione |
 |---|---|
-| Esito di S2 su HEVC/HDR e PGS nel browser | Il Decision Engine legge le capability dichiarate dal client; il web client le rileva con `mediaCapabilities` (doc 04 §5). Nessuna assunzione nel server |
+| Esito di S2 su HEVC/HDR e PGS nel browser | Il Decision Engine legge le capability dichiarate dal client. Il web client le rileva con `isTypeSupported` su un elenco fisso di stringhe di codec e verifica `stream.mimeType` prima di avviare il player (doc 04 §5, doc 03 I6). Nessuna assunzione nel server |
 | Throughput del bind mount NTFS (circa 500 Mbps) | Una sola sessione nell'MVP; misura nei test end-to-end |
 | Rate limit di Wikidata nella prima scansione | User-Agent conforme con contatto (URL del repo), cache, batch (ADR 0007) |
 | Integrazione di tre filoni paralleli | Contratto e schema congelati in F0, worktree separati, merge e test end-to-end dell'orchestratore |

@@ -36,7 +36,7 @@ Il report viene salvato automaticamente sul server locale.</p>
 <table id="auto"><thead><tr><th>ID</th><th>Cosa</th><th>Esito</th><th>Avvio (ms)</th><th>Seek 20s (ms)</th><th>Risoluzione</th><th>Frame / persi</th><th>Audio</th><th>Note</th></tr></thead><tbody></tbody></table>
 
 <h2>2. Verifica visiva e audio (manuale)</h2>
-<p class="muted">Per ogni riga premi <b>Riproduci</b>, guarda/ascolta qualche secondo e scegli l'esito. Il test HDR ha senso solo se lo schermo è in modalità HDR (Windows: Impostazioni → Schermo → HDR).
+<p class="muted">Per ogni riga premi <b>Riproduci</b>, guarda/ascolta qualche secondo e scegli l'esito. Il test dei colori va fatto in due casi: con lo schermo in HDR (Windows: Impostazioni → Schermo → HDR) e con uno schermo SDR, dove converte il browser (decisione P5). La prova d'ascolto dei c* richiede un'uscita 5.1 verso l'AVR (HDMI).
 Schermo in HDR adesso? <select id="hdron"><option value="">—</option><option>sì</option><option>no</option><option>non supportato</option></select>
 Audio: <select id="audioout"><option value="">—</option><option>stereo (cuffie/casse)</option><option>5.1/7.1 via HDMI/AVR</option></select></p>
 <div id="visual"></div>
@@ -140,6 +140,16 @@ const TESTS = [
   { id: 's1', what: 'PGS via libpgs · su 1080p AVC', kind: 'hls', url: M + 'h9-buono-avc-aac/index.m3u8', pgs: M + 'buono-eng-sdh.sup', h: 'H7' },
   { id: 's2', what: 'PGS via libpgs · su 4K HEVC HDR10', kind: 'hls', url: M + 'h2-hevc-hdr10-aac/index.m3u8', pgs: M + 'br-ita-forced.sup', h: 'H7' },
   { id: 'v1', what: 'WebVTT via <track> · su 4K HEVC', kind: 'hls', url: M + 'h2-hevc-hdr10-aac/index.m3u8', vtt: M + 'br-ita.vtt', h: '-' },
+];
+// Channel-ID clips from prepare_extra.sh (10 s, one tone per channel): manual listening only, not in the automated run.
+const CHAN_TESTS = [
+  { id: 'c1', what: 'HLS fMP4 · AVC + FLAC 5.1 channel-ID', kind: 'hls', url: M + 'c1-avc-flac51/index.m3u8' },
+  { id: 'c2', what: 'HLS fMP4 · AVC + E-AC-3 5.1 channel-ID', kind: 'hls', url: M + 'c2-avc-eac351/index.m3u8' },
+  { id: 'c3', what: 'HLS fMP4 · AVC + AC-3 5.1 channel-ID', kind: 'hls', url: M + 'c3-avc-ac351/index.m3u8' },
+  { id: 'c4', what: 'HLS fMP4 · AVC + Opus 5.1 channel-ID', kind: 'hls', url: M + 'c4-avc-opus51/index.m3u8' },
+  { id: 'c5', what: 'HLS fMP4 · AVC + AAC 5.1 con PCE channel-ID', kind: 'hls', url: M + 'c5-avc-aac51/index.m3u8' },
+  { id: 'c6', what: 'fMP4 progressivo · AVC + FLAC 5.1 channel-ID', kind: 'direct', url: M + 'c6-avc-flac51-prog.mp4' },
+  { id: 'c7', what: 'HLS fMP4 · AVC + AAC 5.1 (channelConfiguration 6) channel-ID', kind: 'hls', url: M + 'c7-avc-aac51-back/index.m3u8' },
 ];
 
 function attach(video, t) {
@@ -261,6 +271,10 @@ const VISUAL = [
   { id: 'v1', label: 'WebVTT: sottotitoli italiani visibili (2–6 s e 10–14 s)?', t: TESTS.find(x => x.id === 'v1'), opts: ['ok', 'non visibili', 'non parte'] },
   { id: 'h3', label: 'Audio FLAC 5.1: si sente (tono continuo)?', t: TESTS.find(x => x.id === 'h3'), opts: ['si sente', 'silenzio', 'non parte'] },
   { id: 'h4', label: 'Audio E-AC3 5.1: si sente?', t: TESTS.find(x => x.id === 'h4'), opts: ['si sente', 'silenzio', 'non parte'] },
+  // h3/h4 carry signal on FL/FR only: channel position needs the c* clips, on a 5.1 output to the AVR.
+  ...CHAN_TESTS.map(t => ({ id: t.id, t,
+    label: `${t.what}: ogni tono esce dal diffusore giusto? FL 300, FR 500, FC 700, LFE 60, Ls 900, Rs 1100 Hz`,
+    opts: ['tutti giusti', 'canali scambiati', 'canali mancanti', 'artefatti', 'silenzio', 'non parte'] })),
 ];
 let current = null;
 async function playVisual(v) {
