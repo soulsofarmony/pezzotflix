@@ -9,6 +9,7 @@ import type {
   EventPublisher,
   JobQueuePort,
   MetadataSearchPort,
+  ProfilePlaybackPort,
   ProfileStatePort,
   ProfileTokenVerifier,
   StreamDeliveryPort,
@@ -21,6 +22,7 @@ export interface Ports {
   catalogWrite: CatalogWritePort;
   metadataSearch: MetadataSearchPort;
   profileState: ProfileStatePort;
+  profilePlayback: ProfilePlaybackPort;
   profileTokens: ProfileTokenVerifier;
   jobs: JobQueuePort;
   events: EventPublisher;

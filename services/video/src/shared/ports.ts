@@ -51,6 +51,37 @@ export interface CatalogReadPort {
   itemExists(itemId: string): boolean;
 }
 
+/** A profile's playback preferences (contract `ProfilePrefs`), read by the Decision Engine. */
+export type ProfilePlaybackPrefs = components['schemas']['ProfilePrefs'];
+
+/** One progress sample from playback (reportProgress, stopPlayback, end of stream). */
+export interface ProgressSample {
+  profileId: string;
+  /** The playable item (movie, episode, documentary, extra), not a series or season. */
+  itemId: string;
+  fileId: string;
+  /** Original timeline, PTS − start_time (doc 04 §6.1, ADR 0003). */
+  positionMs: number;
+  durationMs: number | null;
+  /** Server time of the sample; a sample older than the stored one is ignored. */
+  at: number;
+  /** True when the session ended at the end of the item (credits reached or stream finished). */
+  ended: boolean;
+}
+
+/**
+ * Implemented by modules/profiles, used by modules/playback. Profiles owns progress, history and
+ * the "watched" rule (threshold, propagation to series/season); playback only reports samples.
+ */
+export interface ProfilePlaybackPort {
+  /** Null when the profile does not exist (deleted while a session was open). */
+  getPrefs(profileId: string): ProfilePlaybackPrefs | null;
+  /** Idempotent: last write wins by `at`. */
+  recordProgress(sample: ProgressSample): void;
+  /** Resume position for an item on the original timeline, or null to start from the beginning. */
+  resumePositionMs(profileId: string, itemId: string): number | null;
+}
+
 /** Implemented by modules/profiles. Used by catalog to compose Home and summaries. */
 export interface ProfileStatePort {
   getStates(profileId: string, itemIds: readonly string[]): Map<string, ProfileItemState>;
