@@ -958,8 +958,8 @@ Punteggi da 1 a 5. **E** = evidenza (S4, termini), **G** = giudizio.
 |---|---|---|---|---|
 | M1 termini (vincolo) | ✅ | ✅ | ✅ solo con purge, ma poi la libreria perde tutto | ✅ |
 | M2 offline/durata (25%) | 5 (E: base CC0 per ogni item abbinato) | 4 (G: base solo se Wikidata ha l'ID TMDB) | **1** (E: §1.D) | 5 |
-| M3 `it-IT` (20%) | 5 (G: TMDB per trame e poster, non misurato) | 5 (G) | 5 (G) | 2 (E: niente trame né poster) |
-| M4 identificazione (20%) | 4 (E: 98,9% in-sample su Wikidata; lento, 429/504) | 3 (G: soglie TMDB non misurate, omonimi) | 3 (G) | 4 (E) |
+| M3 `it-IT` (20%) | 5 (E: S4 con la chiave, trame 94/94, poster italiani 78/94, episodi 96% titoli e 99,5% trame) | 5 (E) | 5 (E) | 2 (E: niente trame né poster) |
+| M4 identificazione (20%) | 4 (E: 98,9% in-sample su Wikidata; lento, 429/504) | 3 (E: S4, regola v2 su TMDB: precision 97,7%, recall 88,5%; omonimi poco noti) | 3 (G) | 4 (E) |
 | M5 stasera senza chiave (15%) | 5 (E: è la configurazione misurata in S4) | 3 (G: due percorsi di identificazione da mantenere) | **1** | 5 |
 | M6 uso corretto (10%) | 4 (E: politica Wikimedia rispettabile con User-Agent) | 4 | 5 | 4 |
 | M7 correzioni (10%) | 5 | 5 | 5 | 5 |
@@ -983,4 +983,4 @@ Punteggi da 1 a 5. **E** = evidenza (S4, termini), **G** = giudizio.
   - Prima del matching fuzzy si usano i tag ID del filename.
   - L'artwork TMDB è trattato come TMDB Content: riscaricato a ogni refresh, mai ricodificato, cancellato a scadenza o al purge.
   - Senza chiave l'MVP gira con Wikidata e i segnaposto, e TMDB si attiva al riavvio con un backfill automatico.
-- **Runner-up:** B (identificazione TMDB-first). Diventa la scelta se le misure con la chiave mostrano precision più alta su TMDB.
+- **Runner-up:** B (identificazione TMDB-first). Sarebbe diventata la scelta con una precision più alta su TMDB: misurata il 2026-11-05 in S4, non lo è (ADR 0007, revisione).

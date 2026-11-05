@@ -22,8 +22,8 @@
    - Se l'identità non è certa, lo manda in **"Da verificare"** con un motivo esplicito (§7).
 3. **Il nome conforme riduce molto l'ambiguità, ma non la elimina.**
    - Titolo + anno (o un ID esterno, §3.3) rendono l'abbinamento quasi sempre automatico.
-   - I casi vicini finiscono comunque in coda: in S4 l'unico abbinamento sbagliato riguarda un nome conforme con anno ("Il Professore (2019)").
-   - I numeri di S4 sono in-sample su Wikidata; TMDB non è ancora misurato.
+   - I casi vicini finiscono comunque in coda. In S4 l'unico abbinamento sbagliato su Wikidata riguarda un nome conforme con anno ("Il Professore (2019)"); sulla ricerca TMDB si aggiunge un titolo senza anno ("Up").
+   - I numeri di S4 sono in-sample su Wikidata. Su TMDB, misurato il 2026-11-05 con la stessa regola, la precision è simile e la recall più bassa: l'identificazione resta su Wikidata (ADR 0007).
    - Senza anno vale D6: auto-match solo con un candidato unico.
 4. **Compatibile con Plex e Jellyfin dove possibile**, così la stessa libreria resta leggibile anche da altri strumenti (fonti consultate il 2026-11-05, §11). Differenze deliberate:
    - `{edition-…}` è riconosciuto da Plex (con Plex Pass) ma il suo supporto **non è documentato da Jellyfin** (documentazione al 2026-11-05). Con una cartella per edizione Jellyfin le mostra comunque come film separati;

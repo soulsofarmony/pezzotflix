@@ -3,6 +3,7 @@
 - **Stato:** Accepted (2026-11-06)
 - **Data:** 2026-11-05
 - **Decisore:** Claude, su delega del proprietario (review: design-reviewer, correzioni applicate)
+- **Revisione:** dopo i test live TMDB di S4 (2026-11-05), che prima mancavano per la chiave. L'opzione A resta, ora con le misure. Cambiano le opzioni A e B, le Evidenze, i punti 3, 4, 6, 7 e 9 e le Conseguenze.
 - **Requisiti collegati:** §11 (ingest automatic-first), §12 (metadata locali, nessuna dipendenza permanente dall'API esterna), §13 (correzioni manuali), §16 (navigazione in italiano); doc 01 §3.5–3.7, D1, D5, D6; doc 02 §3.3–3.5, §3.7, §7; doc 03 §6, §8
 - **Valutazione completa:** [05 — §5 Provider dei metadata e funzionamento offline](../architecture/05-technology-evaluation.md#5-provider-dei-metadata-e-funzionamento-offline)
 
@@ -21,7 +22,7 @@ Restano da decidere:
 - lo stato legale dell'artwork scaricato;
 - l'attribuzione;
 - il caso, lasciato aperto da D5, di TMDB irraggiungibile per oltre 6 mesi con la licenza attiva;
-- soprattutto, il comportamento **senza chiave TMDB**: la chiave non esiste ancora e l'MVP si costruisce stasera.
+- soprattutto, il comportamento **senza chiave TMDB**: la chiave non esisteva ancora e l'MVP si costruisce stasera. La chiave è arrivata il 2026-11-05 e i test TMDB di S4 sono stati eseguiti (Evidenze); il comportamento senza chiave resta, perché la chiave può mancare o essere tolta.
 
 ## Opzioni considerate
 
@@ -29,18 +30,24 @@ Restano da decidere:
 - Pro:
   - è la configurazione **misurata** in S4 (v2: precision e recall 98,9% in-sample);
   - ogni item abbinato in automatico ha subito un QID CC0;
-  - TMDB si aggancia per ID (in S4 94/94 item avevano l'ID TMDB su Wikidata), senza nuovi rischi di match sbagliato;
+  - TMDB si aggancia per ID (in S4 94/94 item avevano l'ID TMDB su Wikidata), senza nuovi rischi di match sbagliato. Verificato con la chiave: i 95 ID TMDB presi da Wikidata rispondono tutti e sono coerenti per anno (±1) e titolo;
   - funziona identica senza chiave.
 - Contro:
   - Wikidata è lento e ha limiti stretti (429, `504` sui titoli numerici);
   - la copertura dei titoli poco noti è inferiore;
-  - l'identificazione da TMDB resta un fallback non misurato.
+  - la ricerca TMDB, usata come ripiego automatico, ha bisogno di condizioni in più della regola v2 (punto 4.3).
 
 ### B. Come A, ma con identificazione TMDB-first
-- Pro: ricerca veloce e interattiva, catalogo più ampio.
+- Pro:
+  - ricerca veloce (p50 0,18 s) e catalogo più ampio;
+  - **recupero dei candidati migliore** (S4, 2026-11-05): l'opera giusta è nella lista in 96/96 query e al primo posto in 95/96, contro 95/96 e 83/95 su Wikidata.
 - Contro:
-  - soglie non misurate;
-  - TMDB ha molti omonimi oscuri (S4, Scoperta 4);
+  - **misurata in S4 con la stessa regola v2, non ritarata:**
+    - precision 97,7% (IC 92–99%) contro 98,9% di Wikidata. La differenza è una sola query e non è significativa;
+    - recall 88,5% contro 97,9%;
+    - anche con lo spareggio per voti, costruito dopo aver visto gli errori, la recall resta sotto Wikidata (95,8%);
+  - il distacco di recall viene soprattutto dalla regola, non dal catalogo. TMDB ha molti omonimi poco noti (S4, Scoperte 4 e 11): 7 query perse sono omonimi con l'anno, che lo spareggio per voti recupera. Altre 2 restano in coda perché la ricerca non restituisce i titoli alternativi;
+  - la condizione posta da questo ADR per passare a B ("se TMDB risulta più preciso") **non è soddisfatta**;
   - senza chiave servirebbe comunque il percorso Wikidata, quindi due percorsi da mantenere.
 
 ### C. Solo TMDB
@@ -63,7 +70,12 @@ Restano da decidere:
   - copertura Wikidata: etichette IT 97%, ID TMDB e IMDb 94/94, flag documentario 6/6, nessuna trama, poster quasi assenti;
   - regola di matching v2;
   - `504` su "2012";
-  - test TMDB bloccati per la chiave mancante.
+  - **test live TMDB (2026-11-05)**, sugli stessi 94 item più "2012":
+    - copertura `it-IT`: trama italiana 94/94, nessuna identica a quella inglese. Il titolo è nella risposta per 94/94, ma per 37 è il titolo predefinito, senza una traduzione italiana; dove c'è, coincide con l'etichetta italiana di Wikidata in 87/91 casi. Poster in italiano 78/94 (film 65/66, serie 13/28), backdrop 94/94, logo in italiano o inglese 94/94, cast ordinato 94/94. Documentari 6/6 senza falsi positivi (Wikidata: 6/6 con 1 falso positivo);
+    - episodi (28 serie, 1.529 episodi): titolo italiano 96%, trama italiana 99,5%. Wikidata ha il 65% dei titoli e nessuna trama;
+    - matching con la regola v2: vedi opzione B;
+    - 831 risposte senza errori (nessun 404, 429 o 5xx, nessun timeout) a ≤ 1 req/s. Latenza p50 0,18–0,21 s con la connessione riusata, 0,54 s per la ricerca aprendo una connessione nuova a ogni richiesta;
+    - il testo del §1.A chiude la questione dell'artwork: è TMDB Content (punto 6).
 
 ## Decisione
 
@@ -89,7 +101,8 @@ Restano da decidere:
      - per rendere durevole un valore, la UI offre **"fissa come valore manuale"**, che lo copia in una riga `source=manual`.
 3. **Ripartizione dei campi:**
    - **Wikidata** (durevole): QID e ID esterni (`P4947` film TMDB, `P4983` serie TMDB, `P345` IMDb, `P4835` serie TheTVDB), titolo IT/EN e originale (`P1476`), alias, anno (`P577`), kind, flag documentario, generi, durata, regista e cast non ordinato.
-   - **TMDB** (licenza): titolo e trama it-IT (fallback `en-US` per la trama), tagline, generi localizzati, crediti ordinati con personaggi e foto, stagioni ed episodi it-IT, poster, backdrop, logo e still (`include_image_language=it,null,en`).
+   - **TMDB** (licenza): titolo e trama it-IT (fallback `en-US` per la trama, che in S4 non è servito per nessuna opera e per 8 episodi su 1.529), tagline, generi localizzati, crediti ordinati con personaggi e foto, stagioni ed episodi it-IT, poster, backdrop, logo e still (`include_image_language=it,null,en`). Per ogni tipo di immagine si sceglie nell'ordine `it → null → en`: conta soprattutto per le serie, 15/28 senza poster italiano in S4.
+   - **Flag documentario:** decide Wikidata, che è durevole, così `category` non cambia alla scadenza dei dati TMDB. Il genere TMDB (99) fa da conferma: se non concorda, l'item riceve un flag di revisione, come per il lock del punto 2, e il proprietario decide con un valore `manual`. In S4 il genere TMDB è stato più preciso (6/6 senza falsi positivi contro 1), ma per un solo item: è un'evidenza debole.
    - Un ID TMDB letto su Wikidata è dato CC0. Un ID scritto nel filename (tag `{tmdb-…}`) è contenuto del proprietario ed è durevole.
    - Gli ID numerici TMDB in `external_id` si **conservano** anche quando sono stati ottenuti solo da TMDB, e anche dopo scadenza o purge: sono identificatori, servono per riabbinare l'item, e non sono contenuto descrittivo. È una **interpretazione** dei termini (§1.A, §1.D): va ricontrollata a ogni nuova versione dei termini, e se i termini dicessero il contrario il purge li cancella.
 4. **Identificazione:**
@@ -100,9 +113,17 @@ Restano da decidere:
       - **senza chiave TMDB** l'ID si risolve su Wikidata con `haswbstatement`: `P4947` (film TMDB), `P4983` (serie TMDB), `P345` (IMDb), `P4835` (serie TheTVDB);
       - un ID preso dal filename è contenuto del proprietario ed è **durevole**, come un valore `manual`.
    2. **Matching fuzzy** Wikidata-first (S4 v2, T 0,80, M 0,10; D6 per i titoli senza anno), con l'arricchimento TMDB per ID.
-   3. La ricerca TMDB fa da fallback, e da ricerca manuale della coda, con soglie prudenti finché non è misurata.
+   3. **Ricerca TMDB**, misurata in S4 (opzione B): è la **ricerca manuale** della coda "Da verificare" e il **ripiego automatico** quando Wikidata non risponde o non ha candidati (per esempio "2012", che su Wikidata va in `504`). Un auto-match di ripiego segue la regola v2, con queste condizioni in più:
+      - **nome con l'anno:** se il caso è `ambiguous`, vince il candidato più votato tra quelli entro M dal migliore, purché abbia almeno 10 volte i voti del secondo (spareggio per voti, S4). Misurato solo in-sample: recupera i 7 omonimi poco noti senza errori nuovi;
+      - **nome senza l'anno:** l'unicità di D6 si verifica su Wikidata, non sui primi risultati TMDB. Su TMDB i primi 10 nascondono omonimi ("Up": un solo film tra i primi 10 di 7.473 risultati, un secondo "Up" su Wikidata);
+      - **titolo esatto poco votato:** se un candidato con il titolo esatto ha molti meno voti di un candidato dello stesso anno con un titolo simile, il caso va in coda. È l'errore di "Il Professore (2019)", che nessuna delle altre condizioni evita; la soglia del rapporto si fissa in implementazione;
+      - **titoli alternativi** (`alternative_titles`) per i casi `low_score`: la ricerca non restituisce gli alias, che su Wikidata salvavano "Star Wars Episodio IV" e "Le Mans 66".
+
+      Sono regole costruite dopo aver visto gli errori: vanno nelle fixture di test e si ritarano con la libreria reale.
+   - I dati dei candidati presi da TMDB e salvati nell'IdentificationCase (titoli, anni, `vote_count`) sono TMDB Content: scadono e si cancellano con gli altri valori TMDB (punto 5).
    - **Implementazione** (ADR 0001):
      - il parser a regole di S4 (`spikes/s4-identification/rules.py`) si **riscrive a mano** in TypeScript;
+     - la normalizzazione dei titoli non deve cancellare le lettere non latine: lo spike riduce a "1917" un titolo in cirillico che contiene quel numero e crea un falso omonimo (S4, Scoperta 13). Si corregge con una normalizzazione Unicode **prima** di congelare le fixture di parità, altrimenti il test fissa l'errore nel prodotto;
      - `ratio` e `token_sort_ratio` compatibili con rapidfuzz (distanza Indel normalizzata) si scrivono a mano: poche righe, nessuna dipendenza;
      - un **test di parità** confronta parser e punteggi con gli output di rapidfuzz e dello spike sul corpus S4 e sul holdout, salvati come fixture JSON versionate (solo testo: nomi di file e punteggi, nessun media);
      - le soglie T 0,80 e M 0,10 restano invariate.
@@ -115,12 +136,16 @@ Restano da decidere:
      - le righe `item_field` con `source=tmdb`, anche se lockate;
      - le righe di `provider_cache` di `tmdb`;
      - le righe di artwork con sorgente `tmdb`, con i loro file in `video-artwork` e le eventuali varianti in `video-cache`;
-     - Person e Credit di sorgente `tmdb`.
+     - Person e Credit di sorgente `tmdb`;
+     - i dati TMDB dei candidati negli IdentificationCase (titoli, anni, voti). Il caso resta, con i punteggi e i candidati Wikidata.
+
+     Anche `ExpireProviderValues` tratta i dati TMDB dei candidati come gli altri valori TMDB.
 
      Restano gli ID numerici TMDB in `external_id` (punto 3, interpretazione da ricontrollare), i valori `manual` e Wikidata, gli ID dal filename, i MediaLink e lo stato di visione.
-6. **Artwork TMDB = TMDB Content** (lettura più difendibile del §1.A):
+6. **Artwork TMDB = TMDB Content.** Il §1.A definisce TMDB Content come "any content (including audio or visual content) or other information available through, on, or from the TMDB APIs or TMDB": un poster scaricato dal CDN di TMDB è contenuto visivo ottenuto da TMDB, e nessuna fonte TMDB esclude le immagini (S4, Q3, "Conflitto"). Quindi:
    - copia locale ammessa, **riscaricata** a ogni refresh e cancellata a scadenza o al purge;
-   - **nessuna ricodifica o ridimensionamento** (§1.C, derivati): le varianti si scaricano già pronte dalle taglie del CDN TMDB (`w342`/`w780` poster, `w1280` backdrop, `w300` still, `w185` persone);
+   - **nessuna ricodifica o ridimensionamento** (§1.C, derivati): le varianti si scaricano già pronte dalle taglie del CDN TMDB (`w342`/`w780` poster, `w1280` backdrop, `w300` still, `w185` persone; i loghi arrivano fino a `w500`). Le taglie le dichiara `/configuration`: l'adapter le legge da lì e non le dà per scontate;
+   - **ordine di download:** prima poster e backdrop, che servono alla Home; poi, a priorità bassa, logo, still e foto dei primi 10 del cast e del regista. Le altre foto delle persone (mediana del cast in S4: 64 persone) si scaricano solo quando un client le chiede;
    - gli upload del proprietario e i frame generati dal video non sono TMDB Content e restano;
    - i client non fanno mai hotlinking a TMDB (P1).
 7. **Rate limiting** (per host, nell'adapter):
@@ -133,6 +158,7 @@ Restano da decidere:
    | WDQS | 1 query alla volta, batch di QID, timeout 60 s | 1 |
 
    - Su `429`/`503` si rispetta `Retry-After` (secondi o data, tetto 10 min) **per tutto l'host**; se manca, backoff esponenziale da 5 s a 5 min con jitter.
+   - **Una connessione persistente per host** (keep-alive): in S4 una ricerca TMDB costa 0,18 s (p50) con la connessione riusata e 0,54 s aprendone una nuova. Con queste latenze bastano circa 4 richieste in parallelo per arrivare a 20 req/s. In S4 nessun 429 su 831 risposte, ma a ≤ 1 req/s: il limite di 20 req/s resta da osservare in esercizio.
    - Circuit breaker dopo 5 fallimenti consecutivi.
    - Se una singola query fallisce più volte, si cambia strategia: per Wikidata, etichetta esatta con anno.
    - User-Agent `Pezzotflix/<versione> (<WIKIDATA_CONTACT>)`. Senza contatto, il limite scende a 10 req/min con un avviso.
@@ -150,6 +176,7 @@ Restano da decidere:
      2. registra il provider;
      3. riconosce il cambio dell'impronta dei provider e accoda un **backfill**: per ID TMDB dove Wikidata lo fornisce, altrimenti con una ricerca vincolata a titolo e anno noti, più un nuovo tentativo sui casi "Da verificare".
    - Il backfill **non cambia mai un MediaLink esistente**.
+   - Dal 2026-11-05 la chiave è nel `.env` della macchina di sviluppo, quindi l'MVP gira con TMDB configurato. Il percorso senza chiave resta un requisito e ha i suoi test.
 10. **Vincoli derivati dai termini:**
     - un futuro resolver AI (§11) non riceve TMDB Content;
     - nessuna risposta TMDB registrata va nel repository: le fixture dell'adapter sono sintetiche;
@@ -168,9 +195,15 @@ Restano da decidere:
   - le varianti delle immagini TMDB sono vincolate alle taglie del CDN;
   - un lock su un valore TMDB non lo rende durevole: serve "fissa come valore manuale", e la UI deve spiegarlo;
   - **la prima ingest via Wikidata è lenta:** circa 3 richieste per item a 1 req/s, quindi circa **1,7 ore per 2000 item**. La UI mostra l'avanzamento dell'ingest;
-  - il parser e i punteggi portati a mano vanno tenuti allineati alle fixture di parità.
+  - **con la chiave, il backfill TMDB si aggiunge all'ingest Wikidata**, non la sostituisce, perché l'identificazione resta su Wikidata. Stima da S4, non misurata su una libreria vera:
+    - le chiamate API per dettagli e crediti (circa 4.000 per 2.000 film) richiedono 3–4 minuti a 20 req/s;
+    - le immagini, a 10 req/s, pesano di più: con circa 14 immagini per film (poster, backdrop, logo, primi 10 del cast) sono circa 47 minuti. Per questo le foto oltre i primi 10 si scaricano solo su richiesta (punto 6);
+    - le serie aggiungono una richiesta per stagione e uno still per episodio;
+  - il parser e i punteggi portati a mano vanno tenuti allineati alle fixture di parità;
+  - la ricerca TMDB di ripiego ha più regole della ricerca Wikidata (punto 4.3), e quelle regole sono tarate solo in-sample.
 - **Da rivedere:**
-  - **appena c'è la chiave**: eseguire `tmdb_probe.py` e `match_eval.py --provider tmdb` (S4) per misurare la qualità `it-IT` e la precision su TMDB. Se TMDB risulta più preciso, si passa all'opzione B (identificazione TMDB-first), con Wikidata agganciato via `haswbstatement:P4947`;
+  - ~~appena c'è la chiave: misurare la qualità `it-IT` e la precision su TMDB, e passare all'opzione B se TMDB risulta più preciso.~~ **Fatto il 2026-11-05** (S4, "Test live TMDB"): TMDB non è più preciso, l'opzione A resta. Si riapre se, sulla libreria reale, la regola con lo spareggio per voti supera Wikidata in precision **e** recall;
+  - **con la libreria reale:** ritarare lo spareggio per voti e il rapporto del "titolo esatto poco votato" (punto 4.3);
   - **alla progettazione del resolver AI**: rileggere il §1.C;
   - **a ogni nuova versione dei termini TMDB**: la data di riferimento è il 2023-10-20. Va ricontrollata anche l'interpretazione sulla conservazione degli ID numerici TMDB (punto 3).
 - **Dipendenze:**
@@ -180,6 +213,7 @@ Restano da decidere:
   - ADR 0004 (stati `not_configured`/`provider_unavailable`, `PurgeProviderData`, provenienza per campo, `Cache-Control` delle immagini TMDB);
   - ADR sulle thumbnail (numero da assegnare): niente ricodifica delle immagini TMDB;
   - ADR 0005 (web client, riservata) e ADR del client TV: pagina "Informazioni", segnaposto, avanzamento dell'ingest, "fissa come valore manuale".
-- **Input del proprietario ancora pendenti:**
-  - la chiave TMDB (account personale);
-  - un contatto (email o URL) per `WIKIDATA_CONTACT`.
+- **Input del proprietario:**
+  - la chiave TMDB (account personale): **fornita il 2026-11-05**, solo nel `.env` gitignorato;
+  - ancora pendente: un contatto (email o URL) per `WIKIDATA_CONTACT`.
+- **Dati TMDB dello spike:** `spikes/s4-identification/out/` contiene risposte TMDB (gitignorate) e va cancellata entro il **2027-05-05** (§1.C, 6 mesi).

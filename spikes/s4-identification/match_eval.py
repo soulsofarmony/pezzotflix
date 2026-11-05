@@ -42,24 +42,46 @@ TIMEOUTS = []
 SEARCH_FAILED = []
 SEARCH_ROWS = []
 LATENCY = []
+STATUS = []  # HTTP status of every live response (same order as LATENCY)
 UA = "pezzotflix-spike-s4/0.1 (private self-hosted media research script; python-requests)"
 PROVIDER = "wikidata"
 for i, a in enumerate(sys.argv):
     if a == "--provider":
         PROVIDER = sys.argv[i + 1]
+FRESH = "--fresh" in sys.argv  # ignore cached responses (re-measure latency); the cache is still rewritten
+# --keepalive: one connection reused (as a product HTTP client would); default: a new TCP+TLS connection per request
+HTTP = requests.Session() if "--keepalive" in sys.argv else requests
+
+
+_SECRET_QS = re.compile(r"(api_key=)[^&\s'\"]+", re.I)
+
+
+def redact(text):
+    """Hides the TMDB v3 api_key (sent in the query string with TMDB_API_KEY) from error messages."""
+    return _SECRET_QS.sub(r"\1REDACTED", str(text))
 
 
 def http_get_json(url, params=None, headers=None):
+    """GET with cache and retries. requests exceptions are re-raised with a redacted message (same type,
+    same .response), without the original exception chained: its message holds the full URL with api_key."""
+    try:
+        return _http_get_json(url, params, headers)
+    except requests.RequestException as ex:
+        safe = type(ex)(redact(ex), response=getattr(ex, "response", None))
+    raise safe from None
+
+
+def _http_get_json(url, params=None, headers=None):
     key = hashlib.sha1((url + json.dumps(params, sort_keys=True)).encode()).hexdigest()
     f = CACHE / f"{key}.json"
-    if f.exists():
+    if f.exists() and not FRESH:
         return json.loads(f.read_text(encoding="utf-8"))
     h = {"User-Agent": UA}
     h.update(headers or {})
     for attempt in range(6):
         t0 = time.perf_counter()
         try:
-            r = requests.get(url, params=params, headers=h, timeout=90)
+            r = HTTP.get(url, params=params, headers=h, timeout=90)
         except requests.Timeout:
             TIMEOUTS.append(url)
             print("  timeout, retrying", file=sys.stderr)
@@ -67,6 +89,7 @@ def http_get_json(url, params=None, headers=None):
                 raise
             continue
         LATENCY.append(time.perf_counter() - t0)
+        STATUS.append(r.status_code)
         if r.status_code >= 400:
             with open(OUT / "http_events.log", "a", encoding="utf-8") as log:
                 log.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {r.status_code} retry-after={r.headers.get('Retry-After')} "
@@ -235,17 +258,24 @@ def tmdb_candidates(q):
     params = {"query": q["title"], "language": "it-IT", "include_adult": "false", **auth["params"]}
     if q["year"]:
         params["year" if ep == "movie" else "first_air_date_year"] = q["year"]
-    res = http_get_json(f"https://api.themoviedb.org/3/search/{ep}", params, auth["headers"])["results"]
-    if not res and q["year"]:  # year may be off by one: retry without it
+    data = http_get_json(f"https://api.themoviedb.org/3/search/{ep}", params, auth["headers"])
+    retried = False
+    if not data["results"] and q["year"]:  # year may be off by one: retry without it
         params.pop("year", None); params.pop("first_air_date_year", None)
-        res = http_get_json(f"https://api.themoviedb.org/3/search/{ep}", params, auth["headers"])["results"]
+        data = http_get_json(f"https://api.themoviedb.org/3/search/{ep}", params, auth["headers"])
+        retried = True
+    TMDB_SEARCH[q["key"]] = {"total_results": data.get("total_results"), "retried_without_year": retried}
     out = []
-    for r in res[:10]:
+    for rank, r in enumerate(data["results"][:10], 1):
         date = r.get("release_date") or r.get("first_air_date") or ""
         out.append({"ref": f"tmdb:{ep}:{r['id']}", "kind": q["kind"], "title_it": r.get("title") or r.get("name"),
                     "title_en": None, "original": [r.get("original_title") or r.get("original_name")], "aliases": [],
-                    "years": [int(date[:4])] if date[:4].isdigit() else [], "popularity": r.get("popularity")})
+                    "years": [int(date[:4])] if date[:4].isdigit() else [], "popularity": r.get("popularity"),
+                    "vote_count": r.get("vote_count"), "rank": rank})
     return out
+
+
+TMDB_SEARCH = {}  # per query: total_results of the search actually used, and whether the year was dropped
 
 
 CANDIDATES = {"wikidata": wikidata_candidates, "tmdb": tmdb_candidates}
@@ -367,13 +397,33 @@ def dump():
         L = sorted(LATENCY)
         print(f"http requests={len(L)} median={L[len(L)//2]:.2f}s p90={L[int(len(L)*0.9)]:.2f}s max={L[-1]:.2f}s "
               f"timeouts={len(TIMEOUTS)} 429={RATE_LIMITED} search_failed={SEARCH_FAILED}", file=sys.stderr)
+    if PROVIDER == "tmdb" and "--freeze" in sys.argv:
+        raise SystemExit("refused: no recorded TMDB response goes into tracked fixtures/ (ADR 0007 point 10, "
+                         "TMDB terms 1.C); the TMDB candidates stay in out/ (gitignored)")
+    n_lat = len(LATENCY)
     out = []
     for q in qs:
         cands = fn(q)
         for c in cands:
             c["score"], c["signals"] = score(q, c) if q["title"] else (0, {})
-        out.append({**q, "candidates": cands})  # kept in provider rank order
+        out.append({**q, "candidates": cands, **({"search": TMDB_SEARCH.get(q["key"])} if PROVIDER == "tmdb" else {})})
     (OUT / f"candidates_{PROVIDER}.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    if PROVIDER == "tmdb":
+        lat = sorted(LATENCY[n_lat:])
+        if lat:
+            pct = lambda p: lat[max(0, -(-len(lat) * p // 100) - 1)]  # nearest rank
+            mode = "keepalive" if "--keepalive" in sys.argv else "cold"
+            (OUT / f"tmdb_search_latency_{mode}.json").write_text(json.dumps({
+                "keepalive": mode == "keepalive", "requests": len(lat), "p50_s": round(pct(50), 4),
+                "p95_s": round(pct(95), 4), "max_s": round(lat[-1], 4),
+                "status": dict(__import__("collections").Counter(map(str, STATUS[n_lat:]))),
+                "timeouts": len(TIMEOUTS), "rate_limited": RATE_LIMITED}, indent=1), encoding="utf-8")
+            print(f"tmdb search: keepalive={'--keepalive' in sys.argv} live requests={len(lat)} "
+                  f"p50={pct(50):.3f}s p95={pct(95):.3f}s max={lat[-1]:.3f}s "
+                  f"status={dict(sorted(__import__('collections').Counter(STATUS[n_lat:]).items()))} "
+                  f"timeouts={len(TIMEOUTS)} 429={RATE_LIMITED}", file=sys.stderr)
+        else:
+            print("tmdb search: all responses from out/cache/ (use --fresh to re-measure latency)", file=sys.stderr)
     if "--freeze" in sys.argv:  # tracked snapshot: names/IDs/years only, provider rank order, no scores
         snap = [{"key": q["key"], "title": q["title"], "year": q["year"], "kind": q["kind"], "ids": q["ids"],
                  "candidates": [{k: c.get(k) for k in SNAPSHOT_FIELDS} for c in q["candidates"]]} for q in out]
