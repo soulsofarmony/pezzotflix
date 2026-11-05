@@ -22,6 +22,8 @@
 	# Web client (SPA): static assets, index.html fallback.
 	handle {
 		root * /srv/web
+		# Text assets (JS, CSS, HTML, JSON) compressed on the fly; images and fonts are left as they are.
+		encode zstd gzip
 		@assets path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 		# index.html and SPA routes: always revalidate, so a new build is picked up.
