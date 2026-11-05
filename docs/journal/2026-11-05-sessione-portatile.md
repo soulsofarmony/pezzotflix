@@ -15,36 +15,42 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `84f26e5` | Contratto: campi `audioTrackSelection` e `displayHdr`, vocabolario fisso dei codec, definizioni di `delivery`, `stream.mimeType` con i `codecs` |
 | `9d46b07` | Gateway: `index.html` e le rotte della SPA con `Cache-Control: no-cache`, così una nuova build arriva subito |
 | `21d61b0` | **F1a.2**, identifier e scrittura nel catalogo: parser dei percorsi, catena Wikidata → TMDB (ADR 0007 opzione A), coda "Da verificare", ripresa giornaliera dei casi in sospeso. 561 test |
+| `a1c6d13` | Tipo di job `metadata.enrich`, condiviso fra catalogo e metadata |
+| `8a5f4fa` | Gateway: compressione degli asset testuali del web client |
+| `8a6138a` | Contratto: campi ed errori dello streaming dall'ADR 0003 (`STREAM_PREPARING` 503, `STREAM_FAILED` 500, disponibilità dei sottotitoli, bitrate) |
+| `9eb90f5` | **ADR 0003 (streaming) e 0005 (web client) accettati**; la catena di progetto è chiusa (ADR 0001–0007 tutti accettati) |
+| `c15320d` | **F1b.0**, tipo condiviso del piano di riproduzione e porta di Stream Delivery |
+| `529d34f`, `75a8682` | Porte per profili e playback (preferenze, avanzamento, ripresa) e posizione degli item nel catalogo |
+| `9c96f38` | **F1a.3**, lettura del catalogo e admin: home, ricerca, figli, coda "Da verificare" con risoluzione manuale, conferma delle radici sospese dopo una sparizione di massa, stato dell'ingest. 711 test |
+| `8ad6a84` | Solo episodi con un file fra i discendenti riproducibili; ultima scelta delle tracce nella porta dei profili |
+| `c08a5ec` | **F1b.1**, profili e stato di visione: progressi, cronologia, watchlist, "continua a guardare", prossimo episodio. 818 test |
+| `e5c57c1` | **F1a.4**, metadata, arricchimento e locandine: adapter TMDB e Wikidata, cache locale con scadenza, locandine validate e salvate per contenuto, pulizia delle orfane, attribuzioni. 960 test; test live TMDB e Wikidata verdi |
 
 ## 2. In corso
 
-- **ADR 0003** (streaming) e **ADR 0005** (web client): revisioni arrivate, correzioni in corso. Per lo 0003 un problema bloccante: con GOP aperto, comune nei Blu-ray, la ripartenza da un keyframe non riproduce gli stessi timestamp; ora si riparte dal keyframe precedente.
-
-**Note da F1a.2:**
-- un match TMDB senza anno non diventa mai automatico, perché TMDB entra solo quando Wikidata non ha candidati e il controllo di unicità su Wikidata fallisce sempre. È voluto (scelta prudente, D6): finisce in "Da verificare";
-- da fare in F1a.3: la protezione contro la sparizione di massa tiene offline una radice a tempo indeterminato se il proprietario cancella davvero più di metà dei file. Serve una conferma dall'admin.
+- **F1b.2**, motore di decisione e gestore delle sessioni: pronto, in revisione approfondita (due revisori, uno sul motore e uno sulle sessioni). Nuova decisione **P6** nel doc 04: fra le versioni in Direct Play e Direct Stream vince la qualità più alta, il transcode video sempre per ultimo, la modalità più leggera solo a parità di qualità.
+- **F1b.3**, Stream Delivery: indice dei keyframe dalle Cues MKV, token, Direct Play con Range, HLS fMP4 in Direct Stream con segmentatore proprio e ripartenza. Pronto, in revisione approfondita (sicurezza e ciclo di vita; correttezza HLS).
 
 ## 3. Prossimi passi
 
-1. ADR 0003 e 0005: applicare le correzioni, fare una breve seconda revisione della ripartenza, della timeline e dei sottotitoli dello 0003, aggiornare il contratto (un solo blocco di aggiunte), poi accettarli.
-2. F1a.3 (lettura del catalogo e admin) in parallelo con F1a.4 (adapter Wikidata e TMDB, Enricher, artwork, scadenza e purge).
-3. F1b (playback) dopo l'ADR 0003. Il brief in `.claude/prompts/f1b-profiles-playback-delivery.md` è superato e va riscritto con gli esiti di S2:
-   - AC-3/E-AC-3 solo in Edge;
-   - FLAC, AAC 5.1 con channelConfiguration 6 e Opus in Chrome e Firefox;
-   - `audioTrackSelection` false;
-   - `displayHdr`;
-   - layout `5.1` prima di AAC e Opus;
-   - ripianificazione per dimensione sospetta;
-   - DV P8.1 come `hvc1` e P7 con `remove_dovi`.
-4. F1c (web client) dopo l'ADR 0005; F2 integrazione; report finale.
+1. Correggere quanto emerge dalle revisioni di F1b.2 e F1b.3 e integrarli. All'integrazione:
+   - aggiungere al contratto gli stati mancanti (fra cui 503 su `getSubtitle`);
+   - aggiungere `level` al `VideoSource` del piano;
+   - portare `fileId` nelle esclusioni dei sottotitoli create da Stream Delivery.
+2. **F1b.4**: estrazione dei sottotitoli embedded in due passate con risposte "growing" ed evento `subtitle_ready`; transcode software fino a 1080p.
+3. **F1c**, web client (ADR 0005).
+4. **F2**, integrazione con revisione approfondita, poi report finale.
 
-## 4. Punti aperti per l'ADR 0003
+## 4. Lacune note, da riprendere
 
-- **Estrazione dei sottotitoli embedded** (PGS → `.sup`, testo → WebVTT): leggere una traccia vuol dire leggere tutto il file, cioè minuti dal bind mount. L'output va nel volume cache persistente. Opzioni da misurare:
-  - un'uscita in più del processo di remux, dalla posizione di partenza;
-  - un'estrazione in background, all'ingest o al primo playback.
-- **Buffer di hls.js:** dimensionare `maxBufferLength` / `maxMaxBufferLength` / `maxBufferSize` sul bitrate, per restare sotto la quota video di Chromium (150 MiB). La quota audio (12 MiB) non è stata messa alla prova.
-- **DV P7 (H11):** `hevc_metadata=remove_dovi=1` esiste nell'immagine, ma l'effetto su un P7 non è misurato.
+- **Stato di visione orfano** quando un file viene ricollegato a un altro item (`reassignItemState` non c'è ancora).
+- **Flag di revisione dei metadata** non salvato (ADR 0007 §2/§3): per ora solo un warning nel log.
+- **Autore e licenza delle immagini Commons** non salvati: serve una migrazione della tabella `artwork`.
+- **Job:** manutenzione dell'identifier e dei metadata scrive direttamente sulla tabella dei job; va sostituito da una funzione della porta `JobQueuePort`.
+- **Ultima scelta delle tracce** persa quando un titolo viene completato.
+- **Token del profilo** firmato, più severo di quanto chiede l'ADR 0004: va bene così, da annotare nell'ADR alla prossima revisione.
+- **Ricerca:** la scansione per sottostringa sull'indice FTS costa O(righe); va bene per una libreria domestica.
+- **Locandine orfane:** la pulizia scorre tutte le cartelle una volta al giorno; il blocco contro le scritture concorrenti vale per un solo processo.
 
 ## 5. In attesa del proprietario
 
