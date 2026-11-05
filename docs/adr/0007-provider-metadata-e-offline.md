@@ -215,5 +215,5 @@ Restano da decidere:
   - ADR 0005 (web client, riservata) e ADR del client TV: pagina "Informazioni", segnaposto, avanzamento dell'ingest, "fissa come valore manuale".
 - **Input del proprietario:**
   - la chiave TMDB (account personale): **fornita il 2026-11-05**, solo nel `.env` gitignorato;
-  - ancora pendente: un contatto (email o URL) per `WIKIDATA_CONTACT`.
+  - contatto per `WIKIDATA_CONTACT`: per default è l'URL pubblico del repository (`https://github.com/soulsofarmony/pezzotflix`, già nella configurazione e raggiungibile il 2026-11-05). La politica Wikimedia accetta un URL; il proprietario può impostare un altro contatto nel `.env`.
 - **Dati TMDB dello spike:** `spikes/s4-identification/out/` contiene risposte TMDB (gitignorate) e va cancellata entro il **2027-05-05** (§1.C, 6 mesi).
