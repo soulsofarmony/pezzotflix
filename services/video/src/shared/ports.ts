@@ -49,6 +49,19 @@ export interface CatalogReadPort {
   /** Ids of episodes of a series/season (for watched propagation), in order. */
   listPlayableDescendants(itemId: string): string[];
   itemExists(itemId: string): boolean;
+  /**
+   * Kind and position of each known item (unknown ids are left out). Lets profiles tell series,
+   * seasons and episodes apart and order episodes without reading catalog tables.
+   */
+  describeItems(itemIds: readonly string[]): Map<string, CatalogItemPosition>;
+}
+
+export interface CatalogItemPosition {
+  id: string;
+  kind: CatalogItemKind;
+  parentId: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
 }
 
 /** A profile's playback preferences (contract `ProfilePrefs`), read by the Decision Engine. */
