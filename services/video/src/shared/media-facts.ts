@@ -2,6 +2,7 @@
 // Serializable plain data. Produced by modules/analyzer, stored in media_file.facts and
 // normalised into media_stream/chapter; consumed by catalog (badges, versions) and playback.
 // Never contains absolute host paths: a file is always (rootName, relPath).
+import { createHash } from 'node:crypto';
 
 export interface MediaLocation {
   rootName: string;
@@ -77,7 +78,7 @@ export interface ChapterFacts {
 }
 
 export interface SidecarSubtitleFacts {
-  /** Stable id within the file: "x:<n>". */
+  /** Stable id within the file: "x:" + first 8 hex chars of sha256(file name); survives sidecars being added/removed. */
   id: string;
   relPath: string;
   format: 'srt' | 'ass' | 'ssa' | 'vtt' | 'sup';
@@ -101,5 +102,9 @@ export interface MediaFacts {
   analyzerVersion: number;
 }
 
-/** Track id as exposed by the API: "s<index>" for embedded streams, "x:<n>" for sidecars. */
+/** Track id as exposed by the API: "s<index>" for embedded streams, "x:<8 hex>" for sidecars. */
 export const streamTrackId = (index: number): string => `s${index}`;
+
+/** Track id of a sidecar (SidecarSubtitleFacts.id), from its file name only. */
+export const sidecarTrackId = (relPath: string): string =>
+  `x:${createHash('sha256').update(relPath.slice(relPath.lastIndexOf('/') + 1)).digest('hex').slice(0, 8)}`;
