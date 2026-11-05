@@ -1,0 +1,3246 @@
+{
+ "browser": "Edge 156.0.0.0 headless",
+ "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0",
+ "when": "2026-11-05T00:29:04.741Z",
+ "passes": 2,
+ "caps": {
+  "mse": true,
+  "isTypeSupported": {
+   "AVC High": true,
+   "HEVC Main10 L5.1 hvc1": true,
+   "HEVC Main10 L6.1 hvc1": true,
+   "HEVC Main10 hev1": true,
+   "DV P8 dvh1.08.09": false,
+   "DV P8 dvhe.08.09": false,
+   "DV P5 dvh1.05.09": false,
+   "AV1 Main10": true,
+   "VP9 webm": true,
+   "MKV avc1 (MSE)": false,
+   "AAC-LC": true,
+   "E-AC3 ec-3": true,
+   "AC3 ac-3": true,
+   "FLAC flac": true,
+   "FLAC fLaC": true,
+   "Opus mp4": true,
+   "TrueHD mlpa": false,
+   "DTS dtsc": false,
+   "DTS-HD dtsh": false,
+   "DTS-HD MA dtsl": false,
+   "DTS:X dtsx": false
+  },
+  "canPlayType": {
+   "MKV": "maybe",
+   "MKV avc1+aac": "probably",
+   "MKV hevc": "probably",
+   "HLS native": "maybe",
+   "AVC High": "probably",
+   "HEVC Main10 L5.1 hvc1": "probably",
+   "HEVC Main10 L6.1 hvc1": "probably",
+   "HEVC Main10 hev1": "probably",
+   "DV P8 dvh1.08.09": "",
+   "DV P8 dvhe.08.09": "",
+   "DV P5 dvh1.05.09": "",
+   "AV1 Main10": "probably",
+   "VP9 webm": "probably",
+   "MKV avc1 (MSE)": "probably",
+   "AAC-LC": "probably",
+   "E-AC3 ec-3": "probably",
+   "AC3 ac-3": "probably",
+   "FLAC flac": "probably",
+   "FLAC fLaC": "probably",
+   "Opus mp4": "probably",
+   "TrueHD mlpa": "",
+   "DTS dtsc": "",
+   "DTS-HD dtsh": "",
+   "DTS-HD MA dtsl": "",
+   "DTS:X dtsx": ""
+  },
+  "decodingInfo": {
+   "media-source | AVC 1080p": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | HEVC 4K SDR": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | HEVC 4K HDR10 (smpteSt2086, pq, rec2020)": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | HEVC 4K HDR10+ (smpteSt2094-40)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | HEVC 4K HLG": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | DV P8 4K (dvh1.08.09, smpteSt2094-10)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | DV P5 4K (dvh1.05.09)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | AV1 4K HDR10": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | AAC 2ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | AAC 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | FLAC 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | FLAC 8ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | Opus 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | E-AC3 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | AC3 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "media-source | TrueHD 8ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | DTS 6ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "media-source | DTS-HD MA 8ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | AVC 1080p": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | HEVC 4K SDR": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | HEVC 4K HDR10 (smpteSt2086, pq, rec2020)": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | HEVC 4K HDR10+ (smpteSt2094-40)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | HEVC 4K HLG": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | DV P8 4K (dvh1.08.09, smpteSt2094-10)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | DV P5 4K (dvh1.05.09)": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | AV1 4K HDR10": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | AAC 2ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | AAC 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | FLAC 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | FLAC 8ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | Opus 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | E-AC3 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | AC3 6ch": {
+    "supported": true,
+    "smooth": true,
+    "powerEfficient": true
+   },
+   "file | TrueHD 8ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | DTS 6ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   },
+   "file | DTS-HD MA 8ch": {
+    "supported": false,
+    "smooth": false,
+    "powerEfficient": false
+   }
+  },
+  "matchMedia": {
+   "(dynamic-range: high)": false,
+   "(video-dynamic-range: high)": false,
+   "(color-gamut: srgb)": true,
+   "(color-gamut: p3)": false,
+   "(color-gamut: rec2020)": false
+  },
+  "screen": {
+   "w": 1280,
+   "h": 900,
+   "dpr": 1,
+   "colorDepth": 24,
+   "pixelDepth": 24
+  },
+  "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti (0x00002489) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "audioOut": {
+   "maxChannelCount": 2,
+   "sampleRate": 48000
+  },
+  "uaData": {
+   "architecture": "x86",
+   "brands": [
+    {
+     "brand": "Not:A-Brand",
+     "version": "8"
+    },
+    {
+     "brand": "Chromium",
+     "version": "156"
+    },
+    {
+     "brand": "Microsoft Edge",
+     "version": "156"
+    }
+   ],
+   "fullVersionList": [
+    {
+     "brand": "Not:A-Brand",
+     "version": "8.0.0.0"
+    },
+    {
+     "brand": "Chromium",
+     "version": "156.0.8078.80"
+    },
+    {
+     "brand": "Microsoft Edge",
+     "version": "156.0.4314.58"
+    }
+   ],
+   "mobile": false,
+   "platform": "Windows",
+   "platformVersion": "19.0.0"
+  }
+ },
+ "auto": [
+  {
+   "id": "d1",
+   "pass": 1,
+   "what": "MKV direct · AVC + AAC",
+   "hyp": "H1",
+   "outcome": "ok",
+   "startMs": 194,
+   "seekMs": 31,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 2,
+    "presentedFps": 58.3,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 2
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 52278,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "d2",
+   "pass": 1,
+   "what": "MKV direct · AVC + DTS 5.1",
+   "hyp": "H1",
+   "outcome": "ok",
+   "startMs": 288,
+   "seekMs": 46,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60.2,
+    "droppedInWindow": 0,
+    "presentedFps": 59.9,
+    "mediaAdvance": 3.02,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-132.1dB@11021Hz",
+     "-infdB@6Hz",
+     "-132.1dB@15188Hz",
+     "-132dB@10172Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 186368,
+    "webkitVideoDecodedBytes": 10249851
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "d3",
+   "pass": 1,
+   "what": "MKV direct · HEVC 4K HDR10 + TrueHD 5.1",
+   "hyp": "H1/H2",
+   "outcome": "ok",
+   "startMs": 558,
+   "seekMs": 80,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.03,
+    "decodedFps": 59.8,
+    "droppedInWindow": 0,
+    "presentedFps": 59.5,
+    "mediaAdvance": 3.03,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-131.9dB@16529Hz",
+     "-infdB@6Hz",
+     "-131.6dB@10031Hz",
+     "-132.1dB@10219Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 188160,
+    "webkitVideoDecodedBytes": 34166703
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "d5",
+   "pass": 1,
+   "what": "MKV direct · HEVC 4K HDR10 + TrueHD only (no fallback track)",
+   "hyp": "H1",
+   "outcome": "video only",
+   "startMs": 54,
+   "seekMs": 47,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 59.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 0,
+    "channels": [
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 0,
+    "webkitVideoDecodedBytes": 34375035
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "d6",
+   "pass": 1,
+   "what": "MKV direct · AVC + DTS only (no fallback track)",
+   "hyp": "H1",
+   "outcome": "video only",
+   "startMs": 68,
+   "seekMs": 14,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.03,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.03,
+    "totalFrames": 188,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 0,
+    "channels": [
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 0,
+    "webkitVideoDecodedBytes": 10385094
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "d4",
+   "pass": 1,
+   "what": "MP4 progressive · AVC + AAC",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 67,
+   "seekMs": 24,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.03,
+    "decodedFps": 60.5,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.02,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 52278,
+    "webkitVideoDecodedBytes": 10249851
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h1",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + AAC",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 195,
+   "seekMs": 5,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.03,
+    "decodedFps": 60,
+    "droppedInWindow": 1,
+    "presentedFps": 56.1,
+    "mediaAdvance": 3.03,
+    "totalFrames": 187,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 78470,
+    "webkitVideoDecodedBytes": 10250482
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h2",
+   "pass": 1,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + AAC",
+   "hyp": "H2",
+   "outcome": "ok",
+   "startMs": 168,
+   "seekMs": 137,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60.3,
+    "droppedInWindow": 1,
+    "presentedFps": 57.7,
+    "mediaAdvance": 3.02,
+    "totalFrames": 188,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 79297,
+    "webkitVideoDecodedBytes": 34166703
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h3",
+   "pass": 1,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + FLAC 5.1",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 400,
+   "seekMs": 168,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"flac,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 59.7,
+    "droppedInWindow": 0,
+    "presentedFps": 57.4,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 88567,
+    "webkitVideoDecodedBytes": 33958371
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h4",
+   "pass": 1,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + E-AC3 5.1",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 215,
+   "seekMs": 161,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ec-3,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 57.8,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-133dB@15592Hz",
+     "-infdB@6Hz",
+     "-132.8dB@15656Hz",
+     "-133.2dB@15844Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 34166703
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "h5",
+   "pass": 1,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + AC3 5.1",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 307,
+   "seekMs": 186,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ac-3,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 58.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-134.2dB@15480Hz",
+     "-infdB@6Hz",
+     "-134dB@18428Hz",
+     "-134.1dB@15439Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263680,
+    "webkitVideoDecodedBytes": 33750039
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "h6",
+   "pass": 1,
+   "what": "HLS fMP4 · DV P8.1 tagged hvc1",
+   "hyp": "H3",
+   "outcome": "ok",
+   "startMs": 229,
+   "seekMs": 6,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.H153.B0\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 59.4,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 78820,
+    "webkitVideoDecodedBytes": 6915844
+   },
+   "posAfterSeek": 20,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h7",
+   "pass": 1,
+   "what": "HLS fMP4 · DV P8.1 tagged dvh1",
+   "hyp": "H3",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "timeout start; ",
+   "errors": [
+    "hls mediaError/bufferAddCodecError (fatal): Failed to execute 'addSourceBuffer' on 'MediaSource': The type provided ('video/mp4;codecs=mp4a.40.2,dvh1.08.09') is unsupported.",
+    "hls mediaError/bufferAppendError: Attempting to append to the audiovideo SourceBuffer, but it does not exist"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,dvh1.08.09\""
+   }
+  },
+  {
+   "id": "h8",
+   "pass": 1,
+   "what": "HLS fMP4 · DV P5 dvh1",
+   "hyp": "-",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "timeout start; ",
+   "errors": [
+    "hls mediaError/bufferAddCodecError (fatal): Failed to execute 'addSourceBuffer' on 'MediaSource': The type provided ('video/mp4;codecs=mp4a.40.2,dvh1.05.09') is unsupported.",
+    "hls mediaError/bufferAppendError: Attempting to append to the audiovideo SourceBuffer, but it does not exist"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,dvh1.05.09\""
+   }
+  },
+  {
+   "id": "p1",
+   "pass": 1,
+   "what": "fMP4 progressive (no MSE) · HEVC 4K HDR10 + FLAC 5.1",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 1465,
+   "seekMs": 31,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 88567,
+    "webkitVideoDecodedBytes": 34375035
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c1",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + FLAC 5.1 channel-ID",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 235,
+   "seekMs": 10,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"flac,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 59.8,
+    "droppedInWindow": 0,
+    "presentedFps": 59.1,
+    "mediaAdvance": 3.01,
+    "totalFrames": 185,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263570,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c2",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + E-AC3 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 295,
+   "seekMs": 19,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ec-3,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.2,
+    "droppedInWindow": 0,
+    "presentedFps": 59.2,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c3",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + AC3 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 296,
+   "seekMs": 10,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ac-3,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 60,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21.1dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 10250482
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "c4",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + Opus 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 434,
+   "seekMs": 24,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"opus,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 59.2,
+    "droppedInWindow": 1,
+    "presentedFps": 57.9,
+    "mediaAdvance": 2.98,
+    "totalFrames": 184,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 230783,
+    "webkitVideoDecodedBytes": 10062982
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.81
+  },
+  {
+   "id": "c5",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + AAC 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "Failed to load because no supported source was found.; ",
+   "errors": [
+    "hls mediaError/bufferAppendingError: audiovideo SourceBuffer error. MediaSource readyState: closed"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   }
+  },
+  {
+   "id": "c7",
+   "pass": 1,
+   "what": "HLS fMP4 · AVC + AAC 5.1 (layout 5.1, chanConfig 6) channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 141,
+   "seekMs": 3,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.4,
+    "droppedInWindow": 0,
+    "presentedFps": 59.1,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21dB@299Hz",
+     "-21.2dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.2dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 157409,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c6",
+   "pass": 1,
+   "what": "fMP4 progressive · AVC + FLAC 5.1 channel-ID",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 229,
+   "seekMs": 11,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 59.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263570,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "v1",
+   "pass": 1,
+   "what": "WebVTT <track> on HEVC 4K",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 268,
+   "seekMs": 160,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.03,
+    "decodedFps": 59.8,
+    "droppedInWindow": 0,
+    "presentedFps": 57.8,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 79811,
+    "webkitVideoDecodedBytes": 34166703
+   },
+   "vttCues": 2,
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.79
+  },
+  {
+   "id": "d1",
+   "pass": 2,
+   "what": "MKV direct · AVC + AAC",
+   "hyp": "H1",
+   "outcome": "ok",
+   "startMs": 75,
+   "seekMs": 35,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.7,
+    "droppedInWindow": 1,
+    "presentedFps": 60,
+    "mediaAdvance": 3.01,
+    "totalFrames": 188,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 52638,
+    "webkitVideoDecodedBytes": 10249851
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "d2",
+   "pass": 2,
+   "what": "MKV direct · AVC + DTS 5.1",
+   "hyp": "H1",
+   "outcome": "ok",
+   "startMs": 134,
+   "seekMs": 51,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-132.1dB@15164Hz",
+     "-infdB@6Hz",
+     "-132dB@15188Hz",
+     "-132dB@10172Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 186368,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "d3",
+   "pass": 2,
+   "what": "MKV direct · HEVC 4K HDR10 + TrueHD 5.1",
+   "hyp": "H1/H2",
+   "outcome": "ok",
+   "startMs": 107,
+   "seekMs": 55,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60.4,
+    "droppedInWindow": 0,
+    "presentedFps": 59.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-131.9dB@16529Hz",
+     "-infdB@6Hz",
+     "-131.6dB@10031Hz",
+     "-132.1dB@10219Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 184576,
+    "webkitVideoDecodedBytes": 33958371
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "d5",
+   "pass": 2,
+   "what": "MKV direct · HEVC 4K HDR10 + TrueHD only (no fallback track)",
+   "hyp": "H1",
+   "outcome": "video only",
+   "startMs": 38,
+   "seekMs": 34,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 0,
+    "channels": [
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 0,
+    "webkitVideoDecodedBytes": 34166703
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "d6",
+   "pass": 2,
+   "what": "MKV direct · AVC + DTS only (no fallback track)",
+   "hyp": "H1",
+   "outcome": "video only",
+   "startMs": 53,
+   "seekMs": 16,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 0,
+    "channels": [
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 0,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "d4",
+   "pass": 2,
+   "what": "MP4 progressive · AVC + AAC",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 62,
+   "seekMs": 18,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.4,
+    "droppedInWindow": 0,
+    "presentedFps": 59.7,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 52278,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 20,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h1",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + AAC",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 234,
+   "seekMs": 5,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.4,
+    "droppedInWindow": 0,
+    "presentedFps": 57.1,
+    "mediaAdvance": 3.01,
+    "totalFrames": 187,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 78470,
+    "webkitVideoDecodedBytes": 10250482
+   },
+   "posAfterSeek": 20,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h2",
+   "pass": 2,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + AAC",
+   "hyp": "H2",
+   "outcome": "ok",
+   "startMs": 226,
+   "seekMs": 143,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60.7,
+    "droppedInWindow": 1,
+    "presentedFps": 57.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 78279,
+    "webkitVideoDecodedBytes": 33750039
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h3",
+   "pass": 2,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + FLAC 5.1",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 325,
+   "seekMs": 194,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"flac,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 57.7,
+    "mediaAdvance": 3.01,
+    "totalFrames": 188,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 88567,
+    "webkitVideoDecodedBytes": 34375035
+   },
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h4",
+   "pass": 2,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + E-AC3 5.1",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 282,
+   "seekMs": 194,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ec-3,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.4,
+    "droppedInWindow": 0,
+    "presentedFps": 56.4,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-133.1dB@15592Hz",
+     "-infdB@6Hz",
+     "-132.8dB@15656Hz",
+     "-133.2dB@15844Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 33958371
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h5",
+   "pass": 2,
+   "what": "HLS fMP4 · HEVC 4K HDR10 + AC3 5.1",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 292,
+   "seekMs": 175,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ac-3,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 59,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-134.2dB@15480Hz",
+     "-infdB@6Hz",
+     "-133.9dB@18428Hz",
+     "-134.1dB@15439Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263680,
+    "webkitVideoDecodedBytes": 33750039
+   },
+   "posAfterSeek": 20.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h6",
+   "pass": 2,
+   "what": "HLS fMP4 · DV P8.1 tagged hvc1",
+   "hyp": "H3",
+   "outcome": "ok",
+   "startMs": 262,
+   "seekMs": 6,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.H153.B0\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 57.7,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 79811,
+    "webkitVideoDecodedBytes": 6938546
+   },
+   "posAfterSeek": 20,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "h7",
+   "pass": 2,
+   "what": "HLS fMP4 · DV P8.1 tagged dvh1",
+   "hyp": "H3",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "timeout start; ",
+   "errors": [
+    "hls mediaError/bufferAddCodecError (fatal): Failed to execute 'addSourceBuffer' on 'MediaSource': The type provided ('video/mp4;codecs=mp4a.40.2,dvh1.08.09') is unsupported.",
+    "hls mediaError/bufferAppendError: Attempting to append to the audiovideo SourceBuffer, but it does not exist"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,dvh1.08.09\""
+   }
+  },
+  {
+   "id": "h8",
+   "pass": 2,
+   "what": "HLS fMP4 · DV P5 dvh1",
+   "hyp": "-",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "timeout start; ",
+   "errors": [
+    "hls mediaError/bufferAddCodecError (fatal): Failed to execute 'addSourceBuffer' on 'MediaSource': The type provided ('video/mp4;codecs=mp4a.40.2,dvh1.05.09') is unsupported.",
+    "hls mediaError/bufferAppendError: Attempting to append to the audiovideo SourceBuffer, but it does not exist"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,dvh1.05.09\""
+   }
+  },
+  {
+   "id": "p1",
+   "pass": 2,
+   "what": "fMP4 progressive (no MSE) · HEVC 4K HDR10 + FLAC 5.1",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 1308,
+   "seekMs": 53,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 3,
+    "presentedFps": 58.4,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 3
+   },
+   "audio": {
+    "liveChannels": 2,
+    "channels": [
+     "-21.1dB@328Hz",
+     "-21.1dB@551Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ]
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 88567,
+    "webkitVideoDecodedBytes": 33958371
+   },
+   "posAfterSeek": 20.03,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c1",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + FLAC 5.1 channel-ID",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 268,
+   "seekMs": 9,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"flac,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 59.8,
+    "droppedInWindow": 1,
+    "presentedFps": 59.1,
+    "mediaAdvance": 3.01,
+    "totalFrames": 185,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263570,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c2",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + E-AC3 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 260,
+   "seekMs": 10,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ec-3,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 59.8,
+    "droppedInWindow": 0,
+    "presentedFps": 59.8,
+    "mediaAdvance": 3.01,
+    "totalFrames": 185,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c3",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + AC3 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 233,
+   "seekMs": 30,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"ac-3,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60,
+    "droppedInWindow": 0,
+    "presentedFps": 59.3,
+    "mediaAdvance": 3.02,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21.1dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 266240,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c4",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + Opus 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 243,
+   "seekMs": 22,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"opus,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.02,
+    "decodedFps": 60.3,
+    "droppedInWindow": 0,
+    "presentedFps": 59,
+    "mediaAdvance": 3.02,
+    "totalFrames": 187,
+    "totalDropped": 1
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 235061,
+    "webkitVideoDecodedBytes": 10250482
+   },
+   "posAfterSeek": 5.02,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c5",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + AAC 5.1 channel-ID",
+   "hyp": "-",
+   "outcome": "fail",
+   "startMs": null,
+   "seekMs": null,
+   "res": "",
+   "note": "media error; ",
+   "errors": [
+    "hls mediaError/bufferAppendingError: audiovideo SourceBuffer error. MediaSource readyState: ended",
+    "hls mediaError/bufferAppendingError: audiovideo SourceBuffer error. MediaSource readyState: ended",
+    "hls mediaError/bufferAppendingError: audiovideo SourceBuffer error. MediaSource readyState: ended",
+    "hls mediaError/mediaSourceRequiresReset (fatal): audiovideo SourceBuffer error. MediaSource readyState: ended",
+    "media error 4: PipelineStatus::CHUNK_DEMUXER_ERROR_APPEND_FAILED: RunSegmentParserLoop: stream parsing failed. append_window_start=0 append_window_end=inf"
+   ],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   }
+  },
+  {
+   "id": "c7",
+   "pass": 2,
+   "what": "HLS fMP4 · AVC + AAC 5.1 (layout 5.1, chanConfig 6) channel-ID",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 174,
+   "seekMs": 6,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,avc1.640029\""
+   },
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.1,
+    "droppedInWindow": 0,
+    "presentedFps": 59.1,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 0
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21dB@299Hz",
+     "-21.2dB@498Hz",
+     "-21dB@697Hz",
+     "-21.1dB@59Hz",
+     "-21.2dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 157409,
+    "webkitVideoDecodedBytes": 10187982
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "c6",
+   "pass": 2,
+   "what": "fMP4 progressive · AVC + FLAC 5.1 channel-ID",
+   "hyp": "H6",
+   "outcome": "ok",
+   "startMs": 224,
+   "seekMs": 16,
+   "res": "1920x1080",
+   "note": "",
+   "errors": [],
+   "audioCtxState": "running",
+   "window": {
+    "seconds": 3.01,
+    "decodedFps": 60.4,
+    "droppedInWindow": 2,
+    "presentedFps": 59,
+    "mediaAdvance": 3.01,
+    "totalFrames": 186,
+    "totalDropped": 2
+   },
+   "audio": {
+    "liveChannels": 6,
+    "channels": [
+     "-21.1dB@299Hz",
+     "-21.1dB@498Hz",
+     "-21.1dB@697Hz",
+     "-21dB@59Hz",
+     "-21.1dB@902Hz",
+     "-21.1dB@1102Hz",
+     "-infdB@6Hz",
+     "-infdB@6Hz"
+    ],
+    "channelMap": "correct L R C LFE Ls Rs"
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 263570,
+    "webkitVideoDecodedBytes": 10187353
+   },
+   "posAfterSeek": 5.01,
+   "advancingAfterSeek": 0.8
+  },
+  {
+   "id": "v1",
+   "pass": 2,
+   "what": "WebVTT <track> on HEVC 4K",
+   "hyp": "-",
+   "outcome": "ok",
+   "startMs": 367,
+   "seekMs": 148,
+   "res": "3840x2160",
+   "note": "",
+   "errors": [
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers.",
+    "hls mediaError/bufferFullError: Failed to execute 'appendBuffer' on 'SourceBuffer': The SourceBuffer is full, and cannot free space to append additional buffers."
+   ],
+   "mseCodecs": {
+    "audiovideo": "video/mp4; codecs=\"mp4a.40.2,hvc1.2.4.L183.B0\""
+   },
+   "window": {
+    "seconds": 3,
+    "decodedFps": 59.9,
+    "droppedInWindow": 0,
+    "presentedFps": 57.6,
+    "mediaAdvance": 3,
+    "totalFrames": 185,
+    "totalDropped": 0
+   },
+   "dbg": {
+    "webkitAudioDecodedBytes": 79297,
+    "webkitVideoDecodedBytes": 33541707
+   },
+   "vttCues": 2,
+   "posAfterSeek": 20.01,
+   "advancingAfterSeek": 0.8
+  }
+ ],
+ "pgs": [
+  {
+   "id": "s1",
+   "pass": 1,
+   "what": "PGS libpgs · 1080p AVC",
+   "outcome": "ok",
+   "note": "",
+   "res": "1920x1080",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 66,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "timeupdate (libpgs default)",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.7,
+    "dropped": 1,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.25,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 54.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.1,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 6972,
+     "probeMs": 38.7,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.2,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 20956,
+     "probeMs": 15.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.05,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 48376,
+     "probeMs": 13.1,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.183,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 13180,
+     "probeMs": 14.1,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.033,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 11.6,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.22
+    },
+    {
+     "index": 2,
+     "ct": 2.08
+    },
+    {
+     "index": 4,
+     "ct": 4.204
+    },
+    {
+     "index": 6,
+     "ct": 6.065
+    },
+    {
+     "index": 8,
+     "ct": 8.191
+    },
+    {
+     "index": -1,
+     "ct": 10.049
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.25,
+     "lagMs": 245
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.1,
+     "lagMs": 71
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.2,
+     "lagMs": 171
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.05,
+     "lagMs": 21
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.183,
+     "lagMs": 154
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.033,
+    "lagMs": 28
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 21,
+    "lagMsMax": 245,
+    "lagMsMean": 132,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 1,
+    "fpsBaseline": 59.8,
+    "fpsWithPgs": 59.7
+   }
+  },
+  {
+   "id": "s2",
+   "pass": 1,
+   "what": "PGS libpgs · 4K HEVC HDR10",
+   "outcome": "ok",
+   "note": "",
+   "res": "3840x2160",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 57.4,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 49,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "timeupdate (libpgs default)",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.233,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 22,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.067,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 6972,
+     "probeMs": 9.7,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.2,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 20956,
+     "probeMs": 10.6,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.067,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 48376,
+     "probeMs": 14.9,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.183,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 13180,
+     "probeMs": 9.7,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.033,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 9.4,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.216
+    },
+    {
+     "index": 2,
+     "ct": 2.077
+    },
+    {
+     "index": 4,
+     "ct": 4.202
+    },
+    {
+     "index": 6,
+     "ct": 6.06
+    },
+    {
+     "index": 8,
+     "ct": 8.187
+    },
+    {
+     "index": -1,
+     "ct": 10.045
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.233,
+     "lagMs": 228
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.067,
+     "lagMs": 38
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.2,
+     "lagMs": 171
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.067,
+     "lagMs": 38
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.183,
+     "lagMs": 154
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.033,
+    "lagMs": 28
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 38,
+    "lagMsMax": 228,
+    "lagMsMean": 126,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 0,
+    "fpsBaseline": 57.4,
+    "fpsWithPgs": 59.8
+   }
+  },
+  {
+   "id": "s3",
+   "pass": 1,
+   "what": "PGS libpgs · 4K HEVC HDR10 · render driven by requestVideoFrameCallback",
+   "outcome": "ok",
+   "note": "",
+   "res": "3840x2160",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 58.7,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 33,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "requestVideoFrameCallback",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.017,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 19.8,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 9.3,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 6972,
+     "probeMs": 6.7,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 9,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 20956,
+     "probeMs": 7.3,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 9.6,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 48376,
+     "probeMs": 8.2,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 14.5,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 13180,
+     "probeMs": 13.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 16.9,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.011
+    },
+    {
+     "index": 1,
+     "ct": 2.017
+    },
+    {
+     "index": 2,
+     "ct": 2.025
+    },
+    {
+     "index": 3,
+     "ct": 4.018
+    },
+    {
+     "index": 4,
+     "ct": 4.025
+    },
+    {
+     "index": 5,
+     "ct": 6.017
+    },
+    {
+     "index": 6,
+     "ct": 6.024
+    },
+    {
+     "index": 7,
+     "ct": 8.011
+    },
+    {
+     "index": 8,
+     "ct": 8.032
+    },
+    {
+     "index": -1,
+     "ct": 10.011
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.017,
+     "lagMs": 12
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.033,
+     "lagMs": 4
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.033,
+     "lagMs": 4
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.033,
+     "lagMs": 4
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.033,
+     "lagMs": 4
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.017,
+    "lagMs": 12
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 4,
+    "lagMsMax": 12,
+    "lagMsMean": 6,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 0,
+    "fpsBaseline": 58.7,
+    "fpsWithPgs": 59.8
+   }
+  },
+  {
+   "id": "s1",
+   "pass": 2,
+   "what": "PGS libpgs · 1080p AVC",
+   "outcome": "ok",
+   "note": "",
+   "res": "1920x1080",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 31,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "timeupdate (libpgs default)",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.217,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 15.7,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.083,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 6972,
+     "probeMs": 13.9,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.2,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 20956,
+     "probeMs": 13.8,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.067,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 48376,
+     "probeMs": 18,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.2,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 13180,
+     "probeMs": 14,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.05,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 13.8,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.218
+    },
+    {
+     "index": 2,
+     "ct": 2.077
+    },
+    {
+     "index": 4,
+     "ct": 4.201
+    },
+    {
+     "index": 6,
+     "ct": 6.061
+    },
+    {
+     "index": 8,
+     "ct": 8.187
+    },
+    {
+     "index": -1,
+     "ct": 10.044
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.217,
+     "lagMs": 212
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.083,
+     "lagMs": 54
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.2,
+     "lagMs": 171
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.067,
+     "lagMs": 38
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.2,
+     "lagMs": 171
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.05,
+    "lagMs": 45
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 38,
+    "lagMsMax": 212,
+    "lagMsMean": 129,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 0,
+    "fpsBaseline": 59.8,
+    "fpsWithPgs": 59.8
+   }
+  },
+  {
+   "id": "s2",
+   "pass": 2,
+   "what": "PGS libpgs · 4K HEVC HDR10",
+   "outcome": "ok",
+   "note": "",
+   "res": "3840x2160",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 57.5,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 28,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "timeupdate (libpgs default)",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.233,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 15.6,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.083,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 6972,
+     "probeMs": 11,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.217,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 20956,
+     "probeMs": 14.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.067,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 48376,
+     "probeMs": 13.2,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.2,
+     "puts": 1,
+     "clears": 1,
+     "canvasPixels": 13180,
+     "probeMs": 13.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.067,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 17.9,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.225
+    },
+    {
+     "index": 2,
+     "ct": 2.085
+    },
+    {
+     "index": 4,
+     "ct": 4.209
+    },
+    {
+     "index": 6,
+     "ct": 6.069
+    },
+    {
+     "index": 8,
+     "ct": 8.194
+    },
+    {
+     "index": -1,
+     "ct": 10.053
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.233,
+     "lagMs": 228
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.083,
+     "lagMs": 54
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.217,
+     "lagMs": 188
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.067,
+     "lagMs": 38
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.2,
+     "lagMs": 171
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.067,
+    "lagMs": 62
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 38,
+    "lagMsMax": 228,
+    "lagMsMean": 136,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 0,
+    "fpsBaseline": 57.5,
+    "fpsWithPgs": 59.8
+   }
+  },
+  {
+   "id": "s3",
+   "pass": 2,
+   "what": "PGS libpgs · 4K HEVC HDR10 · render driven by requestVideoFrameCallback",
+   "outcome": "ok",
+   "note": "",
+   "res": "3840x2160",
+   "baseline": {
+    "seconds": 10.6,
+    "decodedFps": 57.5,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "readyMs": 36,
+   "canvas": "300x150 (css 960x540)",
+   "driver": "requestVideoFrameCallback",
+   "withPgs": {
+    "seconds": 10.6,
+    "decodedFps": 59.8,
+    "dropped": 0,
+    "mediaAdvance": 10.56
+   },
+   "updateTimestamps": [
+    0.005,
+    2.005,
+    2.029,
+    4.005,
+    4.029,
+    6.005,
+    6.029,
+    8.005,
+    8.029,
+    10.005
+   ],
+   "draws": [
+    {
+     "media": 0.017,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 7892,
+     "probeMs": 20.6,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.033,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 14.6,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 2.05,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 6972,
+     "probeMs": 20.9,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.033,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 15.3,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 4.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 20956,
+     "probeMs": 15.8,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 12.4,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 6.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 48376,
+     "probeMs": 15.5,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 15.5,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 8.033,
+     "puts": 1,
+     "clears": 0,
+     "canvasPixels": 13180,
+     "probeMs": 17,
+     "canvas": "1920x1080"
+    },
+    {
+     "media": 10.017,
+     "puts": 0,
+     "clears": 1,
+     "canvasPixels": 0,
+     "probeMs": 16.6,
+     "canvas": "1920x1080"
+    }
+   ],
+   "renderRequests": [
+    {
+     "index": 0,
+     "ct": 0.009
+    },
+    {
+     "index": 1,
+     "ct": 2.02
+    },
+    {
+     "index": 2,
+     "ct": 2.027
+    },
+    {
+     "index": 3,
+     "ct": 4.02
+    },
+    {
+     "index": 4,
+     "ct": 4.027
+    },
+    {
+     "index": 5,
+     "ct": 6.02
+    },
+    {
+     "index": 6,
+     "ct": 6.027
+    },
+    {
+     "index": 7,
+     "ct": 8.014
+    },
+    {
+     "index": 8,
+     "ct": 8.034
+    },
+    {
+     "index": -1,
+     "ct": 10.014
+    }
+   ],
+   "sync": [
+    {
+     "cue": 0.005,
+     "drawnAtMedia": 0.017,
+     "lagMs": 12
+    },
+    {
+     "cue": 2.029,
+     "drawnAtMedia": 2.05,
+     "lagMs": 21
+    },
+    {
+     "cue": 4.029,
+     "drawnAtMedia": 4.033,
+     "lagMs": 4
+    },
+    {
+     "cue": 6.029,
+     "drawnAtMedia": 6.033,
+     "lagMs": 4
+    },
+    {
+     "cue": 8.029,
+     "drawnAtMedia": 8.033,
+     "lagMs": 4
+    }
+   ],
+   "lastClear": {
+    "cue": 10.005,
+    "clearedAtMedia": 10.017,
+    "lagMs": 12
+   },
+   "summary": {
+    "cuesDrawn": "5/5",
+    "lagMsMin": 4,
+    "lagMsMax": 21,
+    "lagMsMean": 9,
+    "maxCanvasPixels": 48376,
+    "droppedBaseline": 0,
+    "droppedWithPgs": 0,
+    "fpsBaseline": 57.5,
+    "fpsWithPgs": 59.8
+   }
+  }
+ ],
+ "vtt": [
+  {
+   "pass": 1,
+   "ct": 2.012,
+   "active": [
+    [
+     2.005,
+     6.005
+    ]
+   ]
+  },
+  {
+   "pass": 1,
+   "ct": 20.003,
+   "active": []
+  },
+  {
+   "pass": 2,
+   "ct": 2.006,
+   "active": [
+    [
+     2.005,
+     6.005
+    ]
+   ]
+  },
+  {
+   "pass": 2,
+   "ct": 20,
+   "active": []
+  }
+ ],
+ "finished": "2026-11-05T00:35:11.821Z",
+ "saved": "edge-156-0-0-0-headless-20261105-013511.json"
+}

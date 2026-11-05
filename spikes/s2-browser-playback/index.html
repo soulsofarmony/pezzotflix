@@ -47,7 +47,8 @@ Audio: <select id="audioout"><option value="">—</option><option>stereo (cuffie
 <p><button id="send">Invia report</button> <span id="sent" class="muted"></span></p>
 
 <script src="out/vendor/hls.min.js"></script>
-<script src="out/vendor/libpgs.js"></script>
+<!-- libpgs 0.9.0 is an ES module: a classic <script> include leaves `libpgs` undefined -->
+<script type="module">import { PgsRenderer } from './out/vendor/libpgs.js'; window.libpgs = { PgsRenderer };</script>
 <script>
 const M = 'out/media/';
 const $ = s => document.querySelector(s);
@@ -194,7 +195,7 @@ async function runTest(t) {
 
     if (t.pgs) {
       const tp = performance.now();
-      pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: t.pgs });
+      pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: new URL(t.pgs, location.href).href });
       await withTimeout(pgs.ready || sleep(1000), 10000, 'pgs');
       r.note += `PGS pronto in ${Math.round(performance.now() - tp)} ms; `;
       video.pause(); video.currentTime = 1.0; await new Promise(res => video.addEventListener('seeked', res, { once: true })); await sleep(400);
@@ -269,7 +270,7 @@ async function playVisual(v) {
   const hls = attach(video, v.t);
   if (v.t.vtt) { const tr = document.createElement('track'); tr.kind = 'subtitles'; tr.srclang = 'it'; tr.src = v.t.vtt; tr.default = true; video.appendChild(tr); }
   let pgs = null;
-  if (v.t.pgs) pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: v.t.pgs });
+  if (v.t.pgs) pgs = new libpgs.PgsRenderer({ workerUrl: 'out/vendor/libpgs.worker.js', video, subUrl: new URL(v.t.pgs, location.href).href });
   current = { hls, pgs };
   video.play().catch(() => {});
   st.scrollIntoView({ behavior: 'smooth', block: 'center' });

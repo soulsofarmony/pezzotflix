@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>S2 auto</title>
+<style>
+  body { background:#111; color:#ccc; font:12px/1.4 monospace; margin:0; padding:8px }
+  #stage { position:relative; width:960px; height:540px; background:#000 }
+  #stage video { width:100%; height:100% }
+  #log { white-space:pre-wrap; max-height:300px; overflow:auto }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="status"></div>
+<div id="log"></div>
+<script src="out/vendor/hls.min.js"></script>
+<script type="module">import { PgsRenderer } from './out/vendor/libpgs.js'; window.libpgs = { PgsRenderer };</script>
+<script>
+// S2 (throwaway): automated, objective-evidence version of index.html.
+// Usage: auto.html?auto=1[&passes=2][&only=h2,s2]  -> POST /report when done, also sets window.__report.
+'use strict';
+const Q = new URLSearchParams(location.search);
+const PASSES = +(Q.get('passes') || 2);
+const ONLY = Q.get('only') ? Q.get('only').split(',') : null;
+const M = 'out/media/';
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const abs = () => performance.timeOrigin + performance.now();
+const log = (...a) => { const s = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '); $('#log').textContent += s + '\n'; console.log('[s2] ' + s); };
+const mark = id => { try { window.__mark && window.__mark(id); } catch (_) {} };
+const withTimeout = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout ' + label)), ms))]);
+
+function detectBrowser() {
+  const ua = navigator.userAgent, v = re => (ua.match(re) || [])[1] || '?';
+  if (/Edg\//.test(ua)) return 'Edge ' + v(/Edg\/([\d.]+)/);
+  if (/Firefox\//.test(ua)) return 'Firefox ' + v(/Firefox\/([\d.]+)/);
+  if (/Chrome\//.test(ua)) return 'Chrome ' + v(/Chrome\/([\d.]+)/);
+  return ua;
+}
+const report = { browser: detectBrowser() + (Q.get('tag') ? ' ' + Q.get('tag') : ''), ua: navigator.userAgent, when: new Date().toISOString(), passes: PASSES, caps: {}, auto: [], pgs: [], vtt: [] };
+
+// ------------------------------------------------------------------ capabilities
+const MSE_TYPES = {
+  'AVC High': 'video/mp4; codecs="avc1.640028"',
+  'HEVC Main10 L5.1 hvc1': 'video/mp4; codecs="hvc1.2.4.L153.B0"',
+  'HEVC Main10 L6.1 hvc1': 'video/mp4; codecs="hvc1.2.4.L183.B0"',
+  'HEVC Main10 hev1': 'video/mp4; codecs="hev1.2.4.L153.B0"',
+  'DV P8 dvh1.08.09': 'video/mp4; codecs="dvh1.08.09"',
+  'DV P8 dvhe.08.09': 'video/mp4; codecs="dvhe.08.09"',
+  'DV P5 dvh1.05.09': 'video/mp4; codecs="dvh1.05.09"',
+  'AV1 Main10': 'video/mp4; codecs="av01.0.12M.10"',
+  'VP9 webm': 'video/webm; codecs="vp9"',
+  'MKV avc1 (MSE)': 'video/x-matroska; codecs="avc1.640028"',
+  'AAC-LC': 'audio/mp4; codecs="mp4a.40.2"',
+  'E-AC3 ec-3': 'audio/mp4; codecs="ec-3"',
+  'AC3 ac-3': 'audio/mp4; codecs="ac-3"',
+  'FLAC flac': 'audio/mp4; codecs="flac"',
+  'FLAC fLaC': 'audio/mp4; codecs="fLaC"',
+  'Opus mp4': 'audio/mp4; codecs="opus"',
+  'TrueHD mlpa': 'audio/mp4; codecs="mlpa"',
+  'DTS dtsc': 'audio/mp4; codecs="dtsc"',
+  'DTS-HD dtsh': 'audio/mp4; codecs="dtsh"',
+  'DTS-HD MA dtsl': 'audio/mp4; codecs="dtsl"',
+  'DTS:X dtsx': 'audio/mp4; codecs="dtsx"',
+};
+const CANPLAY = Object.assign({
+  'MKV': 'video/x-matroska',
+  'MKV avc1+aac': 'video/x-matroska; codecs="avc1.640028, mp4a.40.2"',
+  'MKV hevc': 'video/x-matroska; codecs="hvc1.2.4.L153.B0"',
+  'HLS native': 'application/vnd.apple.mpegurl',
+}, MSE_TYPES);
+
+async function collectCaps() {
+  const c = report.caps;
+  c.mse = 'MediaSource' in window;
+  c.isTypeSupported = {}; for (const [k, t] of Object.entries(MSE_TYPES)) c.isTypeSupported[k] = window.MediaSource ? MediaSource.isTypeSupported(t) : null;
+  const v = document.createElement('video');
+  c.canPlayType = {}; for (const [k, t] of Object.entries(CANPLAY)) c.canPlayType[k] = v.canPlayType(t);
+  c.decodingInfo = {};
+  if (navigator.mediaCapabilities) {
+    const vid = (codec, w, h, hdr, extra) => ({ contentType: `video/mp4; codecs="${codec}"`, width: w, height: h, bitrate: w > 2000 ? 80e6 : 25e6, framerate: 24,
+      ...(hdr ? { hdrMetadataType: hdr, colorGamut: 'rec2020', transferFunction: 'pq' } : {}), ...(extra || {}) });
+    const aud = (codec, ch) => ({ contentType: `audio/mp4; codecs="${codec}"`, channels: String(ch), samplerate: 48000, bitrate: 1e6 });
+    const V = {
+      'AVC 1080p': vid('avc1.640028', 1920, 1080),
+      'HEVC 4K SDR': vid('hvc1.2.4.L153.B0', 3840, 2160),
+      'HEVC 4K HDR10 (smpteSt2086, pq, rec2020)': vid('hvc1.2.4.L153.B0', 3840, 2160, 'smpteSt2086'),
+      'HEVC 4K HDR10+ (smpteSt2094-40)': vid('hvc1.2.4.L153.B0', 3840, 2160, 'smpteSt2094-40'),
+      'HEVC 4K HLG': vid('hvc1.2.4.L153.B0', 3840, 2160, null, { colorGamut: 'rec2020', transferFunction: 'hlg' }),
+      'DV P8 4K (dvh1.08.09, smpteSt2094-10)': vid('dvh1.08.09', 3840, 2160, 'smpteSt2094-10'),
+      'DV P5 4K (dvh1.05.09)': vid('dvh1.05.09', 3840, 2160, 'smpteSt2094-10'),
+      'AV1 4K HDR10': vid('av01.0.12M.10', 3840, 2160, 'smpteSt2086'),
+    };
+    const A = { 'AAC 2ch': aud('mp4a.40.2', 2), 'AAC 6ch': aud('mp4a.40.2', 6), 'FLAC 6ch': aud('flac', 6), 'FLAC 8ch': aud('flac', 8), 'Opus 6ch': aud('opus', 6),
+      'E-AC3 6ch': aud('ec-3', 6), 'AC3 6ch': aud('ac-3', 6), 'TrueHD 8ch': aud('mlpa', 8), 'DTS 6ch': aud('dtsc', 6), 'DTS-HD MA 8ch': aud('dtsl', 8) };
+    for (const type of ['media-source', 'file']) {
+      for (const [k, cfg] of Object.entries(V)) {
+        try { const r = await navigator.mediaCapabilities.decodingInfo({ type, video: cfg }); c.decodingInfo[`${type} | ${k}`] = { supported: r.supported, smooth: r.smooth, powerEfficient: r.powerEfficient }; }
+        catch (e) { c.decodingInfo[`${type} | ${k}`] = 'error: ' + e.message; }
+      }
+      for (const [k, cfg] of Object.entries(A)) {
+        try { const r = await navigator.mediaCapabilities.decodingInfo({ type, audio: cfg }); c.decodingInfo[`${type} | ${k}`] = { supported: r.supported, smooth: r.smooth, powerEfficient: r.powerEfficient }; }
+        catch (e) { c.decodingInfo[`${type} | ${k}`] = 'error: ' + e.message; }
+      }
+    }
+  }
+  c.matchMedia = {}; for (const mq of ['(dynamic-range: high)', '(video-dynamic-range: high)', '(color-gamut: srgb)', '(color-gamut: p3)', '(color-gamut: rec2020)'])
+    c.matchMedia[mq] = matchMedia(mq).matches;
+  c.screen = { w: screen.width, h: screen.height, dpr: devicePixelRatio, colorDepth: screen.colorDepth, pixelDepth: screen.pixelDepth };
+  try { const gl = document.createElement('canvas').getContext('webgl'); const ext = gl.getExtension('WEBGL_debug_renderer_info'); c.webglRenderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { c.webglRenderer = 'n/a'; }
+  try { const ac = new AudioContext(); c.audioOut = { maxChannelCount: ac.destination.maxChannelCount, sampleRate: ac.sampleRate }; await ac.close(); } catch (e) { c.audioOut = 'n/a ' + e.message; }
+  try { if (navigator.userAgentData) c.uaData = await navigator.userAgentData.getHighEntropyValues(['fullVersionList', 'platformVersion', 'architecture']); } catch (_) {}
+}
+
+// ------------------------------------------------------------------ tests
+const T = (id, what, kind, url, o = {}) => Object.assign({ id, what, kind, url, seekTo: 20, audio: 'level' }, o);
+const TESTS = [
+  T('d1', 'MKV direct · AVC + AAC', 'direct', M + 'd1-avc-aac.mkv', { h: 'H1' }),
+  T('d2', 'MKV direct · AVC + DTS 5.1', 'direct', M + 'd2-avc-dts.mkv', { h: 'H1' }),
+  T('d3', 'MKV direct · HEVC 4K HDR10 + TrueHD 5.1', 'direct', M + 'd3-hevc-hdr10-truehd.mkv', { h: 'H1/H2' }),
+  T('d5', 'MKV direct · HEVC 4K HDR10 + TrueHD only (no fallback track)', 'direct', M + 'd5-hevc-truehd-only.mkv', { h: 'H1', seekTo: 5 }),
+  T('d6', 'MKV direct · AVC + DTS only (no fallback track)', 'direct', M + 'd6-avc-dts-only.mkv', { h: 'H1', seekTo: 5 }),
+  T('d4', 'MP4 progressive · AVC + AAC', 'direct', M + 'd4-avc-aac.mp4', { h: '-' }),
+  T('h1', 'HLS fMP4 · AVC + AAC', 'hls', M + 'h1-avc-aac/index.m3u8', { h: '-' }),
+  T('h2', 'HLS fMP4 · HEVC 4K HDR10 + AAC', 'hls', M + 'h2-hevc-hdr10-aac/index.m3u8', { h: 'H2' }),
+  T('h3', 'HLS fMP4 · HEVC 4K HDR10 + FLAC 5.1', 'hls', M + 'h3-hevc-hdr10-flac51/index.m3u8', { h: 'H6' }),
+  T('h4', 'HLS fMP4 · HEVC 4K HDR10 + E-AC3 5.1', 'hls', M + 'h4-hevc-hdr10-eac351/index.m3u8', { h: '-' }),
+  T('h5', 'HLS fMP4 · HEVC 4K HDR10 + AC3 5.1', 'hls', M + 'h5-hevc-hdr10-ac351/index.m3u8', { h: '-' }),
+  T('h6', 'HLS fMP4 · DV P8.1 tagged hvc1', 'hls', M + 'h6-dv81-as-hvc1-aac/index.m3u8', { h: 'H3' }),
+  T('h7', 'HLS fMP4 · DV P8.1 tagged dvh1', 'hls', M + 'h7-dv81-as-dvh1-aac/index.m3u8', { h: 'H3' }),
+  T('h8', 'HLS fMP4 · DV P5 dvh1', 'hls', M + 'h8-dv5-as-dvh1-aac/index.m3u8', { h: '-' }),
+  T('p1', 'fMP4 progressive (no MSE) · HEVC 4K HDR10 + FLAC 5.1', 'direct', M + 'p1-hevc-hdr10-flac51-frag.mp4', { h: 'H6' }),
+  T('c1', 'HLS fMP4 · AVC + FLAC 5.1 channel-ID', 'hls', M + 'c1-avc-flac51/index.m3u8', { h: 'H6', seekTo: 5, audio: 'chanid' }),
+  T('c2', 'HLS fMP4 · AVC + E-AC3 5.1 channel-ID', 'hls', M + 'c2-avc-eac351/index.m3u8', { h: '-', seekTo: 5, audio: 'chanid' }),
+  T('c3', 'HLS fMP4 · AVC + AC3 5.1 channel-ID', 'hls', M + 'c3-avc-ac351/index.m3u8', { h: '-', seekTo: 5, audio: 'chanid' }),
+  T('c4', 'HLS fMP4 · AVC + Opus 5.1 channel-ID', 'hls', M + 'c4-avc-opus51/index.m3u8', { h: '-', seekTo: 5, audio: 'chanid' }),
+  T('c5', 'HLS fMP4 · AVC + AAC 5.1 channel-ID', 'hls', M + 'c5-avc-aac51/index.m3u8', { h: '-', seekTo: 5, audio: 'chanid' }),
+  T('c7', 'HLS fMP4 · AVC + AAC 5.1 (layout 5.1, chanConfig 6) channel-ID', 'hls', M + 'c7-avc-aac51-back/index.m3u8', { h: '-', seekTo: 5, audio: 'chanid' }),
+  T('c6', 'fMP4 progressive · AVC + FLAC 5.1 channel-ID', 'direct', M + 'c6-avc-flac51-prog.mp4', { h: 'H6', seekTo: 5, audio: 'chanid' }),
+  T('v1', 'WebVTT <track> on HEVC 4K', 'hls', M + 'h2-hevc-hdr10-aac/index.m3u8', { h: '-', vtt: M + 'br-ita.vtt', audio: 'none' }),
+];
+const PGS_TESTS = [
+  T('s1', 'PGS libpgs · 1080p AVC', 'hls', M + 'h9-buono-avc-aac/index.m3u8', { h: 'H7', pgs: M + 'buono-eng-sdh.sup', audio: 'none' }),
+  T('s2', 'PGS libpgs · 4K HEVC HDR10', 'hls', M + 'h2-hevc-hdr10-aac/index.m3u8', { h: 'H7', pgs: M + 'br-ita-forced.sup', audio: 'none' }),
+  T('s3', 'PGS libpgs · 4K HEVC HDR10 · render driven by requestVideoFrameCallback', 'hls', M + 'h2-hevc-hdr10-aac/index.m3u8', { h: 'H7', pgs: M + 'br-ita-forced.sup', audio: 'none', rvfc: true }),
+];
+// expected PGS display sets (from sup_cues.py): show at these media times, last clear at 10.005
+const PGS_SHOW = [0.005, 2.029, 4.029, 6.029, 8.029], PGS_LAST_CLEAR = 10.005;
+const CHAN_HZ = [300, 500, 700, 60, 900, 1100];
+
+let actx = null;
+async function audioCtx() { if (!actx) actx = new AudioContext(); if (actx.state !== 'running') { try { await withTimeout(actx.resume(), 2000, 'actx'); } catch (_) {} } return actx; }
+
+function attach(video, t) {
+  if (t.kind === 'hls') {
+    if (window.Hls && Hls.isSupported()) { const hls = new Hls({ enableWorker: true, startPosition: 0 }); hls.loadSource(t.url); hls.attachMedia(video); return hls; }
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = t.url; return null; }
+    throw new Error('HLS not supported');
+  }
+  video.src = t.url; return null;
+}
+const nextFrame = video => new Promise(res => video.requestVideoFrameCallback ? video.requestVideoFrameCallback(() => res()) : video.addEventListener('timeupdate', () => res(), { once: true }));
+const quality = v => { const q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : {}; return { total: q.totalVideoFrames ?? null, dropped: q.droppedVideoFrames ?? null, t: performance.now(), ct: v.currentTime }; };
+
+function audioGraph(ctx, video) {
+  const src = ctx.createMediaElementSource(video);
+  const split = ctx.createChannelSplitter(8);
+  const sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);
+  src.connect(split);
+  const an = [];
+  for (let i = 0; i < 8; i++) { const a = ctx.createAnalyser(); a.fftSize = 8192; a.smoothingTimeConstant = 0; split.connect(a, i); a.connect(sink); an.push(a); }
+  return { src, an, sample() {
+    return an.map(a => {
+      const td = new Float32Array(a.fftSize); a.getFloatTimeDomainData(td);
+      let s = 0; for (const x of td) s += x * x; const rms = Math.sqrt(s / td.length);
+      const fd = new Float32Array(a.frequencyBinCount); a.getFloatFrequencyData(fd);
+      let mi = 1; for (let i = 2; i < fd.length; i++) if (fd[i] > fd[mi]) mi = i;
+      return { db: rms > 0 ? +(20 * Math.log10(rms)).toFixed(1) : -Infinity, peakHz: Math.round(mi * ctx.sampleRate / a.fftSize) };
+    });
+  } };
+}
+
+async function debugInfo(video) {
+  const out = {};
+  if (typeof video.webkitAudioDecodedByteCount === 'number') out.webkitAudioDecodedBytes = video.webkitAudioDecodedByteCount;
+  if (typeof video.webkitVideoDecodedByteCount === 'number') out.webkitVideoDecodedBytes = video.webkitVideoDecodedByteCount;
+  if (typeof video.mozHasAudio === 'boolean') out.mozHasAudio = video.mozHasAudio;
+  if (video.mozRequestDebugInfo) {
+    try { const d = await withTimeout(video.mozRequestDebugInfo(), 2000, 'dbg'); const s = JSON.stringify(d);
+      out.mozDecoders = Array.from(new Set((s.match(/"(?:videoDecoderName|audioDecoderName|mVideoDecoderName|mAudioDecoderName|decoderName|[a-zA-Z]*DecoderName)":"[^"]*"/g) || [])));
+      out.mozDebugSnippet = s.slice(0, 1500);
+    } catch (e) { out.mozDebugInfo = 'error: ' + e.message; }
+  }
+  return out;
+}
+
+async function runTest(t, pass) {
+  mark(`${t.id}#${pass}`);
+  const r = { id: t.id, pass, what: t.what, hyp: t.h, outcome: 'fail', startMs: null, seekMs: null, res: '', note: '', errors: [] };
+  const stage = $('#stage'); stage.innerHTML = '';
+  const video = document.createElement('video');
+  video.playsInline = true; video.preload = 'auto'; video.muted = t.audio === 'none';
+  video.crossOrigin = 'anonymous';
+  stage.appendChild(video);
+  let hls = null, g = null;
+  video.addEventListener('error', () => r.errors.push(`media error ${video.error && video.error.code}: ${video.error && video.error.message}`));
+  try {
+    if (t.audio !== 'none') { const ctx = await audioCtx(); r.audioCtxState = ctx.state; g = audioGraph(ctx, video); }
+    const t0 = performance.now();
+    hls = attach(video, t);
+    if (hls) {
+      hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal || /codec|append|buffer|Incompatible/i.test(d.details)) r.errors.push(`hls ${d.type}/${d.details}${d.fatal ? ' (fatal)' : ''}${d.error ? ': ' + d.error.message : ''}`); });
+      hls.on(Hls.Events.BUFFER_CODECS, (_, d) => { r.mseCodecs = Object.fromEntries(Object.entries(d).filter(([k]) => k === 'audio' || k === 'video' || k === 'audiovideo').map(([k, v]) => [k, `${v.container}; codecs="${v.codec}"`])); });
+    }
+    if (t.vtt) { const tr = document.createElement('track'); tr.kind = 'subtitles'; tr.srclang = 'it'; tr.src = t.vtt; tr.default = true; video.appendChild(tr); }
+    await withTimeout(new Promise((res, rej) => {
+      video.addEventListener('playing', res, { once: true });
+      video.addEventListener('error', () => rej(new Error('media error')), { once: true });
+      video.play().catch(e => { if (e.name !== 'AbortError') rej(e); });
+    }), 15000, 'start');
+    await nextFrame(video);
+    r.startMs = Math.round(performance.now() - t0);
+    const q0 = quality(video);
+    let rvfc = 0; const cnt = () => { rvfc++; if (!stop) video.requestVideoFrameCallback(cnt); }; let stop = false;
+    if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(cnt);
+    const samples = [];
+    // VTT: track cue activity at 3 s and 7 s of media time
+    if (t.vtt) {
+      const tt = video.textTracks[0]; tt.mode = 'showing';
+      tt.addEventListener('cuechange', () => report.vtt.push({ pass, ct: +video.currentTime.toFixed(3), active: tt.activeCues ? Array.from(tt.activeCues).map(c => [c.startTime, c.endTime]) : null }));
+    }
+    for (let i = 0; i < 3; i++) { await sleep(1000); if (g) samples.push(g.sample()); }
+    stop = true;
+    const q1 = quality(video);
+    const dt = (q1.t - q0.t) / 1000;
+    r.res = `${video.videoWidth}x${video.videoHeight}`;
+    r.window = { seconds: +dt.toFixed(2), decodedFps: q1.total != null ? +((q1.total - q0.total) / dt).toFixed(1) : null, droppedInWindow: q1.dropped != null ? q1.dropped - q0.dropped : null,
+      presentedFps: +(rvfc / dt).toFixed(1), mediaAdvance: +(q1.ct - q0.ct).toFixed(2), totalFrames: q1.total, totalDropped: q1.dropped };
+    if (g) {
+      // per channel: max level over samples, modal peak frequency
+      const ch = [];
+      for (let c = 0; c < 8; c++) { const s = samples.map(x => x[c]); ch.push({ db: Math.max(...s.map(x => x.db)), peakHz: s[s.length - 1].peakHz }); }
+      const live = ch.map((x, i) => x.db > -60 ? i : -1).filter(i => i >= 0);
+      r.audio = { liveChannels: live.length, channels: ch.slice(0, 8).map(x => `${x.db === -Infinity ? '-inf' : x.db}dB@${x.peakHz}Hz`) };
+      if (t.audio === 'chanid') {
+        const ok = CHAN_HZ.every((hz, i) => ch[i].db > -60 && Math.abs(ch[i].peakHz - hz) <= 12);
+        r.audio.channelMap = ok ? 'correct L R C LFE Ls Rs' : 'mismatch: ' + ch.slice(0, 6).map(x => x.peakHz).join('/');
+      }
+    }
+    Object.assign(r, { dbg: await debugInfo(video) });
+    if (t.vtt) { const tt = video.textTracks[0]; r.vttCues = tt.cues ? tt.cues.length : null; }
+    const advanced = r.window.mediaAdvance > 1 && video.videoWidth > 0 && (q1.total ?? 1) > 0;
+    // seek
+    const ts = performance.now();
+    video.currentTime = t.seekTo;
+    await withTimeout(new Promise(res => video.addEventListener('seeked', res, { once: true })), 10000, 'seek');
+    await nextFrame(video);
+    r.seekMs = Math.round(performance.now() - ts);
+    r.posAfterSeek = +video.currentTime.toFixed(2);
+    await sleep(800);
+    r.advancingAfterSeek = +(video.currentTime - r.posAfterSeek).toFixed(2);
+    const audioOk = !g || (r.audio && r.audio.liveChannels > 0);
+    r.outcome = advanced ? (audioOk ? 'ok' : 'video only') : 'fail';
+  } catch (e) { r.note += e.message + '; '; }
+  try { hls && hls.destroy(); } catch (_) {}
+  try { g && g.src.disconnect(); } catch (_) {}
+  video.removeAttribute('src'); video.load(); stage.innerHTML = '';
+  log(`${r.id}#${pass} ${r.outcome} start=${r.startMs} seek=${r.seekMs} ${r.res} ${JSON.stringify(r.window || {})} ${JSON.stringify(r.audio || '')} ${r.note} ${r.errors.join(' | ')}`);
+  return r;
+}
+
+// ------------------------------------------------------------------ PGS (libpgs) with instrumented worker
+const pgsState = { video: null, reqs: [], draws: [], updTs: null };
+(function hookWorker() {
+  const W = window.Worker;
+  window.Worker = function (url, opts) {
+    const w = new W(url, opts);
+    const pm = w.postMessage.bind(w);
+    w.postMessage = (m, tr) => { if (m && m.op === 'render' && pgsState.video) pgsState.reqs.push({ index: m.index, t: abs(), ct: pgsState.video.currentTime }); return tr ? pm(m, tr) : pm(m); };
+    w.addEventListener('error', e => log('worker error: ' + (e.message || e.type) + ' ' + (e.filename || '') + ':' + (e.lineno || '')));
+    w.addEventListener('message', e => { if (!e.data) return; if (e.data.op === 'probe') pgsState.draws.push({ ...e.data, ctRecv: pgsState.video ? pgsState.video.currentTime : null, paused: pgsState.video ? pgsState.video.paused : null }); if (e.data.op === 'updateTimestamps') pgsState.updTs = e.data.updateTimestamps; });
+    return w;
+  };
+  window.Worker.prototype = W.prototype;
+})();
+
+async function playWindow(video, seconds, frames) {
+  const q0 = quality(video); let stop = false;
+  const f = (now, md) => { frames && frames.push([performance.timeOrigin + now, md.mediaTime, performance.timeOrigin + md.expectedDisplayTime]); if (!stop) video.requestVideoFrameCallback(f); };
+  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(f);
+  await video.play();
+  await sleep(seconds * 1000);
+  stop = true; video.pause();
+  const q1 = quality(video); const dt = (q1.t - q0.t) / 1000;
+  return { seconds: +dt.toFixed(2), decodedFps: +((q1.total - q0.total) / dt).toFixed(1), dropped: q1.dropped - q0.dropped, mediaAdvance: +(q1.ct - q0.ct).toFixed(2) };
+}
+async function seekTo(video, s) { video.currentTime = s; await withTimeout(new Promise(res => video.addEventListener('seeked', res, { once: true })), 10000, 'seek'); }
+function mediaAt(frames, tAbs) { // media time of the last frame whose expected display time <= tAbs
+  let m = null; for (const [, mt, disp] of frames) { if (disp <= tAbs) m = mt; else break; } return m;
+}
+
+async function runPgs(t, pass) {
+  mark(`${t.id}#${pass}`);
+  const r = { id: t.id, pass, what: t.what, outcome: 'fail', note: '' };
+  const stage = $('#stage'); stage.innerHTML = '';
+  const video = document.createElement('video'); video.muted = true; video.playsInline = true; video.preload = 'auto';
+  stage.appendChild(video);
+  let hls = null, pgs = null;
+  try {
+    hls = attach(video, t);
+    await withTimeout(new Promise((res, rej) => { video.addEventListener('playing', res, { once: true }); video.addEventListener('error', () => rej(new Error('media error')), { once: true }); video.play().catch(() => {}); }), 15000, 'start');
+    await sleep(500); video.pause(); await seekTo(video, 0); await sleep(300);
+    r.res = `${video.videoWidth}x${video.videoHeight}`;
+    // phase A: baseline without subtitles
+    r.baseline = await playWindow(video, 10.6);
+    await seekTo(video, 0); await sleep(300);
+    // phase B: with libpgs (worker + OffscreenCanvas, instrumented worker)
+    pgsState.video = video; pgsState.reqs = []; pgsState.draws = []; pgsState.updTs = null;
+    const tp = performance.now();
+    pgs = new libpgs.PgsRenderer({ workerUrl: 'pgsprobe.worker.js', video, subUrl: new URL(t.pgs, location.href).href }); // relative URLs resolve against the worker script
+    await withTimeout(pgs.ready || sleep(1000), 10000, 'pgs ready');
+    r.readyMs = Math.round(performance.now() - tp);
+    const canvas = stage.querySelector('canvas');
+    r.canvas = canvas ? `${canvas.width}x${canvas.height} (css ${canvas.clientWidth}x${canvas.clientHeight})` : 'missing';
+    await sleep(300);
+    const frames = [];
+    let rvfcStop = false;
+    if (t.rvfc) { const tick = (now, md) => { if (rvfcStop) return; pgs.renderAtTimestamp(md.mediaTime); video.requestVideoFrameCallback(tick); }; video.requestVideoFrameCallback(tick); r.driver = 'requestVideoFrameCallback'; } else r.driver = 'timeupdate (libpgs default)';
+    r.withPgs = await playWindow(video, 10.6, frames);
+    rvfcStop = true;
+    await sleep(200);
+    r.updateTimestamps = pgsState.updTs ? pgsState.updTs.slice(0, 12).map(x => +(x / 90000).toFixed(3)) : null; // 90 kHz ticks
+    const draws = pgsState.draws.map(d => ({ ...d, media: d.paused ? d.ctRecv : (mediaAt(frames, d.t1) ?? d.ctRecv) }));
+    r.draws = draws.map(d => ({ media: d.media != null ? +d.media.toFixed(3) : null, puts: d.puts, clears: d.clears, canvasPixels: d.canvasPixels, probeMs: +(d.t1 - d.t0).toFixed(1), canvas: `${d.w}x${d.h}` }));
+    r.renderRequests = pgsState.reqs.filter(q => q.t >= (frames[0] || [0])[0]).map(q => ({ index: q.index, ct: +q.ct.toFixed(3) }));
+    // sync: for each expected show cue, first draw with pixels whose media time >= cue - 0.05
+    r.sync = PGS_SHOW.map(cue => {
+      const d = draws.find(x => x.media != null && x.media >= cue - 0.05 && x.canvasPixels > 0 && x.puts > 0);
+      return { cue, drawnAtMedia: d ? +d.media.toFixed(3) : null, lagMs: d ? Math.round((d.media - cue) * 1000) : null };
+    });
+    const clr = draws.find(x => x.media != null && x.media >= PGS_LAST_CLEAR - 0.05 && x.canvasPixels === 0);
+    r.lastClear = { cue: PGS_LAST_CLEAR, clearedAtMedia: clr ? +clr.media.toFixed(3) : null, lagMs: clr ? Math.round((clr.media - PGS_LAST_CLEAR) * 1000) : null };
+    const lags = r.sync.filter(x => x.lagMs != null).map(x => x.lagMs);
+    r.summary = { cuesDrawn: `${lags.length}/${PGS_SHOW.length}`, lagMsMin: Math.min(...lags), lagMsMax: Math.max(...lags), lagMsMean: Math.round(lags.reduce((a, b) => a + b, 0) / (lags.length || 1)),
+      maxCanvasPixels: Math.max(0, ...draws.map(d => d.canvasPixels)),       droppedBaseline: r.baseline.dropped, droppedWithPgs: r.withPgs.dropped, fpsBaseline: r.baseline.decodedFps, fpsWithPgs: r.withPgs.decodedFps };
+    r.outcome = lags.length === PGS_SHOW.length ? 'ok' : (lags.length ? 'partial' : 'fail');
+  } catch (e) { r.note += e.message + '; '; }
+  try { pgs && pgs.dispose(); } catch (_) {}
+  try { hls && hls.destroy(); } catch (_) {}
+  pgsState.video = null;
+  video.removeAttribute('src'); video.load(); stage.innerHTML = '';
+  log(`${r.id}#${pass} ${r.outcome} ${JSON.stringify(r.summary || {})} ${r.note}`);
+  return r;
+}
+
+async function runAll() {
+  $('#status').textContent = 'caps...'; await collectCaps(); log('caps done');
+  for (let pass = 1; pass <= PASSES; pass++) {
+    for (const t of TESTS) { if (ONLY && !ONLY.includes(t.id)) continue; $('#status').textContent = `${t.id} pass ${pass}`; report.auto.push(await runTest(t, pass)); }
+    for (const t of PGS_TESTS) { if (ONLY && !ONLY.includes(t.id)) continue; $('#status').textContent = `${t.id} pass ${pass}`; report.pgs.push(await runPgs(t, pass)); }
+  }
+  mark('done');
+  report.finished = new Date().toISOString();
+  try { const r = await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report) }); report.saved = (await r.json()).saved; } catch (e) { report.saved = 'error ' + e.message; }
+  $('#status').textContent = 'done ' + report.saved;
+  window.__report = report;
+  return report;
+}
+window.runAll = runAll;
+if (Q.get('auto') === '1') window.addEventListener('load', () => setTimeout(runAll, 1500));
+</script>
+</body>
+</html>

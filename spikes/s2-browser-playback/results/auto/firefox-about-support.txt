@@ -1,0 +1,546 @@
+Informazioni per la risoluzione di problemi
+Questa pagina contiene informazioni tecniche che potrebbero risultare utili per risolvere eventuali problemi. Per le risposte alle domande più comuni a proposito di Firefox, consultare il sito web dedicato al supporto.
+Copia i dati non elaborati negli appunti Copia il testo negli appunti
+Identifica e risolvi problemi
+Modalità risoluzione problemi…
+Prova a cancellare la cache di avvio
+Cancella cache di avvio…
+Informazioni di base
+Nome	Firefox
+Versione	159.0.1
+ID build	20261102144711
+ID distribuzione	
+Cartella aggiornamento	Apri cartella C:\ProgramData\Mozilla-1de4eec8-1241-4177-a864-e594e8d1fb38\updates\308046B0AF4A39CB
+Cronologia aggiornamenti	Mostra cronologia aggiornamenti
+Canale di aggiornamento	release
+User agent	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0
+SO	Windows_NT 10.0 26200
+File binario dell’applicazione	C:\Program Files\Mozilla Firefox\firefox.exe
+Cartella del profilo	Apri cartella C:\Repo\pezzotflix\spikes\s2-browser-playback\out\profiles\firefox-support
+Configurazione build	about:buildconfig
+Utilizzo memoria	about:memory
+Prestazioni	about:processes
+Service worker registrati	about:serviceworkers
+Moduli di terze parti	about:third-party
+Processo launcher	Attivo
+Finestre multiprocesso	1/1
+Finestre Fission	1/1 Attivato per impostaz. predefinita
+Processi remoti	4
+Criteri aziendali	Disattivati
+Chiave servizio Google Location	Disponibile
+Chiave servizio Google Safebrowsing	Disponibile
+Chiave per georilevazione di Mozilla	Disponibile
+Modalità provvisoria	false
+Dimensione memoria (RAM)	15,9 GB
+Spazio su disco disponibile	22,9 GB
+Profili	about:profiles
+Dispositivi di puntamento	Mouse
+Segnalazioni di arresto anomalo degli ultimi 3 giorni
+ID segnalazione	Inviata
+
+Tutte le segnalazioni
+
+Funzioni remote
+Nome	Stato
+Processi remoti
+Tipo	Numero
+Socket	1
+RDD	1
+GPU	1
+Estensione	1
+Componenti aggiuntivi
+Nome	Tipo	Versione	Attivo	Posizione	ID
+Add-ons Search Detection	extension	3.0.0	true	app-builtin-addons	addons-search-detection@mozilla.com
+Form Autofill	extension	1.0.1	true	app-builtin-addons	formautofill@mozilla.org
+IPP Activator	extension	0.3	true	app-builtin-addons	ipp-activator@mozilla.com
+New Tab	extension	159.2.0	true	app-builtin-addons	newtab@mozilla.org
+Picture-In-Picture	extension	1.0.0	true	app-builtin-addons	pictureinpicture@mozilla.org
+Web Compatibility Interventions	extension	159.3.0	true	app-builtin-addons	webcompat@mozilla.org
+Predefinito	theme	1.4.2	true	app-builtin	default-theme@mozilla.org
+Software di sicurezza
+Tipo	Nome
+Antivirus	Microsoft Defender Antivirus
+Antispyware	
+Firewall	
+Fogli di stile utente (legacy)
+Attivo	false
+Fogli di stile	Nessun foglio di stile trovato
+Grafica
+Caratteristiche
+Proporzioni pixel dispositivo delle finestre	1
+Composizione	WebRender Layer Compositor
+Informazioni di debug per visibilità caratteri	Windows Platform
+Panoramica/zoom asincroni (APZ)	input rotella attivo; trascinamento barre di scorrimento attivo; tastiera attiva; scorrimento automatico attivo; smooth pinch-zoom attivo
+Informazioni driver WSI WebGL 1	EGL_VENDOR: Google Inc. (NVIDIA)
+EGL_VERSION: 1.5 (ANGLE 2.1 git hash: unknown hash)
+EGL_EXTENSIONS: EGL_EXT_create_context_robustness EGL_ANGLE_d3d_share_handle_client_buffer EGL_ANGLE_d3d_texture_client_buffer EGL_ANGLE_surface_d3d_texture_2d_share_handle EGL_ANGLE_query_surface_pointer EGL_ANGLE_window_fixed_size EGL_ANGLE_keyed_mutex EGL_ANGLE_surface_orientation EGL_ANGLE_direct_composition EGL_NV_post_sub_buffer EGL_KHR_create_context EGL_KHR_image EGL_KHR_image_base EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_gl_renderbuffer_image EGL_KHR_get_all_proc_addresses EGL_KHR_stream EGL_KHR_stream_consumer_gltexture EGL_NV_stream_consumer_gltexture_yuv EGL_ANGLE_stream_producer_d3d_texture EGL_ANGLE_create_context_webgl_compatibility EGL_CHROMIUM_create_context_bind_generates_resource EGL_CHROMIUM_sync_control EGL_EXT_pixel_format_float EGL_KHR_surfaceless_context EGL_ANGLE_display_texture_share_group EGL_ANGLE_display_semaphore_share_group EGL_ANGLE_create_context_client_arrays EGL_ANGLE_program_cache_control EGL_ANGLE_robust_resource_initialization EGL_ANGLE_create_context_extensions_enabled EGL_ANDROID_blob_cache EGL_ANDROID_recordable EGL_ANGLE_image_d3d11_texture EGL_ANGLE_create_context_backwards_compatible EGL_KHR_no_config_context EGL_KHR_create_context_no_error EGL_KHR_reusable_sync EGL_ANGLE_memory_usage_report 
+EGL_EXTENSIONS(nullptr): EGL_EXT_client_extensions EGL_EXT_device_query EGL_EXT_platform_base EGL_EXT_platform_device EGL_ANGLE_platform_angle EGL_ANGLE_platform_angle_d3d EGL_ANGLE_platform_angle_d3d11on12 EGL_ANGLE_platform_angle_d3d_luid EGL_ANGLE_platform_angle_device_id EGL_ANGLE_platform_angle_display_key EGL_ANGLE_device_creation EGL_ANGLE_device_creation_d3d11 EGL_ANGLE_experimental_present_path EGL_KHR_client_get_all_proc_addresses EGL_KHR_debug EGL_ANGLE_feature_control EGL_ANGLE_no_error 
+Renderer driver WebGL 1	Google Inc. (NVIDIA) -- ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti (0x00002489) Direct3D11 vs_5_0 ps_5_0, D3D11-32.0.15.9649)
+Versione driver WebGL 1	OpenGL ES 3.0 (ANGLE 2.1 git hash: unknown hash)
+Estensioni driver WebGL 1	GL_AMD_performance_monitor GL_ANGLE_base_vertex_base_instance_shader_builtin GL_ANGLE_blob_cache GL_ANGLE_client_arrays GL_ANGLE_clip_cull_distance GL_ANGLE_copy_texture_3d GL_ANGLE_depth_texture GL_ANGLE_framebuffer_blit GL_ANGLE_framebuffer_multisample GL_ANGLE_get_serialized_context_string GL_ANGLE_get_tex_level_parameter GL_ANGLE_instanced_arrays GL_ANGLE_memory_size GL_ANGLE_multiview_multisample GL_ANGLE_pack_reverse_row_order GL_ANGLE_polygon_mode GL_ANGLE_program_binary_readiness_query GL_ANGLE_program_cache_control GL_ANGLE_provoking_vertex GL_ANGLE_renderability_validation GL_ANGLE_request_extension GL_ANGLE_robust_client_memory GL_ANGLE_shader_pixel_local_storage GL_ANGLE_shader_pixel_local_storage_coherent GL_ANGLE_stencil_texturing GL_ANGLE_texture_compression_dxt3 GL_ANGLE_texture_compression_dxt5 GL_ANGLE_texture_multisample GL_ANGLE_texture_usage GL_ANGLE_translated_shader_source GL_APPLE_clip_distance GL_ARM_rgba8 GL_CHROMIUM_bind_generates_resource GL_CHROMIUM_bind_uniform_location GL_CHROMIUM_copy_compressed_texture GL_CHROMIUM_copy_texture GL_CHROMIUM_lose_context GL_EXT_EGL_image_external_wrap_modes GL_EXT_base_instance GL_EXT_blend_func_extended GL_EXT_blend_minmax GL_EXT_clip_control GL_EXT_clip_cull_distance GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_conservative_depth GL_EXT_debug_label GL_EXT_debug_marker GL_EXT_depth_clamp GL_EXT_discard_framebuffer GL_EXT_disjoint_timer_query GL_EXT_draw_buffers GL_EXT_draw_buffers_indexed GL_EXT_draw_elements_base_vertex GL_EXT_float_blend GL_EXT_frag_depth GL_EXT_instanced_arrays GL_EXT_map_buffer_range GL_EXT_occlusion_query_boolean GL_EXT_polygon_offset_clamp GL_EXT_read_format_bgra GL_EXT_render_snorm GL_EXT_robustness GL_EXT_sRGB GL_EXT_shader_texture_lod GL_EXT_texture_border_clamp GL_EXT_texture_compression_bptc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_rgtc GL_EXT_texture_compression_s3tc_srgb GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 GL_EXT_texture_mirror_clamp_to_edge GL_EXT_texture_norm16 GL_EXT_texture_rg GL_EXT_texture_storage GL_EXT_texture_type_2_10_10_10_REV GL_EXT_unpack_subimage GL_KHR_debug GL_KHR_parallel_shader_compile GL_KHR_robust_buffer_access_behavior GL_KHR_robustness GL_NV_EGL_stream_consumer_external GL_NV_fence GL_NV_framebuffer_blit GL_NV_pack_subimage GL_NV_pixel_buffer_object GL_NV_shader_noperspective_interpolation GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_image_external_essl3 GL_OES_depth24 GL_OES_depth32 GL_OES_draw_buffers_indexed GL_OES_draw_elements_base_vertex GL_OES_element_index_uint GL_OES_fbo_render_mipmap GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_packed_depth_stencil GL_OES_required_internalformat GL_OES_rgb8_rgba8 GL_OES_sample_variables GL_OES_shader_multisample_interpolation GL_OES_standard_derivatives GL_OES_surfaceless_context GL_OES_texture_border_clamp GL_OES_texture_float GL_OES_texture_float_linear GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_texture_npot GL_OES_texture_stencil8 GL_OES_texture_storage_multisample_2d_array GL_OES_vertex_array_object GL_OVR_multiview GL_OVR_multiview2 
+Estensioni WebGL 1	ANGLE_instanced_arrays EXT_blend_minmax EXT_clip_control EXT_color_buffer_half_float EXT_depth_clamp EXT_float_blend EXT_frag_depth EXT_polygon_offset_clamp EXT_shader_texture_lod EXT_sRGB EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic EXT_texture_mirror_clamp_to_edge MOZ_debug OES_element_index_uint OES_fbo_render_mipmap OES_standard_derivatives OES_texture_float OES_texture_float_linear OES_texture_half_float OES_texture_half_float_linear OES_vertex_array_object WEBGL_color_buffer_float WEBGL_compressed_texture_s3tc WEBGL_compressed_texture_s3tc_srgb WEBGL_debug_renderer_info WEBGL_debug_shaders WEBGL_depth_texture WEBGL_draw_buffers WEBGL_lose_context WEBGL_provoking_vertex
+Informazioni driver WSI WebGL 2	EGL_VENDOR: Google Inc. (NVIDIA)
+EGL_VERSION: 1.5 (ANGLE 2.1 git hash: unknown hash)
+EGL_EXTENSIONS: EGL_EXT_create_context_robustness EGL_ANGLE_d3d_share_handle_client_buffer EGL_ANGLE_d3d_texture_client_buffer EGL_ANGLE_surface_d3d_texture_2d_share_handle EGL_ANGLE_query_surface_pointer EGL_ANGLE_window_fixed_size EGL_ANGLE_keyed_mutex EGL_ANGLE_surface_orientation EGL_ANGLE_direct_composition EGL_NV_post_sub_buffer EGL_KHR_create_context EGL_KHR_image EGL_KHR_image_base EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_gl_renderbuffer_image EGL_KHR_get_all_proc_addresses EGL_KHR_stream EGL_KHR_stream_consumer_gltexture EGL_NV_stream_consumer_gltexture_yuv EGL_ANGLE_stream_producer_d3d_texture EGL_ANGLE_create_context_webgl_compatibility EGL_CHROMIUM_create_context_bind_generates_resource EGL_CHROMIUM_sync_control EGL_EXT_pixel_format_float EGL_KHR_surfaceless_context EGL_ANGLE_display_texture_share_group EGL_ANGLE_display_semaphore_share_group EGL_ANGLE_create_context_client_arrays EGL_ANGLE_program_cache_control EGL_ANGLE_robust_resource_initialization EGL_ANGLE_create_context_extensions_enabled EGL_ANDROID_blob_cache EGL_ANDROID_recordable EGL_ANGLE_image_d3d11_texture EGL_ANGLE_create_context_backwards_compatible EGL_KHR_no_config_context EGL_KHR_create_context_no_error EGL_KHR_reusable_sync EGL_ANGLE_memory_usage_report 
+EGL_EXTENSIONS(nullptr): EGL_EXT_client_extensions EGL_EXT_device_query EGL_EXT_platform_base EGL_EXT_platform_device EGL_ANGLE_platform_angle EGL_ANGLE_platform_angle_d3d EGL_ANGLE_platform_angle_d3d11on12 EGL_ANGLE_platform_angle_d3d_luid EGL_ANGLE_platform_angle_device_id EGL_ANGLE_platform_angle_display_key EGL_ANGLE_device_creation EGL_ANGLE_device_creation_d3d11 EGL_ANGLE_experimental_present_path EGL_KHR_client_get_all_proc_addresses EGL_KHR_debug EGL_ANGLE_feature_control EGL_ANGLE_no_error 
+Renderer driver WebGL 2	Google Inc. (NVIDIA) -- ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti (0x00002489) Direct3D11 vs_5_0 ps_5_0, D3D11-32.0.15.9649)
+Versione driver WebGL 2	OpenGL ES 3.0 (ANGLE 2.1 git hash: unknown hash)
+Estensioni driver WebGL 2	GL_AMD_performance_monitor GL_ANGLE_base_vertex_base_instance_shader_builtin GL_ANGLE_blob_cache GL_ANGLE_client_arrays GL_ANGLE_clip_cull_distance GL_ANGLE_copy_texture_3d GL_ANGLE_depth_texture GL_ANGLE_framebuffer_blit GL_ANGLE_framebuffer_multisample GL_ANGLE_get_serialized_context_string GL_ANGLE_get_tex_level_parameter GL_ANGLE_instanced_arrays GL_ANGLE_memory_size GL_ANGLE_multiview_multisample GL_ANGLE_pack_reverse_row_order GL_ANGLE_polygon_mode GL_ANGLE_program_binary_readiness_query GL_ANGLE_program_cache_control GL_ANGLE_provoking_vertex GL_ANGLE_renderability_validation GL_ANGLE_request_extension GL_ANGLE_robust_client_memory GL_ANGLE_shader_pixel_local_storage GL_ANGLE_shader_pixel_local_storage_coherent GL_ANGLE_stencil_texturing GL_ANGLE_texture_compression_dxt3 GL_ANGLE_texture_compression_dxt5 GL_ANGLE_texture_multisample GL_ANGLE_texture_usage GL_ANGLE_translated_shader_source GL_APPLE_clip_distance GL_ARM_rgba8 GL_CHROMIUM_bind_generates_resource GL_CHROMIUM_bind_uniform_location GL_CHROMIUM_copy_compressed_texture GL_CHROMIUM_copy_texture GL_CHROMIUM_lose_context GL_EXT_EGL_image_external_wrap_modes GL_EXT_base_instance GL_EXT_blend_func_extended GL_EXT_blend_minmax GL_EXT_clip_control GL_EXT_clip_cull_distance GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_conservative_depth GL_EXT_debug_label GL_EXT_debug_marker GL_EXT_depth_clamp GL_EXT_discard_framebuffer GL_EXT_disjoint_timer_query GL_EXT_draw_buffers GL_EXT_draw_buffers_indexed GL_EXT_draw_elements_base_vertex GL_EXT_float_blend GL_EXT_frag_depth GL_EXT_instanced_arrays GL_EXT_map_buffer_range GL_EXT_occlusion_query_boolean GL_EXT_polygon_offset_clamp GL_EXT_read_format_bgra GL_EXT_render_snorm GL_EXT_robustness GL_EXT_sRGB GL_EXT_shader_texture_lod GL_EXT_texture_border_clamp GL_EXT_texture_compression_bptc GL_EXT_texture_compression_dxt1 GL_EXT_texture_compression_rgtc GL_EXT_texture_compression_s3tc_srgb GL_EXT_texture_filter_anisotropic GL_EXT_texture_format_BGRA8888 GL_EXT_texture_mirror_clamp_to_edge GL_EXT_texture_norm16 GL_EXT_texture_rg GL_EXT_texture_storage GL_EXT_texture_type_2_10_10_10_REV GL_EXT_unpack_subimage GL_KHR_debug GL_KHR_parallel_shader_compile GL_KHR_robust_buffer_access_behavior GL_KHR_robustness GL_NV_EGL_stream_consumer_external GL_NV_fence GL_NV_framebuffer_blit GL_NV_pack_subimage GL_NV_pixel_buffer_object GL_NV_shader_noperspective_interpolation GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_EGL_image_external_essl3 GL_OES_depth24 GL_OES_depth32 GL_OES_draw_buffers_indexed GL_OES_draw_elements_base_vertex GL_OES_element_index_uint GL_OES_fbo_render_mipmap GL_OES_get_program_binary GL_OES_mapbuffer GL_OES_packed_depth_stencil GL_OES_required_internalformat GL_OES_rgb8_rgba8 GL_OES_sample_variables GL_OES_shader_multisample_interpolation GL_OES_standard_derivatives GL_OES_surfaceless_context GL_OES_texture_border_clamp GL_OES_texture_float GL_OES_texture_float_linear GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_texture_npot GL_OES_texture_stencil8 GL_OES_texture_storage_multisample_2d_array GL_OES_vertex_array_object GL_OVR_multiview GL_OVR_multiview2 
+Estensioni WebGL 2	EXT_clip_control EXT_color_buffer_float EXT_depth_clamp EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic EXT_texture_mirror_clamp_to_edge EXT_texture_norm16 MOZ_debug OES_draw_buffers_indexed OES_texture_float_linear OVR_multiview2 WEBGL_compressed_texture_s3tc WEBGL_compressed_texture_s3tc_srgb WEBGL_debug_renderer_info WEBGL_debug_shaders WEBGL_lose_context WEBGL_provoking_vertex
+Obiettivo per frequenza fotogrammi	144
+Scheda WebGPU predefinita	{
+  "navigator.gpu.requestAdapter({})": {
+    "info": {
+      "architecture": "",
+      "description": "",
+      "device": "",
+      "isFallbackAdapter": false,
+      "subgroupMaxSize": 128,
+      "subgroupMinSize": 4,
+      "vendor": "",
+      "wgpuBackend": "Dx12",
+      "wgpuDevice": 9353,
+      "wgpuDeviceType": "DiscreteGpu",
+      "wgpuDriver": "32.0.15.9649",
+      "wgpuDriverInfo": "",
+      "wgpuName": "NVIDIA GeForce RTX 3060 Ti",
+      "wgpuVendor": 4318
+    },
+    "features": [
+      "bgra8unorm-storage",
+      "core-features-and-limits",
+      "depth-clip-control",
+      "depth32float-stencil8",
+      "dual-source-blending",
+      "float32-blendable",
+      "float32-filterable",
+      "indirect-first-instance",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-compression-bc",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query"
+    ],
+    "limits": {
+      "maxBindGroups": 8,
+      "maxBindGroupsPlusVertexBuffers": 24,
+      "maxBindingsPerBindGroup": 4294967295,
+      "maxBufferSize": 2147483644,
+      "maxColorAttachmentBytesPerSample": 128,
+      "maxColorAttachments": 8,
+      "maxComputeInvocationsPerWorkgroup": 1024,
+      "maxComputeWorkgroupSizeX": 1024,
+      "maxComputeWorkgroupSizeY": 1024,
+      "maxComputeWorkgroupSizeZ": 64,
+      "maxComputeWorkgroupStorageSize": 32768,
+      "maxComputeWorkgroupsPerDimension": 65535,
+      "maxDynamicStorageBuffersPerPipelineLayout": 4,
+      "maxDynamicUniformBuffersPerPipelineLayout": 8,
+      "maxInterStageShaderVariables": 31,
+      "maxSampledTexturesPerShaderStage": 64,
+      "maxSamplersPerShaderStage": 64,
+      "maxStorageBufferBindingSize": 2147483644,
+      "maxStorageBuffersInFragmentStage": 64,
+      "maxStorageBuffersInVertexStage": 64,
+      "maxStorageBuffersPerShaderStage": 64,
+      "maxStorageTexturesInFragmentStage": 64,
+      "maxStorageTexturesInVertexStage": 64,
+      "maxStorageTexturesPerShaderStage": 64,
+      "maxTextureArrayLayers": 2048,
+      "maxTextureDimension1D": 16384,
+      "maxTextureDimension2D": 16384,
+      "maxTextureDimension3D": 2048,
+      "maxUniformBufferBindingSize": 65536,
+      "maxUniformBuffersPerShaderStage": 64,
+      "maxVertexAttributes": 30,
+      "maxVertexBufferArrayStride": 2048,
+      "maxVertexBuffers": 16,
+      "minStorageBufferOffsetAlignment": 32,
+      "minUniformBufferOffsetAlignment": 256
+    }
+  }
+}
+Scheda WebGPU di fallback	{
+  "navigator.gpu.requestAdapter({\"forceFallbackAdapter\":true})": {
+    "info": {
+      "architecture": "",
+      "description": "",
+      "device": "",
+      "isFallbackAdapter": true,
+      "subgroupMaxSize": 128,
+      "subgroupMinSize": 4,
+      "vendor": "",
+      "wgpuBackend": "Dx12",
+      "wgpuDevice": 140,
+      "wgpuDeviceType": "Cpu",
+      "wgpuDriver": "10.0.26100.9711",
+      "wgpuDriverInfo": "",
+      "wgpuName": "Microsoft Basic Render Driver",
+      "wgpuVendor": 5140
+    },
+    "features": [
+      "bgra8unorm-storage",
+      "core-features-and-limits",
+      "depth-clip-control",
+      "depth32float-stencil8",
+      "dual-source-blending",
+      "float32-blendable",
+      "float32-filterable",
+      "indirect-first-instance",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "texture-compression-bc",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query"
+    ],
+    "limits": {
+      "maxBindGroups": 8,
+      "maxBindGroupsPlusVertexBuffers": 24,
+      "maxBindingsPerBindGroup": 4294967295,
+      "maxBufferSize": 2147483644,
+      "maxColorAttachmentBytesPerSample": 128,
+      "maxColorAttachments": 8,
+      "maxComputeInvocationsPerWorkgroup": 1024,
+      "maxComputeWorkgroupSizeX": 1024,
+      "maxComputeWorkgroupSizeY": 1024,
+      "maxComputeWorkgroupSizeZ": 64,
+      "maxComputeWorkgroupStorageSize": 32768,
+      "maxComputeWorkgroupsPerDimension": 65535,
+      "maxDynamicStorageBuffersPerPipelineLayout": 4,
+      "maxDynamicUniformBuffersPerPipelineLayout": 8,
+      "maxInterStageShaderVariables": 31,
+      "maxSampledTexturesPerShaderStage": 64,
+      "maxSamplersPerShaderStage": 64,
+      "maxStorageBufferBindingSize": 2147483644,
+      "maxStorageBuffersInFragmentStage": 64,
+      "maxStorageBuffersInVertexStage": 64,
+      "maxStorageBuffersPerShaderStage": 64,
+      "maxStorageTexturesInFragmentStage": 64,
+      "maxStorageTexturesInVertexStage": 64,
+      "maxStorageTexturesPerShaderStage": 64,
+      "maxTextureArrayLayers": 2048,
+      "maxTextureDimension1D": 16384,
+      "maxTextureDimension2D": 16384,
+      "maxTextureDimension3D": 2048,
+      "maxUniformBufferBindingSize": 65536,
+      "maxUniformBuffersPerShaderStage": 64,
+      "maxVertexAttributes": 30,
+      "maxVertexBufferArrayStride": 2048,
+      "maxVertexBuffers": 16,
+      "minStorageBufferOffsetAlignment": 32,
+      "minUniformBufferOffsetAlignment": 256
+    }
+  }
+}
+DirectWrite	true (10.0.26100.9711)
+GPU #1
+Attivo	Sì
+Descrizione	NVIDIA GeForce RTX 3060 Ti
+ID produttore	0x10de
+ID dispositivo	0x2489
+Versione driver	32.0.15.9649
+Data aggiornamento driver	5-5-2026
+Driver	C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumdx.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumdx.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumdx.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumdx.dll C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumd.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumd.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumd.dll,C:\WINDOWS\System32\DriverStore\FileRepository\nvmdi.inf_amd64_97fbf7e42e9512b0\nvldumd.dll
+ID sottosistema	39731462
+RAM	8192
+GPU #2
+Attivo	No
+RAM	0
+Diagnostica
+AzureCanvasBackend	skia
+AzureCanvasBackend (UI Process)	skia
+AzureContentBackend	skia
+AzureContentBackend (UI Process)	skia
+AzureFallbackCanvasBackend (UI Process)	skia
+CMSOutputProfile	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
+CMSOutputProfileInUse	configured CMSOutputProfile
+Display0	2560x1440@144Hz scales:1.000000|1.000000 SDR
+Display1	2560x1440@59Hz scales:1.000000|1.000000 SDR
+DisplayCount	2
+HardwareStretching	both=1 window-only=0 full-screen-only=1 none=0 error=0
+OutputColorSpaces	DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709, DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709
+OverlaySupport	NV12=Scaling YUV2=Scaling BGRA8=Scaling RGB10A2=Scaling RGBA16F=Scaling VpSR=Supported VpAutoHDR=Supported HwOverlayHDR=Supported
+SwapChainTearingSupport	Supported
+GPUProcessPid	22752
+Parametri ClearType	\\.\DISPLAY1 [ Gamma: 1.8 Pixel Structure: RGB ClearType Level: 100 Enhanced Contrast: 50 ] \\.\DISPLAY2 [ Gamma: 1.8 Pixel Structure: RGB ClearType Level: 100 Enhanced Contrast: 50 ] 
+Informazioni di debug per visibilità caratteri	Windows Platform
+Registro decisioni
+HW_COMPOSITING	
+default	available		
+
+D3D11_COMPOSITING	
+default	available		
+
+D3D11_HW_ANGLE	
+default	available		
+
+GPU_PROCESS	
+default	available		
+
+WEBRENDER	
+default	available		
+
+WEBRENDER_COMPOSITOR	
+default	available		
+
+WEBRENDER_PARTIAL	
+default	available		
+
+WEBRENDER_SHADER_CACHE	
+default	available		
+
+WEBRENDER_OPTIMIZED_SHADERS	
+default	available		
+
+WEBRENDER_ANGLE	
+default	available		
+
+WEBRENDER_DCOMP_PRESENT	
+default	available		
+
+WEBRENDER_SCISSORED_CACHE_CLEARS	
+default	available		
+
+WEBGPU	
+default	available		
+
+WINDOW_OCCLUSION	
+default	available		
+user	disabled	User disabled via pref	Bloccato: codice non funzionante FEATURE_FAILURE_PREF_DISABLED
+
+HARDWARE_VIDEO_DECODING	
+default	available		
+
+HARDWARE_VIDEO_ENCODING	
+default	available		
+
+VIDEO_HARDWARE_OVERLAY	
+default	available		
+
+VIDEO_SOFTWARE_OVERLAY	
+default	available		
+
+HW_DECODED_VIDEO_ZERO_COPY	
+default	available		
+
+VP8_HW_DECODE	
+default	available		
+
+VP9_HW_DECODE	
+default	available		
+
+REUSE_DECODER_DEVICE	
+default	available		
+
+BACKDROP_FILTER	
+default	available		
+
+CANVAS_RENDERER_THREAD	
+default	available		
+
+ACCELERATED_CANVAS2D	
+default	available		
+
+H264_HW_DECODE	
+default	available		
+
+AV1_HW_DECODE	
+default	available		
+
+HEVC_HW_DECODE	
+default	available		
+
+VP8_HW_ENCODE	
+default	available		
+
+VP9_HW_ENCODE	
+default	available		
+
+H264_HW_ENCODE	
+default	available		
+
+AV1_HW_ENCODE	
+default	available		
+
+HEVC_HW_ENCODE	
+default	available		
+
+WMF_HW_DRM	
+default	available		
+
+GL_NORM16_TEXTURES	
+default	available		
+
+WEBGPU_EXTERNAL_TEXTURE	
+default	available		
+
+WEBGL	
+default	available		
+
+VIDEO_HDR	
+default	available		
+Media
+Back-end audio	wasapi
+Numero massimo di canali	2
+Frequenza di campionamento preferita	48000
+Latenza di andata e ritorno (deviazione standard)	71.15ms (6.44)
+Informazioni di supporto per i codec	
+Nome codec	Decodifica software	Decodifica hardware	Codifica software	Codifica hardware
+H264	Supportata	Supportata	Non supportata	Non supportata
+VP9	Supportata	Supportata	Non supportata	Non supportata
+VP8	Supportata	Supportata	Non supportata	Non supportata
+AV1	Supportata	Supportata	Non supportata	Non supportata
+HEVC	Non supportata	Supportata	Non supportata	Non supportata
+AAC	Supportata	Non supportata	Non supportata	Non supportata
+MP3	Supportata	Non supportata	Non supportata	Non supportata
+Opus	Supportata	Non supportata	Non supportata	Non supportata
+Vorbis	Supportata	Non supportata	Non supportata	Non supportata
+FLAC	Supportata	Non supportata	Non supportata	Non supportata
+Wave	Supportata	Non supportata	Non supportata	Non supportata
+
+Dispositivi di output
+Nome	Gruppo	Produttore	Stato	Preferito	Formato	Canali	Frequenza	Latenza
+Altoparlanti (Focusrite USB Audio)	FocusriteUSB\Audio&Adapter\1&1f5c0a88&0&		Enabled	All	default: F32LE, support: S16LE F32LE	2	default: 48000, support: 48000 - 48000	144 - 480
+LC32G5xT (NVIDIA High Definition Audio)	HDAUDIO\FUNC_01&VEN_10DE&DEV_009E&SUBSYS_14623973&REV_1001\5&15d93e83&0&0001		Enabled	All	default: F32LE, support: S16LE F32LE	2	default: 48000, support: 48000 - 48000	144 - 480
+PHL 325E1 (NVIDIA High Definition Audio)	HDAUDIO\FUNC_01&VEN_10DE&DEV_009E&SUBSYS_14623973&REV_1001\5&15d93e83&0&0001		Enabled	None	default: F32LE, support: S16LE F32LE	2	default: 48000, support: 48000 - 48000	144 - 480
+Digital Audio (S/PDIF) (High Definition Audio Device)	HDAUDIO\FUNC_01&VEN_10EC&DEV_0887&SUBSYS_10438760&REV_1003\5&37d8a47f&0&0001		Enabled	None	default: F32LE, support: S16LE F32LE	2	default: 48000, support: 48000 - 48000	128 - 480
+Dispositivi di input
+Nome	Gruppo	Produttore	Stato	Preferito	Formato	Canali	Frequenza	Latenza
+Analogue 1 + 2 (Focusrite USB Audio)	FocusriteUSB\Audio&Adapter\1&1f5c0a88&0&		Enabled	All	default: F32LE, support: S16LE F32LE	2	default: 48000, support: 48000 - 48000	144 - 480
+Microfono (DroidCam Virtual Audio)	ROOT\MEDIA\0001		Enabled	All	default: F32LE, support: S16LE F32LE	1	default: 16000, support: 16000 - 16000	48 - 160
+Informazioni sui moduli di decifrazione contenuti
+Nome Key System	Solidità video	Solidità audio	Funzionalità	Avvio in chiaro
+org.w3.clearkey			{"persistent":"Optional","distinctive":"NotAllowed","sessionType":"[Temporary]","codec":{"decodingAndDecrypting":["h264(all)"],"decryptingOnly":["aac(all)","flac(all)","opus(all)","vp9(all)","av1(all)","vorbis(all)","vp8(all)"]}}	No
+com.microsoft.playready.recommendation	2000	2000	{"persistent":"Required","distinctive":"Required","sessionType":"[Temporary,PersistentLicense]","codec":{"decodingAndDecrypting":["h264(cenc/cbcs)","vp9(cenc/cbcs)","hevc(cenc/cbcs)","av1(cenc/cbcs)","aac(cenc)"]}}	No
+com.microsoft.playready.recommendation.3000	3000	2000	{"persistent":"Required","distinctive":"Required","sessionType":"[Temporary,PersistentLicense]","codec":{"decodingAndDecrypting":["h264(cenc/cbcs)","hevc(cenc/cbcs)","av1(cenc/cbcs)","aac(cenc)"]}}	No
+com.microsoft.playready.recommendation.3000.clearlead	3000	2000	{"persistent":"Required","distinctive":"Required","sessionType":"[Temporary,PersistentLicense]","codec":{"decodingAndDecrypting":["h264(cenc/cbcs)","hevc(cenc/cbcs)","av1(cenc/cbcs)","aac(cenc)"]}}	Yes
+Variabili d’ambiente
+Nome	ValoreMOZ_CRASHREPORTER_DATA_DIRECTORY	C:\Users\mensi\AppData\Roaming\Mozilla\Firefox\Crash Reports
+MOZ_CRASHREPORTER_EVENTS_DIRECTORY	C:\Repo\pezzotflix\spikes\s2-browser-playback\out\profiles\firefox-support\crashes\events
+MOZ_CRASHREPORTER_PING_DIRECTORY	C:\Users\mensi\AppData\Roaming\Mozilla\Firefox\Pending Pings
+MOZ_CRASHREPORTER_RESTART_ARG_1	--profile
+MOZ_CRASHREPORTER_RESTART_ARG_2	C:\Repo\pezzotflix\spikes\s2-browser-playback\out\profiles\firefox-support
+MOZ_CRASHREPORTER_RESTART_ARG_3	about:support
+MOZ_CRASHREPORTER_RESTART_ARG_4	--remote-debugging-port=0
+MOZ_REMOTE_ALLOW_SYSTEM_ACCESS	1
+Impostazioni remote
+Stato	OK
+Ultimo controllo	
+Timestamp locale	
+Cronologia	
+Stato	Data	Informazioni
+Esperimenti remoti
+Nome	Branch esperimento
+
+Consultare about:studies per ulteriori informazioni, incluso come disattivare singoli esperimenti o impedire a Firefox di eseguire questo tipo di esperimenti in futuro.
+
+Preferenze importanti modificate
+Nome	Valoreapz.content_response_timeout	60000
+browser.contentblocking.category	custom
+browser.search.update	false
+browser.sessionstore.resume_from_crash	false
+browser.startup.homepage	about:blank
+browser.startup.homepage_override.mstone	ignore
+browser.startup.page	0
+browser.tabs.disableBackgroundZombification	false
+browser.tabs.warnOnCloseOtherTabs	false
+browser.tabs.warnOnOpen	false
+browser.theme.toolbar-theme	0
+browser.urlbar.placeholderName	Google
+browser.urlbar.placeholderName.private	Google
+browser.urlbar.suggest.searches	false
+dom.disable_open_during_load	false
+dom.file.createInChild	true
+dom.forms.autocomplete.formautofill	true
+dom.ipc.reportProcessHangs	false
+dom.max_chrome_script_run_time	0
+dom.max_script_run_time	0
+extensions.lastAppVersion	159.0.1
+general.useragent.updates.enabled	false
+javascript.options.showInConsole	true
+media.gmp-manager.updateEnabled	false
+media.gmp.storage.version.observed	1
+media.sanity-test.disabled	true
+network.cookie.CHIPS.lastMigrateDatabase	2
+network.cookie.sameSite.laxByDefault	false
+network.cookie.validation.lastEpoch	1
+network.http.prompt-temp-redirect	false
+network.http.speculative-parallel-limit	0
+network.manage-offline-status	false
+network.sntp.pools	dummy.test
+plugin.state.flash	0
+privacy.bounceTrackingProtection.hasMigratedUserActivationData	true
+privacy.sanitize.pending	[{"id":"newtab-container","itemsToClear":[],"options":{}}]
+privacy.trackingprotection.enabled	false
+security.certerrors.mitm.priming.enabled	false
+security.fileuri.strict_origin_policy	false
+security.notification_enable_delay	0
+services.sync.engine.addresses.available	true
+signon.autofillForms	false
+signon.rememberSignons	false
+signon.storage.rust.restoreAttemptsVersion	1
+signon.storage.rust.restoreVersion	1
+Preferenze in user.js
+
+Nella cartella del profilo è presente un file user.js con preferenze che non sono state impostate da Firefox.
+
+Preferenze importanti bloccate
+Nome	Valoreextensions.formautofill.creditCards.os-auth.locked.enabled	false
+fission.autostart.session	true
+media.utility-process.enabled	true
+signon.management.page.os-auth.locked.enabled	false
+Database Places
+Integrità	Verifica integrità
+Statistiche	Mostra statistiche
+Data ultima operazione Idle Maintenance	Non presente
+Data ultima operazione Vacuum	Non presente
+Data ultima violazione di integrità	Non presente
+Accessibilità
+Attivato	false
+Blocca servizi accessibilità	0
+Visualizzatore PDF
+Versione PDF.js	6.5.10
+Attivo	true
+Editor delle annotazioni attivo	true
+Moduli XFA attivi	true
+Apri allegati PDF in linea	false
+Versioni librerie
+	Versione minima prevista	Versione in uso
+NSPR	4.40	4.40
+NSS	3.131	3.131
+NSSSMIME	3.131	3.131
+NSSSSL	3.131	3.131
+NSSUTIL	3.131	3.131
+Sandbox
+Livello sandbox content process	9
+Livello effettivo sandbox del processo per i contenuti	9
+Stato Win32k Lockdown del processo per i contenuti	Win32k Lockdown enabled -- default value is true
+Livello sandbox processo GPU	2
+Cache di avvio (startup)
+Percorso su disco della cache	C:\Repo\pezzotflix\spikes\s2-browser-playback\out\profiles\firefox-support\startupCache\startupCache.8.little
+Ignora cache su disco	false
+Trovata cache su disco durante inizializzazione	false
+Cache scritta su disco	false
+Internazionalizzazione e localizzazione
+Impostazioni dell’applicazione
+Lingue richieste	["it"]
+Lingue disponibili	["it","en-US"]
+Lingue applicazione	["it","en-US"]
+Impostazioni internazionali	["it-IT"]
+Lingua predefinita	"it"
+Sistema operativo
+Lingue del sistema	["it-IT"]
+Impostazioni internazionali	["it-IT"]
+Debug remoto (protocollo Chromium)
+Connessioni accettate	true
+URL	http://127.0.0.1:56286/
+Stampa
+Risoluzione dei problemi	Rimuovi impostazioni di stampa salvate
+Impostazioni di stampa modificate
+Nome	Valore
+Analisi contenuti (DLP)
+Attiva	false
+Connesso all’agente	
+Percorso agente	
+Verifica firma dell’agente non riuscita	
+Numero richieste	

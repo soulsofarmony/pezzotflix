@@ -14,6 +14,6 @@ Check, in order:
 4. **Boundaries:** no cross-module imports; Decision Engine pure; delivery without DB.
 5. **Tests:** do they test behaviour that matters; missing cases for the risky paths.
 
-You may run `npm run verify` and targeted tests (bash: `export PATH="$LOCALAPPDATA/pezzotflix-tools/node26:$PATH"` first).
+You may run `npm run verify` and targeted tests (Node 26.13 must be on PATH, see CLAUDE.md Environment).
 
 Output: findings ranked blocker / major / minor, each with `file:line`, the failure scenario, and a suggested fix. End with a verdict: **ready to commit** or **needs fixes**.

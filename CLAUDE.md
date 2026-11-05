@@ -13,9 +13,10 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 2. Components & responsibilities — `docs/architecture/02-components.md`
 - [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [x] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
-- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 ✅ (TMDB live blocked: no key), H10 ✅/❌, S2 automated run in progress; owner visual/audio check pending)
+- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 ✅ (TMDB live blocked: no key), H10 ✅/❌, S2: automated runs done, raw results in `spikes/s2-browser-playback/results/`, **report not written yet**; owner visual/audio check pending)
 - [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/` ← 0001/0002/0004/0006/0007 Accepted; 0003 (streaming) and 0005 (web client) after S2
-- [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md` (build F0 in progress)
+- [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
+- [ ] 8. MVP build — F0 scaffold ✅ (commit 78c6713); F1a ingest, F1b playback, F1c web client ← **next**. Resume from `docs/journal/2026-11-06-handoff.md`.
 
 ## Hard rules
 
@@ -33,11 +34,23 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
   - `spike-runner` runs one spike and writes its report;
   - `tech-evaluator` covers one decision area and drafts its ADR as Proposed;
   - `design-reviewer` is a read-only critic, run before a decision is accepted or a document is final.
-  Implementation agents (`module-implementer`, `code-reviewer`) are defined once the stack ADRs are Accepted.
+  - `module-implementer` builds one slice of product code in its own worktree;
+  - `code-reviewer` is a read-only code critic, run before the orchestrator commits.
 - Skills (`.claude/skills/`): `spike-report` (spike lifecycle) and `adr` (ADR lifecycle).
 - **Parallelism:** independent work runs in parallel agents, one decision area or spike each. Work that shares a scarce tool (Docker daemon, GPU, the browser) runs in sequence. Product code is built one module per agent, each in its own git worktree, and integrates through the contract-first API spec.
 - **Owner-only:** spending money, creating external accounts or API keys, physical checks (HDR colours, audio on the AVR), real media, and anything irreversible outside the repo. Ask for these up front and in batches; never block on them, work around and record what is pending.
 - **Dev tools:** the orchestrator keeps the toolchain (WSL, Docker Desktop, ffmpeg, Node, Python) up to date on its own. Only steps that need the owner (UAC prompts, licences) go to them.
+
+## Working with the owner
+
+These agreements used to live only in Claude's local memory; they are here so they survive a change of machine or account.
+- The owner is strong in Python and TS/JS. Development is AI-driven: Claude writes, the owner guides and reviews. Choose tech on quality, not familiarity.
+- The owner speaks Italian, often by voice dictation (expect transcription noise). Reply in Italian.
+- The owner wants **a working app, not proposals** ("Io non voglio proposte, io voglio l'app. Tu devi decidere"). Decide, build, record the decision, push at milestones.
+- When a real choice needs the owner: plan mode, **one question at a time** (AskUserQuestion), plain language, the concrete consequence for them, recommended option first. Settle trivial alignments yourself.
+- Be autonomous on dev tooling (install/update WSL, Docker, Node, ffmpeg); hand over only steps that physically need the owner (UAC prompts, licences).
+- Living room: a **Haier QLED TV with Google TV** (model to confirm) → AVR/soundbar over HDMI (ARC/eARC to confirm). A TV app comes after the web MVP; it needs the TV model, developer options + ADB over network, and the audio link.
+- Git remote: `origin` = https://github.com/soulsofarmony/pezzotflix.git over HTTPS (no SSH key, no `gh` on the original PC).
 
 ## Architectural invariants (from requirements)
 
@@ -61,7 +74,7 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
 ## Environment
 
 - Dev and first real use: Windows 11 + Docker Desktop (WSL2). A Linux mini-PC/server comes later, so keep everything portable.
-- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node 22 (system) + portable Node 26.13 in `%LOCALAPPDATA%\pezzotflix-tools\node26` (bash: `export PATH="$LOCALAPPDATA/pezzotflix-tools/node26:$PATH"`) (project runtime, ADR 0001), Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
+- Host tools: Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), **Node 26.13 LTS** (project runtime, ADR 0001, `.nvmrc`; on the original PC it is a portable copy, see `docs/journal/2026-11-06-handoff.md`), Python 3.12, ffmpeg/ffprobe 7. No .NET or Go installed.
 - Bind mounts from NTFS into WSL2 containers are slow. Keep this in mind for scanning/watching (inotify does not propagate reliably from Windows paths).
 - Main TV client: Android TV / Google TV device (Chromecast GTV / Google TV Streamer or a Google TV set) → AVR/soundbar over HDMI. Lossless audio passthrough (TrueHD/Atmos, DTS-HD) matters. **Known risk:** Dolby Vision profile 7 (FEL) is unreliable on these devices and usually falls back to HDR10, so it is not an MVP requirement.
 - No real media yet: use public test samples. Subtitle formats are unknown, so treat PGS as likely.
@@ -73,6 +86,7 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
 - `docs/library-standard.md`: naming and folder standard for the media library, what the Identifier expects
 - `docs/adr/`: decisions
 - `docs/spikes/`: spike reports
+- `docs/journal/`: session handoffs and reports (start here when resuming)
 - `services/`: backend services
 - `clients/`: web / tv / mobile
 - `spikes/`: throwaway code

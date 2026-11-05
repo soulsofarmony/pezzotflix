@@ -1,0 +1,313 @@
+{
+  "browser": "Edge 156.0.0.0",
+  "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Edg/156.0.0.0",
+  "when": "2026-11-05T00:05:55.234Z",
+  "passes": 1,
+  "caps": {
+    "mse": true,
+    "isTypeSupported": {
+      "AVC High": true,
+      "HEVC Main10 L5.1 hvc1": true,
+      "HEVC Main10 L6.1 hvc1": true,
+      "HEVC Main10 hev1": true,
+      "DV P8 dvh1.08.09": false,
+      "DV P8 dvhe.08.09": false,
+      "DV P5 dvh1.05.09": false,
+      "AV1 Main10": true,
+      "VP9 webm": true,
+      "MKV avc1 (MSE)": false,
+      "AAC-LC": true,
+      "E-AC3 ec-3": true,
+      "AC3 ac-3": true,
+      "FLAC flac": true,
+      "FLAC fLaC": true,
+      "Opus mp4": true,
+      "TrueHD mlpa": false,
+      "DTS dtsc": false,
+      "DTS-HD dtsh": false,
+      "DTS-HD MA dtsl": false,
+      "DTS:X dtsx": false
+    },
+    "canPlayType": {
+      "MKV": "maybe",
+      "MKV avc1+aac": "probably",
+      "MKV hevc": "probably",
+      "HLS native": "maybe",
+      "AVC High": "probably",
+      "HEVC Main10 L5.1 hvc1": "probably",
+      "HEVC Main10 L6.1 hvc1": "probably",
+      "HEVC Main10 hev1": "probably",
+      "DV P8 dvh1.08.09": "",
+      "DV P8 dvhe.08.09": "",
+      "DV P5 dvh1.05.09": "",
+      "AV1 Main10": "probably",
+      "VP9 webm": "probably",
+      "MKV avc1 (MSE)": "probably",
+      "AAC-LC": "probably",
+      "E-AC3 ec-3": "probably",
+      "AC3 ac-3": "probably",
+      "FLAC flac": "probably",
+      "FLAC fLaC": "probably",
+      "Opus mp4": "probably",
+      "TrueHD mlpa": "",
+      "DTS dtsc": "",
+      "DTS-HD dtsh": "",
+      "DTS-HD MA dtsl": "",
+      "DTS:X dtsx": ""
+    },
+    "decodingInfo": {
+      "media-source | AVC 1080p": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | HEVC 4K SDR": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | HEVC 4K HDR10 (smpteSt2086, pq, rec2020)": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | HEVC 4K HDR10+ (smpteSt2094-40)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | HEVC 4K HLG": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | DV P8 4K (dvh1.08.09, smpteSt2094-10)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | DV P5 4K (dvh1.05.09)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | AV1 4K HDR10": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | AAC 2ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | AAC 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | FLAC 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | FLAC 8ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | Opus 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | E-AC3 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | AC3 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "media-source | TrueHD 8ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | DTS 6ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "media-source | DTS-HD MA 8ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | AVC 1080p": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | HEVC 4K SDR": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | HEVC 4K HDR10 (smpteSt2086, pq, rec2020)": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | HEVC 4K HDR10+ (smpteSt2094-40)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | HEVC 4K HLG": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | DV P8 4K (dvh1.08.09, smpteSt2094-10)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | DV P5 4K (dvh1.05.09)": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | AV1 4K HDR10": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | AAC 2ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | AAC 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | FLAC 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | FLAC 8ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | Opus 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | E-AC3 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | AC3 6ch": {
+        "supported": true,
+        "smooth": true,
+        "powerEfficient": true
+      },
+      "file | TrueHD 8ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | DTS 6ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      },
+      "file | DTS-HD MA 8ch": {
+        "supported": false,
+        "smooth": false,
+        "powerEfficient": false
+      }
+    },
+    "matchMedia": {
+      "(dynamic-range: high)": false,
+      "(video-dynamic-range: high)": false,
+      "(color-gamut: srgb)": true,
+      "(color-gamut: p3)": false,
+      "(color-gamut: rec2020)": false
+    },
+    "screen": {
+      "w": 1280,
+      "h": 900,
+      "dpr": 1,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "webglRenderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Ti (0x00002489) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "audioOut": {
+      "maxChannelCount": 2,
+      "sampleRate": 48000
+    },
+    "uaData": {
+      "architecture": "x86",
+      "brands": [
+        {
+          "brand": "Not:A-Brand",
+          "version": "8"
+        },
+        {
+          "brand": "Chromium",
+          "version": "156"
+        },
+        {
+          "brand": "Microsoft Edge",
+          "version": "156"
+        }
+      ],
+      "fullVersionList": [
+        {
+          "brand": "Not:A-Brand",
+          "version": "8.0.0.0"
+        },
+        {
+          "brand": "Chromium",
+          "version": "156.0.8078.80"
+        },
+        {
+          "brand": "Microsoft Edge",
+          "version": "156.0.4314.58"
+        }
+      ],
+      "mobile": false,
+      "platform": "Windows",
+      "platformVersion": "19.0.0"
+    }
+  },
+  "auto": [],
+  "pgs": [
+    {
+      "id": "s2",
+      "pass": 1,
+      "what": "PGS libpgs \u00b7 4K HEVC HDR10",
+      "outcome": "fail",
+      "note": "timeout pgs ready; ",
+      "res": "3840x2160",
+      "baseline": {
+        "seconds": 10.6,
+        "decodedFps": 58.7,
+        "dropped": 2,
+        "mediaAdvance": 10.56
+      }
+    }
+  ],
+  "vtt": [],
+  "finished": "2026-11-05T00:06:17.935Z"
+}
