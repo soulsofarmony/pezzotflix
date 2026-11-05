@@ -117,7 +117,14 @@ failure:
   post:
     operationId: reportPlaybackFailure
     tags: [playback]
-    summary: Client playback failure — the server re-plans with a heavier mode (doc 04).
+    summary: Client playback failure — the server re-plans from the suspect dimension with the minimum change (doc 04 §8).
+    description: >-
+      The failed format stays excluded for the session. audio: one step down the audio ladder (Direct Play
+      becomes Direct Stream with converted audio; Direct Stream stays Direct Stream with another audio format).
+      subtitle: the next subtitle treatment; if there is none (e.g. burn-in on a 4K source), playback goes on
+      without that track and the session reasons say why. video, container or unknown: a heavier mode
+      (Direct Play, Direct Stream, Transcode). If the required step does not exist (4K Transcode), 422
+      NO_COMPATIBLE_PLAN.
     requestBody:
       required: true
       content:

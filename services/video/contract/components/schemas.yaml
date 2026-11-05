@@ -278,40 +278,71 @@ ClientCapabilities:
       required: [class]
       properties:
         class: { type: string, enum: [tv, desktop, mobile, tablet] }
-        model: { type: string }
+        model:
+          type: string
+          description: >-
+            Device model. The web client puts browser, version and OS here (e.g. "Firefox 159.0.1; Windows 11"),
+            so that a server-side override (doc 03 I2) can target a browser.
         app: { type: string }
     containers:
       type: array
       description: Containers playable directly (Direct Play), e.g. ["mp4", "webm"].
       items: { type: string }
+    audioTrackSelection:
+      type: boolean
+      description: >-
+        True if the client can choose the audio track inside a multi-track container in Direct Play.
+        Chrome, Edge and Firefox expose audioTracks only behind a flag (MDN BCD; not probed by spike S2).
+        Absent means false: Direct Play then needs a file with a single, supported audio track (doc 04 §4.1).
     protocols:
       type: array
       description: Streaming protocols, e.g. ["hls-fmp4", "progressive"].
       items: { type: string }
     video:
       type: array
+      description: >-
+        Video decoders. A browser fills this from a fixed list of codec strings probed with
+        MediaSource.isTypeSupported (doc 03 I6). The Decision Engine compares codec, profile, bit depth and
+        resolution, not level or tier: a level/tier rejection is caught by the stream.mimeType check and re-planned.
       items:
         type: object
         required: [codec]
         properties:
-          codec: { type: string, description: 'h264 | hevc | av1 | vp9' }
-          profiles: { type: array, items: { type: string } }
+          codec: { type: string, description: 'Fixed vocabulary: h264 | hevc | av1 | vp9.' }
+          profiles:
+            type: array
+            description: 'Fixed vocabulary, e.g. high (h264), main | main10 (hevc), main (av1), profile0 | profile2 (vp9). Bit depth goes in maxBitDepth.'
+            items: { type: string }
           maxWidth: { type: integer }
           maxHeight: { type: integer }
           maxBitDepth: { type: integer }
           maxFrameRate: { type: number }
     hdr:
       type: array
-      description: 'End-to-end HDR formats: HDR10, HLG, HDR10+, DV5, DV8.1 ...'
+      description: >-
+        HDR formats the client accepts and presents, also when it converts them itself for an SDR
+        display (doc 04 P5): HDR10, HLG, HDR10+, DV5, DV8.1 ...
       items: { type: string }
+    displayHdr:
+      type: boolean
+      description: >-
+        True if the display shows HDR. HDR formats in `hdr` with displayHdr false mean the client
+        presents them itself on an SDR display; the session reason says so (doc 04 P5). It changes the
+        reason only, not the plan. Absent means true when `hdr` is not empty (previous semantics): the plan
+        uses `hdr` only and the reason does not claim a client-side conversion. The web client reads it from
+        matchMedia('(dynamic-range: high)') when the session starts.
     audio:
       type: array
       items:
         type: object
         required: [codec]
         properties:
-          codec: { type: string, description: 'aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm' }
-          maxChannels: { type: integer }
+          codec: { type: string, description: 'Fixed vocabulary: aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm.' }
+          maxChannels:
+            type: integer
+            description: >-
+              Max channels the client decodes for this codec (e.g. 8 for FLAC in a browser), not the output
+              channels; the client downmixes to its output itself (doc 04 §4.3, §5).
           mode: { type: string, enum: [decode, passthrough] }
     subtitles:
       type: object
@@ -347,8 +378,16 @@ SessionTrack:
       required: [selected, switchWithoutRestart]
       properties:
         selected: { type: boolean }
-        switchWithoutRestart: { type: boolean }
-        delivery: { type: string, enum: [embedded, sidecar, burned, client_render] }
+        switchWithoutRestart:
+          type: boolean
+          description: False for a subtitle track whose extraction is still running (doc 04 §4.4, §6.3).
+        delivery:
+          type: string
+          enum: [embedded, sidecar, burned, client_render]
+          description: >-
+            embedded: inside the stream; sidecar: text track served separately (WebVTT); burned: in the video
+            (Transcode only); client_render: image track (.sup) served separately for a client-side renderer
+            (doc 04 P3). Never attach a client_render track as a text <track>.
         url: { type: [string, 'null'], description: Data-plane locator for sidecar or client-rendered subtitles. }
 
 PlaybackSession:
@@ -371,8 +410,18 @@ PlaybackSession:
       properties:
         url: { type: string, description: Data-plane locator (relative). Never build it client-side. }
         protocol: { type: string, enum: [progressive, hls-fmp4] }
-        mimeType: { type: string }
-        startOffsetMs: { type: integer, description: 'Position on the original timeline where the stream starts (keyframe); the player seeks the rest.' }
+        mimeType:
+          type: string
+          description: >-
+            MIME type with the RFC 6381 `codecs` parameter of the exact streams, e.g.
+            'video/mp4; codecs="hvc1.2.4.L153.B0, flac"'. A browser checks it with MediaSource.isTypeSupported
+            before starting the player; if false it calls reportPlaybackFailure with the suspect dimension (doc 03 I6).
+        startOffsetMs:
+          type: integer
+          description: >-
+            Position on the original timeline where the stream starts (keyframe); the player seeks the rest.
+            Subtitle cues stay on the original timeline: if the player timeline starts here, the client applies
+            the same offset to subtitles as to progress reports (doc 04 §4.4).
     tracks:
       type: object
       required: [audio, subtitles]

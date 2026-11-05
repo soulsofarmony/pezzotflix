@@ -395,7 +395,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Client playback failure — the server re-plans with a heavier mode (doc 04). */
+        /**
+         * Client playback failure — the server re-plans from the suspect dimension with the minimum change (doc 04 §8).
+         * @description The failed format stays excluded for the session. audio: one step down the audio ladder (Direct Play becomes Direct Stream with converted audio; Direct Stream stays Direct Stream with another audio format). subtitle: the next subtitle treatment; if there is none (e.g. burn-in on a 4K source), playback goes on without that track and the session reasons say why. video, container or unknown: a heavier mode (Direct Play, Direct Stream, Transcode). If the required step does not exist (4K Transcode), 422 NO_COMPATIBLE_PLAN.
+         */
         post: operations["reportPlaybackFailure"];
         delete?: never;
         options?: never;
@@ -918,27 +921,35 @@ export interface components {
             device: {
                 /** @enum {string} */
                 class: "tv" | "desktop" | "mobile" | "tablet";
+                /** @description Device model. The web client puts browser, version and OS here (e.g. "Firefox 159.0.1; Windows 11"), so that a server-side override (doc 03 I2) can target a browser. */
                 model?: string;
                 app?: string;
             };
             /** @description Containers playable directly (Direct Play), e.g. ["mp4", "webm"]. */
             containers: string[];
+            /** @description True if the client can choose the audio track inside a multi-track container in Direct Play. Chrome, Edge and Firefox expose audioTracks only behind a flag (MDN BCD; not probed by spike S2). Absent means false: Direct Play then needs a file with a single, supported audio track (doc 04 §4.1). */
+            audioTrackSelection?: boolean;
             /** @description Streaming protocols, e.g. ["hls-fmp4", "progressive"]. */
             protocols: string[];
+            /** @description Video decoders. A browser fills this from a fixed list of codec strings probed with MediaSource.isTypeSupported (doc 03 I6). The Decision Engine compares codec, profile, bit depth and resolution, not level or tier: a level/tier rejection is caught by the stream.mimeType check and re-planned. */
             video: {
-                /** @description h264 | hevc | av1 | vp9 */
+                /** @description Fixed vocabulary: h264 | hevc | av1 | vp9. */
                 codec: string;
+                /** @description Fixed vocabulary, e.g. high (h264), main | main10 (hevc), main (av1), profile0 | profile2 (vp9). Bit depth goes in maxBitDepth. */
                 profiles?: string[];
                 maxWidth?: number;
                 maxHeight?: number;
                 maxBitDepth?: number;
                 maxFrameRate?: number;
             }[];
-            /** @description End-to-end HDR formats: HDR10, HLG, HDR10+, DV5, DV8.1 ... */
+            /** @description HDR formats the client accepts and presents, also when it converts them itself for an SDR display (doc 04 P5): HDR10, HLG, HDR10+, DV5, DV8.1 ... */
             hdr?: string[];
+            /** @description True if the display shows HDR. HDR formats in `hdr` with displayHdr false mean the client presents them itself on an SDR display; the session reason says so (doc 04 P5). It changes the reason only, not the plan. Absent means true when `hdr` is not empty (previous semantics): the plan uses `hdr` only and the reason does not claim a client-side conversion. The web client reads it from matchMedia('(dynamic-range: high)') when the session starts. */
+            displayHdr?: boolean;
             audio: {
-                /** @description aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm */
+                /** @description Fixed vocabulary: aac | ac3 | eac3 | flac | opus | truehd | dts | dtshd | pcm. */
                 codec: string;
+                /** @description Max channels the client decodes for this codec (e.g. 8 for FLAC in a browser), not the output channels; the client downmixes to its output itself (doc 04 §4.3, §5). */
                 maxChannels?: number;
                 /** @enum {string} */
                 mode?: "decode" | "passthrough";
@@ -969,8 +980,12 @@ export interface components {
         };
         SessionTrack: components["schemas"]["Track"] & {
             selected: boolean;
+            /** @description False for a subtitle track whose extraction is still running (doc 04 §4.4, §6.3). */
             switchWithoutRestart: boolean;
-            /** @enum {string} */
+            /**
+             * @description embedded: inside the stream; sidecar: text track served separately (WebVTT); burned: in the video (Transcode only); client_render: image track (.sup) served separately for a client-side renderer (doc 04 P3). Never attach a client_render track as a text <track>.
+             * @enum {string}
+             */
             delivery?: "embedded" | "sidecar" | "burned" | "client_render";
             /** @description Data-plane locator for sidecar or client-rendered subtitles. */
             url?: string | null;
@@ -990,8 +1005,9 @@ export interface components {
                 url: string;
                 /** @enum {string} */
                 protocol: "progressive" | "hls-fmp4";
+                /** @description MIME type with the RFC 6381 `codecs` parameter of the exact streams, e.g. 'video/mp4; codecs="hvc1.2.4.L153.B0, flac"'. A browser checks it with MediaSource.isTypeSupported before starting the player; if false it calls reportPlaybackFailure with the suspect dimension (doc 03 I6). */
                 mimeType?: string;
-                /** @description Position on the original timeline where the stream starts (keyframe); the player seeks the rest. */
+                /** @description Position on the original timeline where the stream starts (keyframe); the player seeks the rest. Subtitle cues stay on the original timeline: if the player timeline starts here, the client applies the same offset to subtitles as to progress reports (doc 04 §4.4). */
                 startOffsetMs?: number;
             };
             tracks: {
