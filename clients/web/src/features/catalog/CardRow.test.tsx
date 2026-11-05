@@ -34,6 +34,24 @@ describe('Home rows', () => {
     expect(document.activeElement).toBe(links[0]);
   });
 
+  it('next up comes after Continue watching; an episode card names its series', async () => {
+    const ep = (id: string, title: string, season: number, episode: number) => ({ ...item(id, title), kind: 'episode', year: null, seasonNumber: season, episodeNumber: episode, seriesTitle: 'Dark' });
+    const home = {
+      rows: [
+        { id: 'continue_watching', title: 'Continua a guardare', items: [ep('e2', 'Bugie', 1, 2)], nextCursor: null, query: { continueWatching: 'true', sort: 'last_played', order: 'desc' } },
+        { id: 'next_up', title: 'Prossimi episodi', items: [ep('e3', 'Passato e presente', 1, 3)], nextCursor: null },
+      ],
+    };
+    renderApp('/', { 'GET /video/api/v1/home': () => home }, { profile });
+    const row = (await screen.findByRole('heading', { name: 'Prossimi episodi' })).closest('section');
+    if (!row) throw new Error('row');
+    expect(screen.getAllByRole('heading', { level: 2 }).map((x) => x.textContent)).toEqual(['Continua a guardare', 'Prossimi episodi']);
+    const link = within(row).getByRole('link', { name: 'Dark · S1E3 · Passato e presente' });
+    expect(within(link).getByText('Dark')).toBeTruthy();
+    expect(within(link).getByText('S1E3 · Passato e presente')).toBeTruthy();
+    expect(within(row).queryByRole('link', { name: /Vedi tutti/ })).toBeNull();
+  });
+
   it('"Vedi tutti" reproduces the row query in Browse; images use the w variants', async () => {
     renderApp('/', { 'GET /video/api/v1/home': () => HOME }, { profile });
     const seeAll = await screen.findByRole('link', { name: /Vedi tutti/ });

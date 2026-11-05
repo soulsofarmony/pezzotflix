@@ -22,6 +22,13 @@
       "when": 1793889052963,
       "tag": "0002_root_hold",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793906698334,
+      "tag": "0003_viewing_record_file",
+      "breakpoints": true
     }
   ]
 }

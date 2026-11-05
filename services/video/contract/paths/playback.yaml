@@ -99,7 +99,12 @@ tracks:
             schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
-      '422': { $ref: '../components/responses.yaml#/Problem' }
+      '422':
+        $ref: '../components/responses.yaml#/Problem'
+        description: >-
+          NO_COMPATIBLE_PLAN, the change is refused. Normally the session goes on with its current tracks. With
+          sessionClosed true the session was waiting without a stream, its previous tracks failed too and it is
+          now closed: start a new session.
       '500':
         $ref: '../components/responses.yaml#/Problem'
         description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.
@@ -127,7 +132,12 @@ version:
             schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
-      '422': { $ref: '../components/responses.yaml#/Problem' }
+      '422':
+        $ref: '../components/responses.yaml#/Problem'
+        description: >-
+          NO_COMPATIBLE_PLAN, the version is refused. Normally the session goes on with its current version. With
+          sessionClosed true the session was waiting without a stream, its previous version failed too and it is
+          now closed: start a new session.
       '500':
         $ref: '../components/responses.yaml#/Problem'
         description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.

@@ -509,3 +509,178 @@ describe('watchlist', () => {
     expect(state(s.seriesId).inWatchlist).toBe(true);
   });
 });
+
+describe('moveFileState (a file re-linked by the admin)', () => {
+  const HOUR = 3_600_000;
+  const progress = (itemId: string, profileId = pid) =>
+    db.$client
+      .prepare(
+        `SELECT position_ms AS pos, file_id AS file, audio_stream_index AS audio, subtitle_track_id AS sub, client_ts AS ts, updated_at AS upd
+         FROM playback_progress WHERE profile_id = ? AND item_id = ?`,
+      )
+      .get(profileId, itemId);
+  const watchRow = (itemId: string, profileId = pid) =>
+    db.$client.prepare('SELECT watched, watched_at AS at, play_count AS plays FROM watch_state WHERE profile_id = ? AND item_id = ?').get(profileId, itemId);
+  const viewings = (itemId: string) =>
+    db.$client.prepare('SELECT file_id AS file, completed FROM viewing_record WHERE item_id = ? ORDER BY started_at').all(itemId);
+  const complete = (itemId: string, fileId: string, at: number, profileId = pid) =>
+    watch.recordProgress(sample(itemId, MOVIE_MS, at, { fileId, ended: true, profileId }));
+
+  it('records the file on every viewing, following the latest sample until it completes', () => {
+    seed.item('a');
+    watch.recordProgress(sample('a', 600_000, 100, { fileId: 'F' }));
+    watch.recordProgress(sample('a', 700_000, 200, { fileId: 'G' })); // version changed mid-viewing
+    expect(viewings('a')).toEqual([{ file: 'G', completed: 0 }]);
+    complete('a', 'G', 300);
+    watch.recordProgress(sample('a', MOVIE_MS, 400, { fileId: 'H', ended: true })); // credits after completion
+    expect(viewings('a')).toEqual([{ file: 'G', completed: 1 }]);
+  });
+
+  it('moves progress (with its tracks) and history on that file; a manual mark stays on the old item', () => {
+    seed.item('a');
+    seed.item('b');
+    clock = 5_000;
+    watch.recordProgress(sample('a', 600_000, 100, { fileId: 'F', audioTrackId: 's2', subtitleTrackId: null }));
+    db.$client.prepare("INSERT INTO watch_state (profile_id, item_id, watched, watched_at, play_count) VALUES (?, 'a', 1, 50, 1)").run(pid);
+    clock = 9_000;
+
+    expect(watch.moveFileState('F', ['a'], 'b')).toBe(2); // one progress row, one viewing record
+    expect(progress('a')).toBeUndefined();
+    expect(progress('b')).toEqual({ pos: 600_000, file: 'F', audio: 2, sub: 'off', ts: 100, upd: 5_000 });
+    expect(state('b')).toMatchObject({ watched: false, resumePositionMs: 600_000 });
+    expect(watch.lastTrackChoice(pid, 'b')).toEqual({ fileId: 'F', audioTrackId: 's2', subtitleTrackId: null });
+    expect(viewings('a')).toEqual([]);
+    expect(viewings('b')).toEqual([{ file: 'F', completed: 0 }]);
+    expect(watchRow('a')).toEqual({ watched: 1, at: 50, plays: 1 });
+  });
+
+  it('leaves what was recorded on another file of the old item', () => {
+    seed.item('a');
+    seed.item('b');
+    watch.recordProgress(sample('a', 600_000, 100, { fileId: 'OTHER' }));
+    expect(watch.moveFileState('F', ['a'], 'b')).toBe(0);
+    expect(progress('a')).toMatchObject({ file: 'OTHER' });
+    expect(viewings('a')).toEqual([{ file: 'OTHER', completed: 0 }]);
+    expect(progress('b')).toBeUndefined();
+  });
+
+  it.each([
+    ['the target has a newer progress: it stays', 300, 'target'],
+    ['the target has the same timestamp: it stays', 200, 'target'],
+    ['the target has an older progress: the moved one wins', 100, 'moved'],
+  ] as const)('progress, last write wins: %s', (_name, targetTs, winner) => {
+    seed.item('a');
+    seed.item('b');
+    watch.recordProgress(sample('a', 600_000, 200, { fileId: 'F' }));
+    watch.recordProgress(sample('b', 900_000, targetTs, { fileId: 'G' }));
+    expect(watch.moveFileState('F', ['a'], 'b')).toBe(winner === 'moved' ? 2 : 1);
+    expect(progress('a')).toBeUndefined();
+    expect(progress('b')).toMatchObject(winner === 'moved' ? { pos: 600_000, file: 'F', ts: 200 } : { pos: 900_000, file: 'G', ts: targetTs });
+  });
+
+  it('a target watched after the progress sample takes no progress; one watched before does', () => {
+    seed.item('a');
+    seed.item('b');
+    watch.recordProgress(sample('a', 600_000, 200, { fileId: 'F' }));
+    db.$client.prepare("INSERT INTO watch_state (profile_id, item_id, watched, watched_at, play_count) VALUES (?, 'b', 1, 200, 1)").run(pid);
+    watch.moveFileState('F', ['a'], 'b');
+    expect(progress('a')).toBeUndefined();
+    expect(progress('b')).toBeUndefined();
+
+    watch.recordProgress(sample('a', 600_000, 300, { fileId: 'F' }));
+    watch.moveFileState('F', ['a'], 'b');
+    expect(progress('b')).toMatchObject({ ts: 300 });
+  });
+
+  it('a completion moves: the new item is watched, the old one is not any more', () => {
+    seed.item('a');
+    seed.item('b');
+    complete('a', 'F', 200);
+    expect(watchRow('a')).toEqual({ watched: 1, at: 200, plays: 1 });
+    expect(watch.moveFileState('F', ['a'], 'b')).toBe(1);
+    expect(watchRow('a')).toEqual({ watched: 0, at: null, plays: 0 });
+    expect(watchRow('b')).toEqual({ watched: 1, at: 200, plays: 1 });
+    expect(viewings('a')).toEqual([]);
+    expect(viewings('b')).toEqual([{ file: 'F', completed: 1 }]);
+  });
+
+  it('the old item stays watched with another completion, dated by it', () => {
+    seed.item('a');
+    seed.item('b');
+    complete('a', 'G', 1_000);
+    complete('a', 'F', 1_000 + 2 * HOUR); // a second viewing, on the misidentified file
+    watch.moveFileState('F', ['a'], 'b');
+    expect(watchRow('a')).toEqual({ watched: 1, at: 1_000, plays: 1 });
+    expect(watchRow('b')).toEqual({ watched: 1, at: 1_000 + 2 * HOUR, plays: 1 });
+  });
+
+  it('the old item stays watched with a manual mark made before the completion', () => {
+    seed.item('a');
+    seed.item('b');
+    clock = 50;
+    watch.markWatched(pid, 'a');
+    clock = 1_000_000;
+    // A rewatch after the mark: recordProgress counts the play and dates watched_at with it.
+    complete('a', 'F', 200);
+    expect(watchRow('a')).toEqual({ watched: 1, at: 200, plays: 2 });
+    watch.moveFileState('F', ['a'], 'b');
+    expect(watchRow('a')).toMatchObject({ watched: 1, plays: 1 });
+    expect(watchRow('b')).toEqual({ watched: 1, at: 200, plays: 1 });
+  });
+
+  it('a target already watched later keeps its date, adds the play, and drops older progress', () => {
+    seed.item('a');
+    seed.item('b');
+    complete('a', 'F', 200);
+    complete('b', 'G', 500);
+    watch.recordProgress(sample('b', 600_000, 600, { fileId: 'G' })); // b rewatched after its completion
+    watch.moveFileState('F', ['a'], 'b');
+    expect(watchRow('b')).toEqual({ watched: 1, at: 500, plays: 2 });
+    expect(progress('b')).toMatchObject({ ts: 600 }); // newer than the moved completion: kept
+
+    seed.item('c');
+    watch.recordProgress(sample('c', 600_000, 100, { fileId: 'H' }));
+    complete('a', 'F', 2 * HOUR);
+    watch.moveFileState('F', ['a'], 'c');
+    expect(watchRow('c')).toEqual({ watched: 1, at: 2 * HOUR, plays: 1 });
+    expect(progress('c')).toBeUndefined(); // older than the moved completion: cleared, as recordProgress does
+  });
+
+  it('rows recorded before migration 0003 have no file and never move', () => {
+    seed.item('a');
+    seed.item('b');
+    complete('a', 'F', 200);
+    db.$client.prepare('UPDATE viewing_record SET file_id = NULL').run();
+    expect(watch.moveFileState('F', ['a'], 'b')).toBe(0);
+    expect(watchRow('a')).toEqual({ watched: 1, at: 200, plays: 1 });
+    expect(viewings('a')).toEqual([{ file: null, completed: 1 }]);
+    expect(watchRow('b')).toBeUndefined();
+  });
+
+  it('per profile, the latest progress of several old items wins; other profiles move too', () => {
+    seed.item('a1');
+    seed.item('a2');
+    seed.item('b');
+    const other = store.create({ name: 'Anna' }).id;
+    watch.recordProgress(sample('a1', 100_000, 100, { fileId: 'F' }));
+    watch.recordProgress(sample('a2', 200_000, 150, { fileId: 'F' }));
+    watch.recordProgress(sample('a1', 300_000, 120, { fileId: 'F', profileId: other }));
+    complete('a2', 'F', 3 * HOUR, other);
+    watch.moveFileState('F', ['a1', 'a2'], 'b');
+    expect(progress('b')).toMatchObject({ pos: 200_000 });
+    expect(progress('b', other)).toBeUndefined(); // its completion on b is newer
+    expect(watchRow('b', other)).toEqual({ watched: 1, at: 3 * HOUR, plays: 1 });
+    expect(watchRow('a2', other)).toEqual({ watched: 0, at: null, plays: 0 });
+    expect(count('playback_progress')).toBe(1);
+  });
+
+  it('a series, a season, an unknown item or the same item take nothing', () => {
+    seed.item('a');
+    const s = seed.series('dark', { 1: 1 });
+    complete('a', 'F', 100);
+    watch.recordProgress(sample('a', 600_000, 2 * HOUR, { fileId: 'F' }));
+    for (const to of [s.seriesId, s.seasonId(1), 'nope', 'a']) expect(watch.moveFileState('F', ['a'], to)).toBe(0);
+    expect(progress('a')).toMatchObject({ file: 'F' });
+    expect(watchRow('a')).toMatchObject({ watched: 1 });
+  });
+});

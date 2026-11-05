@@ -357,7 +357,8 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     s.lastSeenAt = now();
   };
 
-  async function end(s: Session, kind: EndKind, o: { positionMs?: number; streamStopped?: boolean; detail?: string } = {}): Promise<void> {
+  /** reason: the playback.session_terminated reason when it is more specific than kind (contract Event). */
+  async function end(s: Session, kind: EndKind, o: { positionMs?: number; streamStopped?: boolean; detail?: string; reason?: 'item_removed' } = {}): Promise<void> {
     if (s.ended) return;
     s.ended = true;
     sessions.delete(s.sessionId);
@@ -374,7 +375,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     }
     record(s, o.positionMs ?? s.positionMs, at);
     if (kind === 'expired' || kind === 'terminated' || kind === 'failed') {
-      publish('playback.session_terminated', { sessionId: s.sessionId, profileId: s.profileId, itemId: s.itemId, reason: kind });
+      publish('playback.session_terminated', { sessionId: s.sessionId, profileId: s.profileId, itemId: s.itemId, reason: o.reason ?? kind });
     }
   }
 
@@ -388,7 +389,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
   async function sessionItem(s: Session, positionMs: number): Promise<PlayableItem> {
     const item = ports.catalogRead.getPlayableItem(s.itemId);
     if (item && isPlayable(item)) return item;
-    await end(s, 'failed', { positionMs, detail: 'The item was removed from the library' });
+    await end(s, 'failed', { positionMs, detail: 'The item was removed from the library', reason: 'item_removed' });
     throw gone(s.sessionId);
   }
 
@@ -522,7 +523,8 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
    * tracks, so the session does not stay without one. When those fail too, the session ends.
    */
   async function refusedWhileWaiting(s: Session, o: ReplanOptions, err: ProblemError): Promise<ProblemError> {
-    const closed = (why: string) => new ProblemError('NO_COMPATIBLE_PLAN', `${why} The session was closed: its previous tracks could not be played either.`);
+    const closed = (why: string) =>
+      new ProblemError('NO_COMPATIBLE_PLAN', `${why} The session was closed: its previous tracks could not be played either.`, { sessionClosed: true });
     if (o.fallback) {
       await end(s, 'failed', { positionMs: o.positionMs, detail: 'Session closed: no playable plan' });
       return closed(err.message);

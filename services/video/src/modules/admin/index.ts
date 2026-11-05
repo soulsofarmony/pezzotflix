@@ -61,6 +61,7 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
     cases: () => ports.caseSettlement,
     jobs: () => ports.jobs,
     metadata: () => optionalPort(ports, 'metadataSearch'),
+    profiles: () => optionalPort(ports, 'profileState'),
     lang: config.METADATA_LANGUAGE,
   });
 

@@ -17,8 +17,11 @@ import {
 import { type MediaFacts, type SidecarSubtitleFacts, sidecarTrackId, type StreamFacts } from '../../shared/media-facts.ts';
 import { resolveInsideRoot } from '../../shared/media-path.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
-import { hasHdr10PlusSideData, mapFacts, mayCarryHdr10Plus, type MappedProbe, type OtherStream } from './facts.ts';
+import { ANALYZER_VERSION, hasHdr10PlusSideData, mapFacts, mayCarryHdr10Plus, type MappedProbe, type OtherStream } from './facts.ts';
 import type { FfprobeOutput, ProbeRunner } from './ffprobe.ts';
+
+/** Re-analysis after an analyzer upgrade runs after new files, enrichment and artwork (lower runs first). */
+export const REANALYZE_PRIORITY = 300;
 
 export const ProbePayload: z.ZodType<AnalyzerProbePayload> = z.object({ fileId: z.string().min(1) });
 
@@ -228,5 +231,31 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
     }
   }
 
-  return { probe };
+  // Files whose facts come from an older analyzer. Missing or removed files and offline roots wait
+  // for the scan that sees them again; the probe would skip them anyway.
+  const outdated = db.$client
+    .prepare(
+      `SELECT f.id FROM media_file f JOIN library_root r ON r.id = f.root_id
+       WHERE f.facts IS NOT NULL AND coalesce(json_extract(f.facts, '$.analyzerVersion'), 0) < ?
+         AND f.state NOT IN ('missing', 'removed') AND r.status = 'online'
+       ORDER BY f.id`,
+    )
+    .pluck();
+
+  /**
+   * Enqueues analyzer.probe at low priority for every file analysed by an older ANALYZER_VERSION. The
+   * probe rewrites facts, streams and chapters only: an identified, needs_review or ignored file keeps
+   * its state, case and links, and is not identified again (see store). Returns how many were queued.
+   */
+  function requeueOutdated(): number {
+    let n = 0;
+    for (const fileId of outdated.all(ANALYZER_VERSION) as string[]) {
+      const payload: AnalyzerProbePayload = { fileId };
+      const key = `reanalyze:${fileId}:v${ANALYZER_VERSION}`;
+      if (jobs().enqueue({ type: JOB_TYPES.analyzerProbe, payload, priority: REANALYZE_PRIORITY, idempotencyKey: key })) n++;
+    }
+    return n;
+  }
+
+  return { probe, requeueOutdated };
 }

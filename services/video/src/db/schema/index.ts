@@ -295,7 +295,9 @@ export const viewingRecord = sqliteTable('viewing_record', {
   endedAt: ts('ended_at'),
   maxPositionMs: integer('max_position_ms').notNull().default(0),
   completed: bool('completed').notNull().default(false),
-}, (t) => [index('viewing_record_profile_ix').on(t.profileId, t.startedAt)]);
+  /** File the viewing played (no FK: history outlives the file). NULL for rows recorded before 0003. */
+  fileId: text('file_id'),
+}, (t) => [index('viewing_record_profile_ix').on(t.profileId, t.startedAt), index('viewing_record_file_ix').on(t.fileId)]);
 
 export const watchlistEntry = sqliteTable('watchlist_entry', {
   profileId: text('profile_id').notNull().references(() => profile.id, { onDelete: 'cascade' }),

@@ -616,7 +616,7 @@ export class PlayerController {
   /**
    * Session call for a track or version change (contract after F1b.2). The server stops the old stream before it
    * starts the new one, so the engine is detached for the call (its 410s are expected), then:
-   * - 404/410, or a 422 whose detail says the session was closed: StartPlayback from here;
+   * - 404/410, or a 422 with sessionClosed (the refusal closed the session): StartPlayback from here;
    * - 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the session stays open without a stream, "in preparazione",
    *   the same call again after Retry-After;
    * - 422: refused before the server touched the stream: the engine is bound again, with a notice;
@@ -986,11 +986,12 @@ function isClosed(e: unknown): boolean {
 }
 
 /**
- * A 422 on ChangeTracks/ChangeVersion that closed the session. The contract has no structured field for it yet,
- * so the detail text is matched: "<why> The session was closed: its previous tracks could not be played either."
+ * A 422 on ChangeTracks/ChangeVersion that closed the session: the problem's sessionClosed. A server from before
+ * the field is recognised by its detail text: "<why> The session was closed: its previous tracks could not be played either."
  */
 export function isClosedRefusal(e: unknown): boolean {
-  return isPlaybackApiError(e) && e.status === 422 && /the session was closed/i.test(e.detail ?? '');
+  if (!isPlaybackApiError(e) || e.status !== 422) return false;
+  return e.sessionClosed === true || /the session was closed/i.test(e.detail ?? '');
 }
 
 /** 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the same call again after Retry-After. */

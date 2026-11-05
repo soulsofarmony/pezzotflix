@@ -114,7 +114,7 @@ export interface ProfilePlaybackPort {
   lastTrackChoice(profileId: string, itemId: string): TrackChoice | null;
 }
 
-/** Implemented by modules/profiles. Used by catalog to compose Home and summaries. */
+/** Implemented by modules/profiles. Used by catalog to compose Home and summaries, and by admin (moveFileState). */
 export interface ProfileStatePort {
   getStates(profileId: string, itemIds: readonly string[]): Map<string, ProfileItemState>;
   /** Items in progress (not watched, 0 < progress < 90%), most recent first. */
@@ -126,6 +126,15 @@ export interface ProfileStatePort {
    * Optional: ListItems sort=last_played falls back to the Continue watching order without it.
    */
   lastPlayed?(profileId: string, itemIds: readonly string[]): Map<string, number>;
+  /**
+   * A file moved from fromItemIds to the single item toItemId (admin resolution or re-link). What every
+   * profile recorded on that file follows it, merged last-write-wins: progress, viewing records (history)
+   * and the watched state their completions imply. An old item stays watched only through a completion
+   * left on it or a manual mark (which records no file). Viewing records from before migration 0003 have
+   * no file and stay. Synchronous: joins the caller's open transaction. Returns the progress and viewing
+   * rows moved. Optional: admin skips it when no module provides it.
+   */
+  moveFileState?(fileId: string, fromItemIds: readonly string[], toItemId: string): number;
 }
 
 /** Implemented by modules/catalog: catalog views the admin API shows next to cases and files. */

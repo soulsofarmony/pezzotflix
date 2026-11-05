@@ -17,6 +17,9 @@ function seeAllSearch(row: HomeRow): BrowseSearch | null {
   return parsed.success ? parsed.data : null;
 }
 
+/** Rows of things to resume or play next: wide cards (backdrops, episode stills). */
+const WIDE_ROWS: ReadonlySet<string> = new Set(['continue_watching', 'next_up']);
+
 export function HomePage(): ReactElement {
   const home = useHome();
   if (home.isPending) {
@@ -46,7 +49,7 @@ export function HomePage(): ReactElement {
             headingId={`row-${row.id}`}
             title={row.title}
             items={row.items}
-            wide={row.id === 'continue_watching'}
+            wide={WIDE_ROWS.has(row.id)}
             action={
               search && row.nextCursor ? (
                 <Link to="/browse" search={search} className={styles.seeAll}>

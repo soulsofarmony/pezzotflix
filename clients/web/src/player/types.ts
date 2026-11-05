@@ -23,6 +23,8 @@ export interface PlaybackApiError {
   detail: string | null;
   retryAfterMs: number | null;
   activeSessions: ActiveSession[];
+  /** Problem extension of ChangeTracks/ChangeVersion 422s: the refusal also closed the session. */
+  sessionClosed?: boolean;
 }
 
 export function isPlaybackApiError(e: unknown): e is PlaybackApiError {

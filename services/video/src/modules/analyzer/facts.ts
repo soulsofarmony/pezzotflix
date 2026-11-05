@@ -14,8 +14,11 @@ import type {
 import { normalizeLanguageTag } from '../../shared/languages.ts';
 import type { FfprobeChapter, FfprobeOutput, FfprobeStream } from './ffprobe.ts';
 
-/** Bump when the mapping changes, so files can be re-analysed (MediaFacts.analyzerVersion). */
-export const ANALYZER_VERSION = 1;
+/**
+ * Bump when the mapping changes: files analysed by an older version are probed again at low priority
+ * (analyzer.reanalyze_outdated). 2: video level, audio description, subtitle commentary, durations net of start_time.
+ */
+export const ANALYZER_VERSION = 2;
 
 /** Streams that MediaFacts does not model but media_stream keeps (fonts for ASS, data tracks). */
 export interface OtherStream {

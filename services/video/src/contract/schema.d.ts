@@ -756,6 +756,8 @@ export interface components {
                 message: string;
             }[];
             activeSessions?: components["schemas"]["ActiveSession"][];
+            /** @description ChangeTracks and ChangeVersion, 422 only: true when the refusal also closed the session (it was waiting without a stream and its previous tracks could not be played either). The client starts a new session instead of keeping the current one. Absent means false. */
+            sessionClosed?: boolean;
         };
         ServerInfo: {
             name: string;
@@ -780,7 +782,7 @@ export interface components {
         };
         Event: {
             seq: number;
-            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
+            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
             type: string;
             at: number;
             payload: {
@@ -843,6 +845,8 @@ export interface components {
             year?: number | null;
             seasonNumber?: number | null;
             episodeNumber?: number | null;
+            /** @description Episodes and seasons only: title of the series they belong to, so a card can show "Series · S1E3 · Episode title". Null when the item is not under a series; absent for other kinds. */
+            seriesTitle?: string | null;
             extraType?: string | null;
             editionLabel?: string | null;
             durationMs?: number | null;
@@ -856,8 +860,11 @@ export interface components {
         /** @description Opaque keyset cursor. */
         Cursor: string;
         HomeRow: {
-            /** @enum {string} */
-            id: "continue_watching" | "recently_added" | "movies" | "series" | "documentaries";
+            /**
+             * @description Rows come in this order, empty rows left out. next_up: for each series the profile has played, most recently played first, the next episode to watch (GetNextUp), unless that episode is already in continue_watching. It has no ListItems query and nextCursor is always null.
+             * @enum {string}
+             */
+            id: "continue_watching" | "next_up" | "recently_added" | "movies" | "series" | "documentaries";
             title: string;
             items: components["schemas"]["ItemSummary"][];
             nextCursor: components["schemas"]["Cursor"] | null;
@@ -1818,6 +1825,7 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description NO_COMPATIBLE_PLAN, the change is refused. Normally the session goes on with its current tracks. With sessionClosed true the session was waiting without a stream, its previous tracks failed too and it is now closed: start a new session. */
             422: components["responses"]["Problem"];
             /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
             500: components["responses"]["Problem"];
@@ -1851,6 +1859,7 @@ export interface operations {
             };
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
+            /** @description NO_COMPATIBLE_PLAN, the version is refused. Normally the session goes on with its current version. With sessionClosed true the session was waiting without a stream, its previous version failed too and it is now closed: start a new session. */
             422: components["responses"]["Problem"];
             /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
             500: components["responses"]["Problem"];

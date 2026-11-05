@@ -74,6 +74,19 @@ describe('player status overlays', () => {
     expect(controller.dismissNotice).toHaveBeenCalled();
   });
 
+  it.each([
+    ['expired', /non riceveva più segnali/],
+    ['terminated', /interrotta da un altro dispositivo o profilo/],
+    ['failed', /non restano altre modalità/],
+    ['item_removed', /tolto dalla libreria/],
+    ['something_new', /^Motivo: something_new$/],
+  ])('a terminated session explains the reason %s in Italian', (reason, text) => {
+    setup({ phase: 'terminated', terminatedReason: reason, positionMs: 61_000 });
+    expect(screen.getByText(text)).toBeTruthy();
+    // A title that left the library cannot be resumed; the others can.
+    expect(screen.queryByRole('button', { name: 'Riprendi da 1:01' }) === null).toBe(reason === 'item_removed');
+  });
+
   it('a refused change without a reason shows the notice alone', () => {
     setup({ phase: 'ready', notice: { code: 'NO_COMPATIBLE_PLAN', detail: null } });
     expect(screen.getByRole('status').querySelectorAll('p')).toHaveLength(1);

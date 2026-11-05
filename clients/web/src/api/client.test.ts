@@ -91,6 +91,12 @@ describe('call and problem+json', () => {
   it('keeps activeSessions of SESSION_LIMIT_REACHED', () => {
     const e = toApiError(new Response(null, { status: 409 }), { code: 'SESSION_LIMIT_REACHED', title: 'Limit', status: 409, activeSessions: [{ sessionId: 'x' }] });
     expect(e.activeSessions).toEqual([{ sessionId: 'x' }]);
+    expect(e.sessionClosed).toBe(false);
+  });
+
+  it('reads the sessionClosed extension of a 422', () => {
+    const e = toApiError(new Response(null, { status: 422 }), { code: 'NO_COMPATIBLE_PLAN', title: 'No plan', status: 422, sessionClosed: true });
+    expect(e.sessionClosed).toBe(true);
   });
 
   it('falls back to a code by status when the body is not a problem', () => {

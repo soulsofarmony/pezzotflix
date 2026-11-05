@@ -102,7 +102,7 @@ export function facts(streams: StreamFacts[], o: Partial<MediaFacts> = {}): Medi
     streams,
     chapters: [],
     sidecars: [],
-    analyzerVersion: 1,
+    analyzerVersion: 2,
     ...o,
   };
 }

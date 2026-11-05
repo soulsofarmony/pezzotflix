@@ -2,11 +2,16 @@
 // session limit with "Interrompi l'altra", expired and terminated sessions.
 import type { ReactElement, ReactNode } from 'react';
 import { formatClock } from '../../i18n/format.ts';
-import { t } from '../../i18n/t.ts';
+import { t, tMaybe } from '../../i18n/t.ts';
 import type { PlayerController, PlayerSnapshot } from '../../player/controller.ts';
 import { MAX_AUTOMATIC_ATTEMPTS } from '../../player/failures.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import styles from './player.module.css';
+
+/** Italian text of a playback.session_terminated reason (contract Event); an unknown one is shown as it is. */
+function terminatedReasonText(reason: string): string {
+  return tMaybe(`player.terminatedReason.${reason}`, t('player.terminatedReason', { reason }));
+}
 
 function Busy({ text }: { text: string }): ReactElement {
   return (
@@ -149,11 +154,14 @@ export function StatusOverlay({ snap, controller, onExit }: { snap: PlayerSnapsh
       return (
         <Dialog title={t('player.terminatedTitle')}>
           <p>{t('player.terminatedText')}</p>
-          {snap.terminatedReason && <p className="muted">{t('player.terminatedReason', { reason: snap.terminatedReason })}</p>}
+          {snap.terminatedReason && <p className="muted">{terminatedReasonText(snap.terminatedReason)}</p>}
           <div className={styles.overlayActions}>
-            <button type="button" className="btn btn-primary" onClick={() => void controller.retry()}>
-              {t('player.resumeFrom', { time: formatClock(snap.positionMs) })}
-            </button>
+            {/* A title that left the library cannot be resumed. */}
+            {snap.terminatedReason !== 'item_removed' && (
+              <button type="button" className="btn btn-primary" onClick={() => void controller.retry()}>
+                {t('player.resumeFrom', { time: formatClock(snap.positionMs) })}
+              </button>
+            )}
             {exit}
           </div>
         </Dialog>

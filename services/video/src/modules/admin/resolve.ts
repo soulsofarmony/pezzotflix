@@ -18,6 +18,7 @@ import type {
   ItemFieldValues,
   JobQueuePort,
   MetadataSearchPort,
+  ProfileStatePort,
   SourcedFieldValues,
   WorkInput,
 } from '../../shared/ports.ts';
@@ -59,6 +60,8 @@ export interface ResolverDeps {
   cases: () => CaseSettlementPort;
   jobs: () => JobQueuePort;
   metadata: () => MetadataSearchPort | null;
+  /** Null while no module provides it: watch state then stays where it was. */
+  profiles: () => ProfileStatePort | null;
   lang: string;
 }
 
@@ -220,10 +223,17 @@ export function createResolver(deps: ResolverDeps) {
 
   // ---------------------------------------------------------------- writes
 
-  /** The owner's decision replaces every earlier link of the file, auto or manual (doc 01 §5.1). */
+  /**
+   * The owner's decision replaces every earlier link of the file, auto or manual (doc 01 §5.1). When
+   * the file moves to exactly one item, the watch state recorded on it follows (a multi-episode file
+   * cannot say which of its items it belongs to, so it stays).
+   */
   function linkManually(c: CaseRow, itemIds: readonly string[]): void {
-    deps.cases().settleCase(c.id, 'resolved');
-    deps.links().replaceManualLinks(c.fileId, itemIds);
+    const settled = deps.cases().settleCase(c.id, 'resolved');
+    const { removed } = deps.links().replaceManualLinks(c.fileId, itemIds);
+    const from = [...new Set([...(settled?.removedAutoLinks ?? []), ...removed])].filter((id) => !itemIds.includes(id));
+    const [to] = itemIds;
+    if (from.length && itemIds.length === 1 && to) deps.profiles()?.moveFileState?.(c.fileId, from, to);
   }
 
   /** The case must still be what the owner looked at: a provider lookup may have let it change. */

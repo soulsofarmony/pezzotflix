@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { JobContext } from '../src/app/module.ts';
 import { closeDb, type Db, openDb } from '../src/db/index.ts';
 import { FfprobeOutput, type ProbeRunner } from '../src/modules/analyzer/ffprobe.ts';
-import { createAnalyzer } from '../src/modules/analyzer/service.ts';
+import { ANALYZER_VERSION } from '../src/modules/analyzer/facts.ts';
+import { createAnalyzer, REANALYZE_PRIORITY } from '../src/modules/analyzer/service.ts';
 import { enqueueJob } from '../src/modules/jobs/index.ts';
 import { type MediaFacts, sidecarTrackId } from '../src/shared/media-facts.ts';
 
@@ -242,5 +243,67 @@ describe('analyzer.probe', () => {
 
   it('rejects an invalid payload', async () => {
     await expect(analyzer().probe({ file: 'f1' }, ctx())).rejects.toThrow();
+  });
+});
+
+describe('analyzer.requeueOutdated (ANALYZER_VERSION bump)', () => {
+  const setVersion = (fileId: string, v: number | null) =>
+    db.$client
+      .prepare(v === null ? "UPDATE media_file SET facts = json_remove(facts, '$.analyzerVersion') WHERE id = ?" : "UPDATE media_file SET facts = json_set(facts, '$.analyzerVersion', ?) WHERE id = ?")
+      .run(...(v === null ? [fileId] : [v, fileId]));
+  const addFile = (id: string, root: string, state: string) =>
+    db.$client
+      .prepare("INSERT INTO media_file (id, root_id, rel_path, size_bytes, mtime_ms, state, facts, created_at, updated_at) SELECT ?, ?, ?, 11, 1, ?, facts, 0, 0 FROM media_file WHERE id = 'f1'")
+      .run(id, root, `${id}.mkv`, state);
+  const probeJobs = () =>
+    db.$client.prepare("SELECT payload, priority, idempotency_key AS key, state FROM job WHERE type = 'analyzer.probe' ORDER BY idempotency_key").all();
+
+  it('pins the current version', () => {
+    expect(ANALYZER_VERSION).toBe(2);
+  });
+
+  it('queues only present files of an older analyzer on online roots, at low priority, once', async () => {
+    insertFile();
+    await analyzer().probe({ fileId: 'f1' }, ctx());
+    db.$client.prepare("INSERT INTO library_root (id, name, mount_path, hint, status, created_at) VALUES ('r2', 'Off', '/x', 'movies', 'offline', 0)").run();
+    addFile('f2', 'r1', 'identified'); // current version
+    addFile('f3', 'r1', 'missing');
+    addFile('f4', 'r2', 'identified'); // offline root
+    addFile('f5', 'r1', 'needs_review');
+    for (const id of ['f1', 'f3', 'f4']) setVersion(id, 1);
+    setVersion('f5', null); // facts written before the field existed
+    db.$client.prepare("UPDATE media_file SET state = 'identified' WHERE id = 'f1'").run();
+    db.$client.prepare('DELETE FROM job').run();
+
+    expect(analyzer().requeueOutdated()).toBe(2);
+    expect(probeJobs()).toEqual([
+      { payload: '{"fileId":"f1"}', priority: REANALYZE_PRIORITY, key: 'reanalyze:f1:v2', state: 'queued' },
+      { payload: '{"fileId":"f5"}', priority: REANALYZE_PRIORITY, key: 'reanalyze:f5:v2', state: 'queued' },
+    ]);
+    expect(REANALYZE_PRIORITY).toBeGreaterThan(100); // after new files (default priority)
+    expect(analyzer().requeueOutdated()).toBe(0); // already queued
+  });
+
+  it('re-analysis leaves identification, case and links alone, and the file is not queued again', async () => {
+    insertFile();
+    await analyzer().probe({ fileId: 'f1' }, ctx());
+    db.$client.prepare("INSERT INTO catalog_item (id, kind, title, sort_title, added_at, updated_at) VALUES ('i1', 'movie', 'BR', 'br', 0, 0)").run();
+    db.$client.prepare("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('l1', 'f1', 'i1', 'manual', NULL, 0)").run();
+    db.$client
+      .prepare("INSERT INTO identification_case (id, file_id, state, reason, candidates, created_at, updated_at) VALUES ('c1', 'f1', 'resolved', NULL, '[]', 0, 7)")
+      .run();
+    db.$client.prepare("UPDATE media_file SET state = 'identified' WHERE id = 'f1'").run();
+    setVersion('f1', 1);
+    db.$client.prepare('DELETE FROM job').run();
+
+    expect(analyzer().requeueOutdated()).toBe(1);
+    await analyzer().probe({ fileId: 'f1' }, ctx());
+    expect(file().state).toBe('identified');
+    expect(facts()?.analyzerVersion).toBe(ANALYZER_VERSION);
+    expect(db.$client.prepare('SELECT id, file_id AS f, item_id AS i, origin FROM media_link').all()).toEqual([{ id: 'l1', f: 'f1', i: 'i1', origin: 'manual' }]);
+    expect(db.$client.prepare('SELECT state, updated_at AS u FROM identification_case').all()).toEqual([{ state: 'resolved', u: 7 }]);
+    expect(jobs().filter((j) => j.type === 'identifier.identify')).toEqual([]);
+    db.$client.prepare("UPDATE job SET state = 'done'").run();
+    expect(analyzer().requeueOutdated()).toBe(0);
   });
 });

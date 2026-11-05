@@ -115,11 +115,41 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
      FROM viewing_record WHERE profile_id = ? AND item_id = ? ORDER BY started_at DESC, id DESC LIMIT 1`,
   );
   const insertViewing = sql.prepare(
-    `INSERT INTO viewing_record (id, profile_id, item_id, started_at, ended_at, max_position_ms, completed) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO viewing_record (id, profile_id, item_id, started_at, ended_at, max_position_ms, completed, file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const updateViewing = sql.prepare('UPDATE viewing_record SET ended_at = ?, max_position_ms = ?, completed = ? WHERE id = ?');
+  // The record follows the file of the latest sample until it completes; a completed one keeps the file it completed on.
+  const updateViewing = sql.prepare(
+    `UPDATE viewing_record SET ended_at = @endedAt, max_position_ms = @maxPositionMs,
+       file_id = CASE WHEN completed = 1 THEN file_id ELSE @file END, completed = @completed WHERE id = @id`,
+  );
   const addWatchlist = sql.prepare('INSERT OR IGNORE INTO watchlist_entry (profile_id, item_id, added_at) VALUES (?, ?, ?)');
   const removeWatchlist = sql.prepare('DELETE FROM watchlist_entry WHERE profile_id = ? AND item_id = ?');
+
+  const progressOnFile = sql.prepare(
+    `SELECT profile_id AS profileId, item_id AS itemId, position_ms AS positionMs, duration_ms AS durationMs, file_id AS fileId,
+       audio_stream_index AS audio, subtitle_track_id AS sub, client_ts AS clientTs, updated_at AS updatedAt
+     FROM playback_progress WHERE file_id = @file AND item_id ${IN} ORDER BY client_ts DESC, item_id`,
+  );
+  const progressRowOf = sql.prepare('SELECT client_ts AS clientTs FROM playback_progress WHERE profile_id = ? AND item_id = ?');
+  const watchedAtOf = sql.prepare('SELECT watched, watched_at AS watchedAt FROM watch_state WHERE profile_id = ? AND item_id = ?');
+  const viewingsOnFile = sql.prepare(
+    `SELECT id, profile_id AS profileId, item_id AS itemId, started_at AS startedAt, ended_at AS endedAt, completed
+     FROM viewing_record WHERE file_id = @file AND item_id ${IN}`,
+  );
+  const moveViewing = sql.prepare('UPDATE viewing_record SET item_id = ? WHERE id = ?');
+  const completionsOf = sql.prepare(
+    `SELECT count(*) AS n, max(coalesce(ended_at, started_at)) AS lastAt FROM viewing_record
+     WHERE profile_id = ? AND item_id = ? AND completed = 1`,
+  );
+  const watchRowOf = sql.prepare('SELECT watched, watched_at AS watchedAt, play_count AS playCount FROM watch_state WHERE profile_id = ? AND item_id = ?');
+  const putWatch = sql.prepare(
+    `INSERT INTO watch_state (profile_id, item_id, watched, watched_at, play_count) VALUES (@p, @item, @watched, @at, @plays)
+     ON CONFLICT (profile_id, item_id) DO UPDATE SET watched = excluded.watched, watched_at = excluded.watched_at, play_count = excluded.play_count`,
+  );
+  const putProgress = sql.prepare(
+    `INSERT OR REPLACE INTO playback_progress (profile_id, item_id, position_ms, duration_ms, file_id, audio_stream_index, subtitle_track_id, client_ts, updated_at)
+     VALUES (@profileId, @itemId, @positionMs, @durationMs, @fileId, @audio, @sub, @clientTs, @updatedAt)`,
+  );
 
   const byItem = <T extends { itemId: string }>(rows: T[]) => new Map(rows.map((r) => [r.itemId, r]));
   const progressMap = (p: string, list: readonly string[]) => byItem(progressOf.all({ p, ids: ids(list) }) as ProgressRow[]);
@@ -228,13 +258,19 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
     return v;
   }
   const extendViewing = (v: ViewingRow, s: ProgressSample, completed: boolean) =>
-    updateViewing.run(Math.max(v.endedAt ?? v.startedAt, s.at), Math.max(v.maxPositionMs, s.positionMs), completed || v.completed === 1 ? 1 : 0, v.id);
+    updateViewing.run({
+      endedAt: Math.max(v.endedAt ?? v.startedAt, s.at),
+      maxPositionMs: Math.max(v.maxPositionMs, s.positionMs),
+      file: s.fileId,
+      completed: completed || v.completed === 1 ? 1 : 0,
+      id: v.id,
+    });
 
   /** History: a sample extends the latest open, unfinished viewing of the item, or starts a new one. */
   function recordViewing(s: ProgressSample, completed: boolean): void {
     const v = openViewing(s);
     if (v && v.completed === 0) extendViewing(v, s, completed);
-    else insertViewing.run(newId(), s.profileId, s.itemId, s.at, s.at, s.positionMs, completed ? 1 : 0);
+    else insertViewing.run(newId(), s.profileId, s.itemId, s.at, s.at, s.positionMs, completed ? 1 : 0, s.fileId);
   }
 
   const recordProgress = (s: ProgressSample): void =>
@@ -302,6 +338,82 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
     return p ? resumeFrom(p.positionMs, p.durationMs) : null;
   }
 
+  /**
+   * The file left fromItemIds for toItemId (admin resolution). What was recorded on that file follows it:
+   * - progress: per profile the latest row by client_ts; a row toItemId already has wins if it is as
+   *   recent, and a toItemId watched at or after the sample takes none (the recordProgress rules);
+   * - history: viewing records with that file_id (rows from before migration 0003 have none and stay);
+   * - watched: each moved completion is a play of toItemId, merged last-write-wins (latest watched_at,
+   *   plays added, older progress cleared). An old item keeps "watched" only if a completion stays on it
+   *   or a manual mark (no file) shows: watched_at set by none of the moved completions, or a play count
+   *   above its completion records (a mark counts one play).
+   * Returns the progress and viewing rows moved.
+   */
+  const moveFileState = (fileId: string, fromItemIds: readonly string[], toItemId: string): number =>
+    sql.transaction(() => {
+      const from = fromItemIds.filter((id) => id !== toItemId);
+      if (!from.length) return 0;
+      const kind = kinds([toItemId]).get(toItemId)?.kind;
+      // State belongs to playable items: a series or season (or an unknown id) takes none.
+      if (!kind || CONTAINER_KINDS.has(kind)) return 0;
+      let moved = 0;
+
+      type Row = { profileId: string; itemId: string; clientTs: number } & Record<string, unknown>;
+      const done = new Set<string>();
+      for (const r of progressOnFile.all({ file: fileId, ids: ids(from) }) as Row[]) {
+        deleteProgress.run(r.profileId, r.itemId);
+        // Rows come newest first: the first one of each profile is the candidate.
+        if (done.has(r.profileId)) continue;
+        done.add(r.profileId);
+        const target = progressRowOf.get(r.profileId, toItemId) as { clientTs: number } | undefined;
+        if (target && target.clientTs >= r.clientTs) continue;
+        const w = watchedAtOf.get(r.profileId, toItemId) as { watched: number; watchedAt: number | null } | undefined;
+        if (!target && w?.watched === 1 && w.watchedAt !== null && r.clientTs <= w.watchedAt) continue;
+        putProgress.run({ ...r, itemId: toItemId });
+        moved++;
+      }
+
+      type Viewing = { id: string; profileId: string; itemId: string; startedAt: number; endedAt: number | null; completed: number };
+      type Watch = { watched: number; watchedAt: number | null; playCount: number };
+      // Completions moved, per profile and old item, to settle both sides' watched state afterwards.
+      const completions = new Map<string, Map<string, Viewing[]>>();
+      for (const v of viewingsOnFile.all({ file: fileId, ids: ids(from) }) as Viewing[]) {
+        moveViewing.run(toItemId, v.id);
+        moved++;
+        if (v.completed !== 1) continue;
+        const byItem = completions.get(v.profileId) ?? new Map<string, Viewing[]>();
+        completions.set(v.profileId, byItem);
+        byItem.set(v.itemId, [...(byItem.get(v.itemId) ?? []), v]);
+      }
+      for (const [profileId, byItem] of completions) {
+        let plays = 0;
+        let at = -Infinity;
+        for (const [itemId, list] of byItem) {
+          const w = watchRowOf.get(profileId, itemId) as Watch | undefined;
+          const watchedAt = w?.watchedAt ?? null;
+          // A completion record spans the moment it set watched_at; otherwise its end stands for it.
+          const explains = (v: Viewing) => watchedAt !== null && v.startedAt <= watchedAt && watchedAt <= (v.endedAt ?? v.startedAt);
+          for (const v of list) at = Math.max(at, explains(v) && watchedAt !== null ? watchedAt : (v.endedAt ?? v.startedAt));
+          plays += list.length;
+          if (!w) continue;
+          const left = completionsOf.get(profileId, itemId) as { n: number; lastAt: number | null };
+          // A manual mark: watched_at set by none of the moved completions, or a play no record accounts for.
+          const manual = w.watched === 1 && (!list.some(explains) || w.playCount > left.n + list.length);
+          const still = w.watched === 1 && (manual || left.lastAt !== null);
+          // The date changes only when a moved completion had set it; a manual mark keeps its own date.
+          const keptAt = list.some(explains) ? (left.lastAt ?? watchedAt) : watchedAt;
+          putWatch.run({ p: profileId, item: itemId, watched: still ? 1 : 0, at: still ? keptAt : null, plays: Math.max(0, w.playCount - list.length) });
+        }
+        const b = watchRowOf.get(profileId, toItemId) as Watch | undefined;
+        const bAt = b?.watched === 1 && b.watchedAt !== null ? Math.max(b.watchedAt, at) : at;
+        putWatch.run({ p: profileId, item: toItemId, watched: 1, at: bAt, plays: (b?.playCount ?? 0) + plays });
+        // A completion clears older progress, as in recordProgress.
+        const p = progressRowOf.get(profileId, toItemId) as { clientTs: number } | undefined;
+        if (p && p.clientTs <= at) deleteProgress.run(profileId, toItemId);
+      }
+      return moved;
+    })();
+
   /** Idempotent: an already watched episode keeps its date and play count. Clears progress. */
   const markWatched = (profileId: string, itemId: string): void =>
     sql.transaction(() => {
@@ -333,6 +445,7 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
     lastTrackChoice,
     markWatched,
     markUnwatched,
+    moveFileState,
     clearProgress: (profileId: string, itemId: string): void => void deleteProgress.run(profileId, itemId),
     addToWatchlist(profileId: string, itemId: string): void {
       if (!catalog().itemExists(itemId)) throw notFound('item');

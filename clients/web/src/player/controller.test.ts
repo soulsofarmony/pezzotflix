@@ -1080,7 +1080,13 @@ describe('track ids, 503, 500 and 422 on session changes', () => {
     expect(c.getSnapshot().phase).toBe('failed');
   });
 
-  it("the server's closed-session text (no structured field yet) is what the client matches", () => {
+  it('a 422 with sessionClosed closed the session, whatever its text', () => {
+    expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail: 'Nessun piano.', sessionClosed: true }))).toBe(true);
+    expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail: 'No plan.', sessionClosed: false }))).toBe(false);
+    expect(isClosedRefusal(apiError(410, 'SESSION_EXPIRED', { sessionClosed: true }))).toBe(false);
+  });
+
+  it("fallback: the closed-session text of a server without the field is still matched", () => {
     // services/video/src/modules/playback/sessions.ts, refusedWhileWaiting(): `${why} The session was closed: …`
     const detail = 'No plan for file-2: HDR10 needs a Transcode. The session was closed: its previous tracks could not be played either.';
     expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail }))).toBe(true);
@@ -1102,6 +1108,10 @@ describe('track ids, 503, 500 and 422 on session changes', () => {
     await c.selectAudio('a2');
     expect(api.start).toHaveBeenCalledTimes(2);
     expect(engines.at(-1)?.destroyed).toBe(false);
+
+    api.changeTracks.mockRejectedValueOnce(apiError(422, 'NO_COMPATIBLE_PLAN', { detail: 'No plan.', sessionClosed: true }));
+    await c.selectAudio('a2');
+    expect(api.start).toHaveBeenCalledTimes(3);
   });
 
   it('a 422 while the session waits for its stream: the server went back to the old tracks, the client fetches that stream', async () => {
@@ -1152,8 +1162,8 @@ describe('events from the poller', () => {
     await c.start({ itemId: 'item-1' });
     c.onEvent({ seq: 2, at: 0, type: 'playback.session_terminated', sessionId: 'other', reason: null });
     expect(c.getSnapshot().phase).toBe('ready');
-    c.onEvent({ seq: 3, at: 0, type: 'playback.session_terminated', sessionId: 's1', reason: 'admin' });
-    expect(c.getSnapshot()).toMatchObject({ phase: 'terminated', terminatedReason: 'admin' });
+    c.onEvent({ seq: 3, at: 0, type: 'playback.session_terminated', sessionId: 's1', reason: 'terminated' });
+    expect(c.getSnapshot()).toMatchObject({ phase: 'terminated', terminatedReason: 'terminated' });
     expect(engines[0]?.destroyed).toBe(true);
     expect(c.hasActiveSession()).toBe(false);
     await vi.advanceTimersByTimeAsync(20_000);

@@ -6,6 +6,7 @@ import { createFfprobeRunner, type ProbeRunner } from './ffprobe.ts';
 import { createAnalyzer } from './service.ts';
 
 export const PROBE_MAX_ATTEMPTS = 3;
+const DAY_MS = 24 * 3600_000;
 
 export interface AnalyzerModuleOptions {
   /** Tests inject a fake; default is ffprobe at config.FFPROBE_PATH. */
@@ -25,6 +26,18 @@ export function analyzerModule(options: AnalyzerModuleOptions = {}): ModuleFacto
       name: 'analyzer',
       // Concurrency 1: the NTFS bind mount is slow (ADR 0001 rule 6).
       jobs: { [JOB_TYPES.analyzerProbe]: { concurrency: 1, maxAttempts: PROBE_MAX_ATTEMPTS, handler: analyzer.probe } },
+      periodic: [
+        {
+          // At start after an upgrade; daily, for files whose root was offline or whose probe failed.
+          name: 'analyzer.reanalyze_outdated',
+          everyMs: DAY_MS,
+          runAtStart: true,
+          run: () => {
+            const n = analyzer.requeueOutdated();
+            if (n) ctx.log.info({ queued: n }, 'files from an older analyzer queued for re-analysis');
+          },
+        },
+      ],
     };
   };
 }

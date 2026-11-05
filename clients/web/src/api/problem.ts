@@ -12,6 +12,8 @@ export class ApiError extends Error {
   /** From Retry-After (seconds or HTTP date), in ms; null when absent. */
   readonly retryAfterMs: number | null;
   readonly activeSessions: ActiveSession[];
+  /** Problem extension sessionClosed (ChangeTracks/ChangeVersion 422); false when absent. */
+  readonly sessionClosed: boolean;
   readonly problem: Partial<Problem> | null;
 
   constructor(init: { status: number; code: ProblemCode; title?: string; detail?: string | null; retryAfterMs?: number | null; problem?: Partial<Problem> | null }) {
@@ -24,6 +26,7 @@ export class ApiError extends Error {
     this.retryAfterMs = init.retryAfterMs ?? null;
     this.problem = init.problem ?? null;
     this.activeSessions = Array.isArray(init.problem?.activeSessions) ? init.problem.activeSessions : [];
+    this.sessionClosed = init.problem?.sessionClosed === true;
   }
 
   /** True for errors where repeating the same request later may succeed. */

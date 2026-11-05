@@ -755,6 +755,7 @@ describe('re-plan robustness (S1, S2, S4, S6, m1–m12)', () => {
     h.catalog.items.delete(ITEM);
     const r = await tracks(id, { audioTrackId: 's1' });
     expect(r).toMatchObject({ status: 410, body: { code: 'SESSION_EXPIRED', detail: 'The item was removed from the library' } });
+    expect(h.events.at(-1)).toMatchObject({ type: 'playback.session_terminated', payload: { sessionId: id, reason: 'item_removed' } });
   });
 
   it('m12: an override with an invalid pattern is ignored', async () => {
@@ -992,6 +993,7 @@ describe('sessions waiting without a stream (S3 follow-ups)', () => {
     const r = await tracks(id, { subtitleTrackId: 's5' }); // VobSub on 4K: cannot be shown
     expect(r).toMatchObject({ status: 422, body: { code: 'NO_COMPATIBLE_PLAN' } });
     expect(r.body.detail).not.toContain('closed');
+    expect(r.body.sessionClosed).toBeUndefined();
     expect(h.delivery.ops()).toEqual(['start direct_stream', 'stop st1 replanned', 'start direct_stream', 'start direct_stream']);
     expect(h.delivery.starts()[2]?.audio?.source.trackId).toBe(h.delivery.starts()[0]?.audio?.source.trackId);
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toMatchObject([{ sessionId: id }]);
@@ -1004,6 +1006,7 @@ describe('sessions waiting without a stream (S3 follow-ups)', () => {
     const r = await tracks(id, { subtitleTrackId: 's5' });
     expect(r).toMatchObject({ status: 422, body: { code: 'NO_COMPATIBLE_PLAN' } });
     expect(r.body.detail).toContain('The session was closed');
+    expect(r.body.sessionClosed).toBe(true);
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
     expect((await tracks(id, {})).status).toBe(410);
   });

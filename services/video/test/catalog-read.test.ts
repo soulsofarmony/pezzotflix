@@ -377,6 +377,20 @@ describe('without a ProfileStatePort (profiles arrive in F1b)', () => {
     expect([...read.describeItems(many).keys()].sort()).toEqual([lib.special1, lib.ep1].sort());
   });
 
+  it('gives episodes and seasons the title of their series, and nothing to other kinds', async () => {
+    const eps = (await h.call('listItems', 'GET', '/video/api/v1/items?kind=episode')).body.items;
+    expect(eps.map((i: { seriesTitle?: string | null }) => i.seriesTitle)).toEqual(['Dark', 'Dark', 'Dark']);
+    const dark = (await h.call('getItem', 'GET', `/video/api/v1/items/${lib.dark}`)).body;
+    expect(dark).not.toHaveProperty('seriesTitle');
+    expect(dark.children.map((c: { seriesTitle?: string | null }) => c.seriesTitle)).toEqual(['Dark', 'Dark']);
+    expect((await h.call('getItem', 'GET', `/video/api/v1/items/${lib.dune}`)).body).not.toHaveProperty('seriesTitle');
+    // An episode straight under the series (the read side allows it) and one without a parent.
+    const ins = h.db.$client.prepare("INSERT INTO catalog_item (id, kind, parent_id, episode_number, title, sort_title, added_at, updated_at) VALUES (?, 'episode', ?, 9, 'X', 'x', 0, 0)");
+    ins.run('direct', lib.dark);
+    ins.run('orphan', null);
+    expect(h.comp.ports.catalogViews.summaries(['direct', 'orphan']).map((x) => x.seriesTitle)).toEqual(['Dark', null]);
+  });
+
   it('provides CatalogViewPort summaries in the asked order', () => {
     const views = h.comp.ports.catalogViews;
     expect(views.summaries([lib.dark, 'nope', lib.dune]).map((s) => s.id)).toEqual([lib.dark, lib.dune]);
@@ -433,6 +447,17 @@ describe('with a ProfileStatePort', () => {
     const p1 = (await h.call('listItems', 'GET', '/video/api/v1/items?sort=last_played&order=desc&limit=2')).body;
     const p2 = (await h.call('listItems', 'GET', `/video/api/v1/items?sort=last_played&order=desc&limit=2&cursor=${p1.nextCursor}`)).body;
     expect([...p1.items, ...p2.items].map((i: { id: string }) => i.id).slice(0, 3)).toEqual([lib.dark, lib.dune, lib.br2049]);
+  });
+
+  it('adds next up right after Continue watching, skipping an episode already in progress', async () => {
+    await setup((l) => ({ [l.dark]: 300 }));
+    const rows = async () => (await h.call('getHome', 'GET', '/video/api/v1/home')).body.rows;
+    // Next up of Dark is S01E02, which Continue watching already shows.
+    expect((await rows()).map((r: { id: string }) => r.id)).toEqual(['continue_watching', 'recently_added', 'movies', 'series', 'documentaries']);
+    port.continueWatching = (_p, n) => [lib.dune].slice(0, n);
+    const home = await rows();
+    expect(home.map((r: { id: string }) => r.id)).toEqual(['continue_watching', 'next_up', 'recently_added', 'movies', 'series', 'documentaries']);
+    expect(home[1]).toMatchObject({ title: 'Prossimi episodi', nextCursor: null, items: [{ id: lib.ep2, seriesTitle: 'Dark', state: { progressPercent: 10 } }] });
   });
 
   it('answers next up from the port', async () => {

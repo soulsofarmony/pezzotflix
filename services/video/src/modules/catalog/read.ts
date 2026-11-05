@@ -234,6 +234,13 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
        json_extract(s.attrs, '$.objectAudio') AS objectAudio
      FROM files x JOIN media_stream s ON s.file_id = x.fileId WHERE s.type IN ('video', 'audio')`,
   );
+  // Series of each episode (under a season or straight under the series) and of each season.
+  const seriesTitles = prep(
+    `SELECT i.id, CASE WHEN p.kind = 'series' THEN p.title ELSE g.title END AS seriesTitle
+     FROM catalog_item i LEFT JOIN catalog_item p ON p.id = i.parent_id
+       LEFT JOIN catalog_item g ON g.id = p.parent_id AND p.kind = 'season' AND g.kind = 'series'
+     WHERE i.id IN (SELECT value FROM json_each(?)) AND i.kind IN ('episode', 'season')`,
+  );
   const artworkOf = prep(
     `SELECT item_id AS itemId, type, local_path AS localPath, language, selected, fetched_at AS fetchedAt
      FROM artwork WHERE item_id IN (SELECT value FROM json_each(?))`,
@@ -358,6 +365,9 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
     const signals = signalsByRoot(ids);
     const images = imagesByItem(ids);
     const states = statesOf(profileId, ids);
+    const series = rows.some((r) => r.kind === 'episode' || r.kind === 'season')
+      ? new Map((seriesTitles.all(JSON.stringify(ids)) as { id: string; seriesTitle: string | null }[]).map((x) => [x.id, x.seriesTitle]))
+      : new Map<string, string | null>();
     return rows.map((r) => {
       const state = states.get(r.id);
       return {
@@ -369,6 +379,7 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
         year: r.year,
         seasonNumber: r.seasonNumber,
         episodeNumber: r.episodeNumber,
+        ...(r.kind === 'episode' || r.kind === 'season' ? { seriesTitle: series.get(r.id) ?? null } : {}),
         extraType: r.extraType,
         editionLabel: r.editionLabel,
         durationMs: r.durationMs,
@@ -542,6 +553,27 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
     return { item: row ? (summarize([row], profileId)[0] ?? null) : null };
   }
 
+  const seriesWithMedia = prep(`SELECT i.id FROM catalog_item i WHERE i.kind = 'series' AND ${HAS_MEDIA}`).pluck();
+
+  /**
+   * Home "next up" (doc 01 §7.2, D3): for each series the profile played, most recently played first,
+   * the episode GetNextUp answers, unless it is in progress (Continue watching already shows it).
+   */
+  function nextUpRow(profileId: string, limit: number): ItemSummary[] {
+    const port = ps();
+    if (!port?.lastPlayed) return [];
+    const played = port.lastPlayed(profileId, seriesWithMedia.all() as string[]);
+    const ordered = [...played].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([id]) => id);
+    const inProgress = new Set(ordered.length ? port.continueWatching(profileId, CONTINUE_WATCHING_MAX) : []);
+    const ids: string[] = [];
+    for (const seriesId of ordered) {
+      if (ids.length >= limit) break;
+      const next = port.nextUp(profileId, seriesId);
+      if (next && !inProgress.has(next) && !ids.includes(next)) ids.push(next);
+    }
+    return summarize(rowsByIds(ids), profileId);
+  }
+
   // ---------------------------------------------------------------- detail
 
   function mediaVersion(fileId: string): MediaVersion | null {
@@ -636,6 +668,7 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
     search,
     children,
     nextUp,
+    nextUpRow,
     detail,
     mediaVersion,
     summaries: (ids: readonly string[], profileId: string | null = null) => summarize(rowsByIds(ids), profileId),

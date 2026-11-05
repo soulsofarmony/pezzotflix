@@ -41,7 +41,7 @@ const video = (i: number, probe: FfprobeOutput, hdr10Plus: number[] = []) =>
 describe('MediaFacts from real ffprobe output (S1 fixtures)', () => {
   it('Blade Runner 2049: UHD HDR10, TrueHD lossless, commentary, PGS forced, SRT, ASS, chapters', () => {
     const { facts, others } = map(fixture('br2049'), 'Blade Runner 2049 (2017)/Blade Runner 2049 (2017) - 2160p Remux.mkv');
-    expect(facts).toMatchObject({ container: 'matroska', durationMs: 30005, bitRate: 99569471, analyzerVersion: 1 });
+    expect(facts).toMatchObject({ container: 'matroska', durationMs: 30005, bitRate: 99569471, analyzerVersion: 2 });
     expect(facts.streams.map((s) => `${s.type}:${s.codec}`)).toEqual([
       'video:hevc', 'audio:truehd', 'audio:eac3', 'audio:ac3',
       'subtitle:hdmv_pgs_subtitle', 'subtitle:hdmv_pgs_subtitle', 'subtitle:subrip', 'subtitle:ass',

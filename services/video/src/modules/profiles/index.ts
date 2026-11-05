@@ -36,6 +36,7 @@ export function profilesModule(opts: ProfilesModuleOptions = {}): ModuleFactory 
       continueWatching: watch.continueWatching,
       nextUp: watch.nextUp,
       lastPlayed: watch.lastPlayed,
+      moveFileState: watch.moveFileState,
     };
     const profilePlayback: ProfilePlaybackPort = {
       getPrefs: (profileId) => store.get(profileId)?.prefs ?? null,

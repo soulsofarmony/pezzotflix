@@ -64,7 +64,7 @@ describe('toAppEvent', () => {
     ['identification.needs_review', { caseId: 'c1' }, { type: 'identification.needs_review', caseId: 'c1' }],
     ['ingest.progress', {}, { type: 'ingest.progress' }],
     ['playback.subtitle_ready', { sessionId: 's1', trackId: 't1', availability: 'complete' }, { type: 'playback.subtitle_ready', sessionId: 's1', trackId: 't1', availability: 'complete' }],
-    ['playback.session_terminated', { sessionId: 's1', reason: 'admin' }, { type: 'playback.session_terminated', sessionId: 's1', reason: 'admin' }],
+    ['playback.session_terminated', { sessionId: 's1', reason: 'terminated' }, { type: 'playback.session_terminated', sessionId: 's1', reason: 'terminated' }],
     ['playback.session_terminated', {}, { type: 'unknown', rawType: 'playback.session_terminated' }],
     ['playback.subtitle_ready', { sessionId: 's1' }, { type: 'unknown', rawType: 'playback.subtitle_ready' }],
     ['music.track_added', {}, { type: 'unknown', rawType: 'music.track_added' }],
