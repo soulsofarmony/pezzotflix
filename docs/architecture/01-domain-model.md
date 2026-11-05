@@ -103,7 +103,7 @@ Requisito: un'identificazione automatica non diventa mai immutabile e una correz
 - **ExternalId** (`provider`, `id`): 0..n per item. Collega l'item a uno o più database esterni. Serve per il refresh e **non** è l'identità dell'item.
 - Ogni campo di metadata ha una **provenienza**: `provider:<nome>` oppure `manual`.
 - Un campo modificato manualmente diventa **locked**: i refresh automatici non lo sovrascrivono.
-- Tutti i metadata e l'artwork sono **copiati localmente** (§12): la libreria funziona anche con il provider irraggiungibile.
+- Tutti i metadata e l'artwork sono **copiati localmente** (§12): la libreria funziona anche con il provider irraggiungibile. La durata della copia dei dati del provider segue i suoi termini; la base durevole è definita in D5.
 
 ### 3.6 Artwork
 
@@ -178,7 +178,7 @@ Associa un `MediaFile` a un `CatalogItem` riproducibile.
 La coda "Da verificare / Unmatched Media" (§13) è una vista sui MediaFile con un caso aperto.
 
 - Attributi: file, stato ∈ {`pending`, `auto_matched`, `needs_review`, `resolved`, `ignored`}, **candidati** (riferimento al provider, punteggio, segnali usati: filename, cartella, metadata interni, provider).
-- `needs_review` si attiva quando non c'è nessun candidato o quando i migliori sono troppo vicini tra loro (ambiguità).
+- `needs_review` si attiva quando non c'è nessun candidato o quando i migliori sono troppo vicini tra loro (ambiguità), e per i motivi di D7 e dello [standard di libreria](../library-standard.md) §7.1.
 - `ignored` copre i file da non catalogare (sample, file di prova…).
 - Il resolver AI (§11, futuro) sarebbe solo un'ulteriore fonte di candidati. Il modello non cambia.
 
@@ -243,7 +243,7 @@ Le **capability del client** e la logica che sceglie la modalità sono dettaglia
 2. I path dei media sono relativi alla LibraryRoot.
 3. Il Video Service non modifica mai i file media.
 4. N tracce per tipo per file; formato HDR e tipo di sottotitolo sempre rilevati.
-5. Le correzioni manuali (link, campi locked, artwork scelto) sopravvivono a ri-scansione e refresh.
+5. Le correzioni manuali (link, campi locked, artwork scelto) sopravvivono a ri-scansione e refresh. Al purge dei dati del provider (D5) sopravvivono i dati inseriti dal proprietario; l'artwork scelto, se proviene dal provider, segue i termini del provider (questione aperta per l'ADR).
 6. Un file mancante non cancella catalogo, correzioni o stato di visione.
 7. Lo stato di visione è per profilo e riferito all'item, non al file.
 8. Nessuna assunzione di sessione singola.
@@ -268,3 +268,6 @@ Le **capability del client** e la logica che sceglie la modalità sono dettaglia
 | D2 | Più file per lo stesso item (es. 1080p + 4K della stessa edizione)? | Ammesso dal modello; la scelta del file dipende dalle capability del client (playback architecture) |
 | D3 | Soglia "visto" e "Continua a guardare" | Visto oltre il 90% della durata (o all'inizio dei titoli di coda, se noto). Continua a guardare tra il 2% e il 90%, più il prossimo episodio delle serie in corso |
 | D4 | Progress riferito all'item o al file? | All'item (§7.2) |
+| D5 | Metadata durevoli: come conciliare i termini del provider (cache max 6 mesi, purge alla cessazione) con il requisito §12? | Decisa il 2026-11-05 dopo [S4](../spikes/S4-identification.md). **Rete di sicurezza:** provider principale (TMDB) con refresh entro la finestra dei termini, più una **base durevole CC0** (Wikidata: titoli, anno, ID esterni) conservata indefinitamente. Alla cessazione della licenza si cancellano solo i dati del provider; base CC0 e modifiche manuali (contenuto del proprietario) restano. È l'interpretazione operativa del §12, che non cambia. Restano da formalizzare nell'ADR del provider: la scelta di TMDB, la questione dell'artwork scaricato come "TMDB Content" e il caso del provider irraggiungibile per oltre 6 mesi con la licenza ancora attiva |
+| D6 | Auto-match di file senza anno nel nome? | Decisa il 2026-11-05 dopo S4. Ammesso **solo con un candidato unico**, cioè sopra soglia e con distacco minimo dal secondo; altrimenti "Da verificare". I valori si fissano in implementazione e sono configurabili |
+| D7 | Film divisi su più file (Disco 1/2)? | Decisa il 2026-11-05 dopo S4. **Fuori dal modello**: per ogni versione di un item c'è un solo file (D2 resta valido per versioni alternative come 1080p/4K). I file multi-parte vengono riconosciuti e messi in coda con motivo `multi_part`. Il riferimento è lo [standard di libreria](../library-standard.md); la normalizzazione verso lo standard è uno strumento esterno futuro |

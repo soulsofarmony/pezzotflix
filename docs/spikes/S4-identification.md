@@ -1,6 +1,6 @@
 # S4 — Identificazione da filename e metadata provider in `it-IT`
 
-- **Stato:** Completato con una parte bloccata (2026-11-04). Parsing, matching e confronto dei provider sono misurati. I test live su TMDB sono **bloccati**: nessuna chiave disponibile (vedi Limiti).
+- **Stato:** Completato (2026-11-04); decisioni del proprietario del 2026-11-05 nelle conclusioni, punto 6. Resta una parte bloccata. Parsing, matching e confronto dei provider sono misurati. I test live su TMDB sono **bloccati**: nessuna chiave disponibile (vedi Limiti).
 - **Domanda:** quanto bene si ricava l'identità di un contenuto da path e filename di una libreria italiana di remux? Quale regola di confidenza separa il match automatico dalla coda "Da verificare"? Quale provider di metadata copre bene l'`it-IT` ed è usabile da un'app privata self-hosted con cache locale?
 - **Alimenta:**
   - doc 01 §3.2, §3.3, §3.5, §4.4, §5, D4 (MediaLink, IdentificationCase, ExternalSubtitle);
@@ -11,7 +11,8 @@
   - corpus: `corpus.json`, `holdout.json`;
   - parsing: `rules.py`, `parse_eval.py`;
   - matching: `match_eval.py`, `truth_wikidata.json`, `fixtures/candidates_wikidata.json`;
-  - provider: `wd_sparql.py`, `tmdb_probe.py`.
+  - provider: `wd_sparql.py`, `tmdb_probe.py`;
+  - standard di libreria: `check_standard.py`.
 
 ## Setup
 
@@ -158,7 +159,7 @@ Con v2 (T 0,80, M 0,10):
 - **l'unico auto-match sbagliato** è "Il Professore (2019)" → "Aldo Moro - Il professore" (2018): titolo quasi uguale, anno ±1;
 - **l'unico risolvibile finito in coda** è "The Office (US)": esistono due "The Office" e il nome non ha anno. Il qualificatore "(US)" non viene usato;
 - tutti i titoli senza anno condivisi da più opere (Dune, Solaris, King Kong, Up…) vanno in coda per `ambiguous`;
-- 11 titoli senza anno ma **unici tra i primi 10 risultati di Wikidata** vengono abbinati in automatico, tutti correttamente: Pulp Fiction, Inception, Il grande Lebowski, La La Land, Quei bravi ragazzi, Boris, Westworld, Montalbano, Romanzo criminale, Il nome della rosa, Amici miei. È la differenza tra la recall del 98,9% (T 0,80) e quella dell'87,4% (T 0,85). Se abbinarli in automatico è una **scelta di policy del proprietario** (vedi Conclusioni);
+- 11 titoli senza anno ma **unici tra i primi 10 risultati di Wikidata** vengono abbinati in automatico, tutti correttamente: Pulp Fiction, Inception, Il grande Lebowski, La La Land, Quei bravi ragazzi, Boris, Westworld, Montalbano, Romanzo criminale, Il nome della rosa, Amici miei. È la differenza tra la recall del 98,9% (T 0,80) e quella dell'87,4% (T 0,85). Se abbinarli in automatico è una **scelta di policy del proprietario (→ decisa: D6, auto-match solo con candidato unico)** (vedi Conclusioni);
 - i due errori di parse arrivati al provider finiscono in coda come `no_candidates` ("Puntata 3", "MOVIE t02").
 
 I titoli italiani funzionano perché si confrontano anche i titoli originali e gli alias. Alcuni esempi: cartella "Matrix" e file "The.Matrix" → Q83495; "The Thing (1982)" e "La cosa (1982)" → lo stesso item; "Se7en" → "Seven"; "Heat" → "Heat - La sfida".
@@ -205,11 +206,11 @@ Fonti:
 - Wikidata: [licenza CC0](https://www.wikidata.org/wiki/Wikidata:Licensing), [limiti di WDQS](https://www.mediawiki.org/wiki/Wikidata_Query_Service/User_Manual);
 - fanart.tv: [personal API keys](https://medium.com/fanart-tv/what-are-fanart-tv-personal-api-keys-472f60222856) (fonte secondaria).
 
-**Conflitto aperto tra requisito e termini TMDB.** Il requisito §12 dice che "il funzionamento della libreria non deve dipendere **permanentemente** dalla disponibilità dell'API esterna". Il doc 01 §3.5 prevede che tutti i metadata e l'artwork siano copiati localmente. I termini TMDB invece:
+**Conflitto tra requisito e termini TMDB** (→ deciso dal proprietario, D5). Il requisito §12 dice che "il funzionamento della libreria non deve dipendere **permanentemente** dalla disponibilità dell'API esterna". Il doc 01 §3.5 prevede che tutti i metadata e l'artwork siano copiati localmente. I termini TMDB invece:
 - vietano di mettere in cache "for longer than 6 months any information obtained through or from TMDB" (§1.C);
 - alla cessazione della licenza impongono di "promptly delete or otherwise purge all TMDB Content, including any cached content" (§1.D).
 
-Un refresh periodico entro 6 mesi rispetta il §1.C solo finché il provider resta raggiungibile e la licenza resta attiva. **Non risolve il caso** che il requisito vuole coprire: provider sparito o licenza cessata. Il conflitto resta **aperto**, per il proprietario e per l'ADR sul provider. Possibili mitigazioni, da valutare:
+Un refresh periodico entro 6 mesi rispetta il §1.C solo finché il provider resta raggiungibile e la licenza resta attiva. **Non risolve il caso** che il requisito vuole coprire: provider sparito o licenza cessata. → **Deciso dal proprietario il 2026-11-05 (D5, rete di sicurezza)**; testo originale: il conflitto resta **aperto**, per il proprietario e per l'ADR sul provider. Possibili mitigazioni, da valutare:
 - **dati CC0 di Wikidata** (titoli it/originali, anno, ID esterni, generi, persone) come base conservabile senza limiti, sempre disponibile se TMDB sparisce;
 - le **correzioni manuali** (campi `locked`, doc 01 §3.5) come contenuto del proprietario, non TMDB Content;
 - una domanda **non risolta**: l'artwork scaricato da TMDB (poster, backdrop) è "TMDB Content" (§1.A include "audio or visual content")? Se sì, ricade negli stessi limiti di cache e cancellazione.
@@ -251,6 +252,7 @@ Un refresh periodico entro 6 mesi rispetta il §1.C solo finché il provider res
 - **Ground truth** etichettata da una sola persona, partendo da un dump che **mostrava anche i punteggi** della v1: è possibile un bias. Ora `match_eval.py label` dà una vista senza punteggi per rietichettare. Gli esiti "Da verificare" per i titoli ambigui sono una scelta di policy.
 - **Misure di Wikidata** sui soli item della ground truth (94), un campione di opere famose: la copertura su titoli meno noti sarà più bassa. I dati di Wikidata cambiano nel tempo (vedi La La Land).
 - **Rate limit e latenze di Wikidata** in gran parte aneddotici (vedi Q3). Solo i 504 sono salvati.
+- **Tag ID e `{edition-…}` in testo libero non gestiti** dal parser dello spike: con l'anno il titolo resta corretto, senza anno il tag `{tmdb-…}` finisce nel titolo; `{edition-…}` è riconosciuto solo se l'etichetta è nel vocabolario. Elenco completo dei limiti e verifica degli esempi dello standard: `check_standard.py` (25 OK, 10 GAP attesi, 0 FAIL al 2026-11-05) e [standard §8](../library-standard.md).
 - **Metadata interni al file** (titolo nel container MKV) non letti, anche se il doc 02 §3.3 li prevede come secondo resolver.
 
 ## Conclusioni e raccomandazioni
@@ -262,18 +264,18 @@ Un refresh periodico entro 6 mesi rispetta il §1.C solo finché il provider res
 2. ✅ **Matching:** regola a punteggio pesato con soglia **e** distacco minimo, tipo dalla root come filtro e penalità sui numeri.
    - In-sample, con T 0,80 e M 0,10, precision e recall sono 98,9% (IC 94–100%) e tutti i casi ambigui vanno in coda.
    - Da ritarare con TMDB e con la libreria reale.
-3. ⚠️ **Provider: TMDB come primario**, da confermare quando c'è la chiave.
+3. ⚠️ **Provider: TMDB come primario** per decisione del proprietario (D5), da validare con la chiave nell'ADR del provider.
    - Tra le pagine consultate, è l'unico con `it-IT` **documentato** su trame, episodi e artwork con lingua. TheTVDB ha traduzioni per lingua, ma non sono misurate.
    - Accesso gratuito non commerciale, rate limit ampio.
    - **Attribuzione obbligatoria** (logo TMDB e avviso) nella UI, ad esempio in una pagina "Informazioni".
-   - Il **conflitto sulla cache** (§1.C / §1.D contro il requisito §12) resta **aperto**: vedi Q3 e le domande al proprietario.
+   - Il **conflitto sulla cache** (§1.C / §1.D contro il requisito §12) → deciso (D5): rete di sicurezza con base CC0 Wikidata; resta aperta solo la questione dell'artwork come "TMDB Content", per l'ADR del provider.
 4. ✅ **Wikidata come provider complementare**, non primario.
    - CC0, senza chiave, ponte di ID (TMDB/IMDb 94/94), etichette italiane 97%: è anche la candidata per la base di dati conservabile senza limiti (mitigazione del conflitto).
    - Non ha trame né poster, gli episodi italiani sono scarsi e l'API anonima ha limiti stretti.
    - OMDb è scartato (solo inglese, CC BY-NC). TheTVDB è un'alternativa per le serie da valutare con una chiave.
 5. **Impatto sui documenti 01–04** (note per la revisione; docs 01–04 non modificati da questo spike):
    - **Doc 01 §5.2 IdentificationCase:**
-     - motivi espliciti di `needs_review`: `no_title`, `no_candidates`, `low_score`, `ambiguous`, `multi_part` (vedi la domanda 3 sotto);
+     - motivi espliciti di `needs_review`: `no_title`, `no_candidates`, `low_score`, `ambiguous`, `multi_part` (→ D7); dopo lo spike il proprietario ha deciso anche `kind_mismatch` (hint della radice "con paracadute") e `id_mismatch` (tag ID "fidati, ma controlla"), vedi lo [standard di libreria](../library-standard.md) §7;
      - avvisi di parse: `season_assumed_1`, `season_dir_mismatch`, `sidecar_no_lang`, `orphan_extra`;
      - un provider che fallisce (`provider_unavailable`) **non** è un `needs_review`: il caso resta `pending`, con un retry pianificato. Nel frattempo il file resta visibile con il titolo ricavato dal filename (doc 02 §3.5, "Degrado");
      - per ogni candidato vanno salvati punteggio e segnali (titolo, anno, tipo), come già previsto.
@@ -284,19 +286,22 @@ Un refresh periodico entro 6 mesi rispetta il §1.C solo finché il provider res
    - **Doc 02 §3.3–3.5:**
      - il Metadata Provider Adapter gestisce 429 / `Retry-After` e i fallimenti per singola query;
      - l'Identifier tratta "provider non disponibile" come caso da **riprovare**;
-     - l'Enricher pianifica il refresh rispettando la finestra di cache del provider, secondo l'esito del conflitto sulla cache.
+     - l'Enricher pianifica il refresh rispettando la finestra di cache del provider, secondo D5.
    - **Doc 03:**
      - riga 152: "Sottotitoli sidecar" sono descritti come tracce testuali, e la riga 127 prevede la delivery "sidecar URL". Un sidecar `.sup` non può essere servito così: servono mux nello stream, render lato client (come i PGS embedded, P3) o burn-in;
      - riga 165: i nuovi motivi di coda e gli stati diventano **enum dell'API** (`ListIdentificationCases`, `GetIdentificationCase`) e vanno nel contratto.
-6. ❓ **Domande per il proprietario:**
-   1. **Cache TMDB contro il requisito "offline permanente":** si accetta che, se TMDB sparisce o la licenza cessa, i metadata TMDB vadano cancellati (§1.D), tenendo come base duratura i dati CC0 di Wikidata e le correzioni manuali? Oppure il requisito §12 va riformulato? Va deciso nell'ADR sul provider, insieme alla domanda sull'artwork come "TMDB Content".
-   2. **Titoli senza anno:** abbinarli in automatico quando il titolo è unico (T ≤ 0,825; in questo campione 11 abbinamenti, tutti corretti) o mandarli sempre in coda (T > 0,825; recall 87,4% invece di 98,9%)? Con TMDB la prima opzione sarà meno efficace (Scoperta 4).
-   3. **Film su più file** (Disc 1 / Disc 2): sono nello scope, o i dischi vengono uniti al momento del remux?
-      - **Opzione economica:** riconoscerli (il parser lo fa, 100% sul corpus) e mandarli in coda con motivo `multi_part`.
-      - **Se sono nello scope**, gli effetti sono più ampi di un `partIndex` sul MediaLink:
-        - doc 01 D4 / §7.2: il progress è per item ed è legato a un solo file usato, quindi va definita una timeline che attraversa le parti;
-        - doc 03: la sessione e i locatori riferiscono un solo file;
-        - doc 04: piano e timeline originale sono per file (§6.1), quindi serve un concatenamento o un cambio di file a metà sessione.
+6. ✅ **Decisioni del proprietario (2026-11-05)**, registrate in [doc 01 §11](../architecture/01-domain-model.md) (D5–D7):
+   1. **Cache TMDB contro "offline permanente" → rete di sicurezza (D5).**
+      - TMDB resta il provider principale per trame, poster e cast, con un refresh automatico entro la finestra dei termini (6 mesi).
+      - In parallelo si conserva una base durevole CC0 da Wikidata: titoli IT/originale, anno, ID esterni.
+      - Se la licenza TMDB cessa, i dati TMDB vengono cancellati (§1.D), ma restano la base Wikidata e le correzioni manuali.
+      - Il requisito §12 non cambia.
+      - Resta per l'ADR sul provider: se l'artwork scaricato è "TMDB Content".
+   2. **Titoli senza anno → auto-match solo con candidato unico (D6).** Si applicano soglia e distacco minimo; i valori si fissano in implementazione e restano configurabili.
+   3. **Film su più file → fuori dal modello (D7).**
+      - Il proprietario fissa uno **standard di libreria**, in [`docs/library-standard.md`](../library-standard.md): un file per film.
+      - Le eventuali catene di conversione verso lo standard saranno strumenti separati e futuri.
+      - I file multi-parte vengono riconosciuti e messi in coda con motivo `multi_part`.
 7. 📥 **Azioni per il proprietario:**
    - creare una chiave TMDB (account personale, uso non commerciale) e metterla in `.env` alla radice (`TMDB_READ_TOKEN=…`, già ignorato da git), poi eseguire `python tmdb_probe.py` e `python match_eval.py dump --provider tmdb`;
    - quando possibile, fornire l'**elenco reale dei path** della libreria (solo nomi) per estendere il corpus.

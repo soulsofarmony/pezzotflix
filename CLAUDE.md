@@ -6,37 +6,37 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 
 ## Current phase
 
-**DESIGN — no product code yet.** We follow the design chain in order. Each step produces one document, is reviewed and approved by the owner, and gets its own commit. Update this checklist when a step is approved.
+**DESIGN → BUILD.** Since 2026-11-05 the owner has **delegated decisions to Claude**: Claude closes the design chain, chooses the stack (ADRs accepted by Claude) and builds the MVP autonomously. The owner reviews results and can request any change. Update this checklist as steps complete.
 
 - [x] 0. Requirements v0.1 — `docs/requirements/`
 - [x] 1. Domain model — `docs/architecture/01-domain-model.md`
 - [x] 2. Components & responsibilities — `docs/architecture/02-components.md`
 - [x] 3. Interfaces — `docs/architecture/03-interfaces.md`
 - [x] 4. Playback architecture — `docs/architecture/04-playback-architecture.md`
-- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 report in review, H10 re-measured after the WSL/Docker update, S2 harness ready and needs an owner session)
+- [ ] 5. Evidence spikes S1–S4 + H10 — `spikes/`, reports in `docs/spikes/` ← **in progress** (S1 ✅, S3 ✅, S4 ✅ (TMDB live blocked: no key), H10 ✅/❌, S2 automated run in progress; owner visual/audio check pending)
 - [ ] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`
 - [ ] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
 
 ## Hard rules
 
 - **Technology follows requirements.** No language, framework, DB, protocol or library is chosen for product code without an **Accepted** ADR in `docs/adr/`. Never pick tech "by habit" or convenience. Spikes may use whatever is fastest, because spike code is throwaway.
-- **Approval gates.** Do not start the next design step, or any product code, before the owner approves the current one.
+- **Delegated decisions (owner, 2026-11-05).** Claude decides design and technology and accepts its own ADRs, after a `design-reviewer` pass. Every decision still gets an ADR or a decision row, so the owner can audit and reverse it. Claude may push to `origin/main` at milestones. Owner-only items are listed under Agent workflow.
 - **Language.** Documents under `docs/` are written in **Italian**. Code, identifiers, code comments, commit messages and PRs are in **English**.
 - **Spikes are throwaway.** Code goes in `spikes/<id>-<name>/` and outputs in `out/` (gitignored). Reports go in `docs/spikes/<id>-<name>.md` with question, setup, measured results and a recommendation. Spike code is never promoted: reimplement it properly.
 - **Never commit media.** Test media lives in `media-samples/` (gitignored).
 
 ## Agent workflow
 
-The main session is the **orchestrator**: it scopes the work, delegates to project agents, reviews what they return, keeps the docs consistent, commits, and talks to the owner. Agents never commit and never pass an approval gate.
+The main session is the **orchestrator**: it scopes the work, delegates to project agents, reviews what they return, keeps the docs consistent, commits, and talks to the owner. Agents never commit; the orchestrator integrates, reviews and commits.
 
 - Agents (`.claude/agents/`):
   - `spike-runner` runs one spike and writes its report;
   - `tech-evaluator` covers one decision area and drafts its ADR as Proposed;
-  - `design-reviewer` is a read-only critic, run before anything goes to the owner.
-  Implementation agents (`module-implementer`, `code-reviewer`) are defined after the stack ADRs are Accepted.
+  - `design-reviewer` is a read-only critic, run before a decision is accepted or a document is final.
+  Implementation agents (`module-implementer`, `code-reviewer`) are defined once the stack ADRs are Accepted.
 - Skills (`.claude/skills/`): `spike-report` (spike lifecycle) and `adr` (ADR lifecycle).
 - **Parallelism:** independent work runs in parallel agents, one decision area or spike each. Work that shares a scarce tool (Docker daemon, GPU, the browser) runs in sequence. Product code is built one module per agent, each in its own git worktree, and integrates through the contract-first API spec.
-- **Owner-only inputs:** API keys, physical checks (HDR colours, audio on the AVR), real media, and every approval. Ask for these up front and in batches.
+- **Owner-only:** spending money, creating external accounts or API keys, physical checks (HDR colours, audio on the AVR), real media, and anything irreversible outside the repo. Ask for these up front and in batches; never block on them, work around and record what is pending.
 - **Dev tools:** the orchestrator keeps the toolchain (WSL, Docker Desktop, ffmpeg, Node, Python) up to date on its own. Only steps that need the owner (UAC prompts, licences) go to them.
 
 ## Architectural invariants (from requirements)
@@ -70,6 +70,7 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
 
 - `docs/requirements/`: requirements
 - `docs/architecture/`: design chain
+- `docs/library-standard.md`: naming and folder standard for the media library, what the Identifier expects
 - `docs/adr/`: decisions
 - `docs/spikes/`: spike reports
 - `services/`: backend services
