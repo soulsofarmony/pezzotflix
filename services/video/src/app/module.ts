@@ -10,6 +10,7 @@ import type {
   CatalogViewPort,
   CatalogWritePort,
   EventPublisher,
+  IdentificationMaintenancePort,
   JobAdminPort,
   JobQueuePort,
   LibraryControlPort,
@@ -26,6 +27,7 @@ export interface Ports {
   catalogRead: CatalogReadPort;
   catalogWrite: CatalogWritePort;
   metadataSearch: MetadataSearchPort;
+  identificationMaintenance: IdentificationMaintenancePort;
   profileState: ProfileStatePort;
   profilePlayback: ProfilePlaybackPort;
   profileTokens: ProfileTokenVerifier;

@@ -144,11 +144,12 @@ describe('cursor', () => {
 
 describe('images', () => {
   it.each([
-    ['ab/abcdef0123456789.webp', 'abcdef0123456789'],
-    ['abcdef0123456789', 'abcdef0123456789'],
-    ['tmdb\\poster\\k_-9aZ12345.jpg', 'k_-9aZ12345'],
-    ['short.jpg', null],
-    ['bad key!.jpg', null],
+    // Content-addressed layout of the Artwork Store: <key[0..2]>/<key>/<file>.
+    ['ab/abcdef0123456789/original.webp', 'abcdef0123456789'],
+    ['k_/k_-9aZ12345/w780.jpg', 'k_-9aZ12345'],
+    ['ab/short/w342.jpg', null],
+    ['ab/bad key!/w342.jpg', null],
+    ['abcdef0123456789', null],
   ])('%s → %s', (path, key) => expect(imageKeyOf(path)).toBe(key));
 
   it('offers getImage widths per type', () => {

@@ -9,9 +9,9 @@ import { createCatalogWriter } from './write.ts';
 
 const DAY_MS = 24 * 3600_000;
 
-export const createCatalogModule: ModuleFactory = ({ db, now, ports, config }) => {
+export const createCatalogModule: ModuleFactory = ({ db, now, ports, config, log }) => {
   const tmdbMaxAgeMs = config.TMDB_MAX_AGE_DAYS * DAY_MS;
-  const writer = createCatalogWriter({ db, now, events: () => ports.events, tmdbMaxAgeMs });
+  const writer = createCatalogWriter({ db, now, log, events: () => ports.events, jobs: () => ports.jobs, tmdbMaxAgeMs });
   const reader = createCatalogReader({ db, now, tmdbMaxAgeMs, profileState: () => optionalPort(ports, 'profileState') });
   return {
     name: 'catalog',

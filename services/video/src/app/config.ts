@@ -40,6 +40,9 @@ const Env = z.object({
   TMDB_READ_TOKEN: z.string().optional(),
   TMDB_REFRESH_AFTER_DAYS: z.coerce.number().int().min(1).default(90),
   TMDB_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(180).default(180),
+  // PurgeProviderData(tmdb) at startup, for the end of the TMDB licence (ADR 0007 point 5). While
+  // set, TMDB is not used even with a token. Removing the token alone stops refreshes, not a purge.
+  TMDB_PURGE: bool.default(false),
   WIKIDATA_ENABLED: bool.default(true),
   WIKIDATA_CONTACT: z.string().default('https://github.com/soulsofarmony/pezzotflix'),
   METADATA_LANGUAGE: z.string().default('it-IT'),

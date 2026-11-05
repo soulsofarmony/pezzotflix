@@ -30,7 +30,13 @@ export type ProviderState = 'not_configured' | 'ok' | 'degraded' | 'invalid_cred
 export interface ProviderStatus {
   provider: MetadataProviderName;
   state: ProviderState;
+  /** Notice to show for the provider's data (ADR 0007 point 8). */
+  attribution?: string;
 }
+
+/** ADR 0007 point 8: the TMDB notice, verbatim from §3 of the TMDB terms. */
+export const TMDB_NOTICE = 'This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.';
+export const WIKIDATA_NOTICE = 'Dati da Wikidata (CC0)';
 
 export interface CandidateRef {
   provider: MetadataProviderName;
@@ -88,3 +94,27 @@ export interface ExternalIdLookup {
   id: string;
   lang: string;
 }
+
+// ---------------------------------------------------------------- artwork keys (F1a.4)
+
+/** Size variants of GetImage (contract media.yaml, query w). */
+export const IMAGE_WIDTHS = [160, 320, 640, 1280, 1920] as const;
+export type ImageWidth = (typeof IMAGE_WIDTHS)[number];
+
+/** Contract imageKey pattern. */
+export const IMAGE_KEY_RE = /^[A-Za-z0-9_-]{8,128}$/;
+
+/**
+ * Artwork files live at `<key[0..2]>/<key>/<file>` in the artwork volume, where key is the content
+ * hash of the image (the contract's imageKey). Returns the key of an artwork row's local_path.
+ */
+export function imageKeyOf(localPath: string): string | null {
+  const key = localPath.split('/')[1];
+  return key && IMAGE_KEY_RE.test(key) ? key : null;
+}
+
+/** Relative path of an artwork file of this key. */
+export const artworkPathOf = (key: string, file: string): string => `${key.slice(0, 2)}/${key}/${file}`;
+
+/** Data-plane URL of an image (doc 03 §5); clients add ?w= with one of IMAGE_WIDTHS. */
+export const imageUrlOf = (key: string, w?: ImageWidth): string => `/video/media/images/${key}${w ? `?w=${w}` : ''}`;

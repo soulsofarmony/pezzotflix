@@ -2,6 +2,7 @@
 // Path parser of the library standard, matcher (S4 v2), resolver chain ID tags → Wikidata → TMDB.
 import type { ModuleFactory } from '../../app/module.ts';
 import { JOB_TYPES } from '../../shared/job-types.ts';
+import { dropProviderCandidates, pullForwardPending } from './maintenance.ts';
 import type { Resolver } from './resolvers.ts';
 import { createCaseSettlement } from './settle.ts';
 import { createIdentifier, IDENTIFY_MAX_ATTEMPTS, REQUEUE_PENDING_EVERY_MS, requeuePending } from './service.ts';
@@ -33,18 +34,27 @@ export function identifierModule(options: IdentifierModuleOptions = {}): ModuleF
       maxAttempts: IDENTIFY_MAX_ATTEMPTS,
       ...(options.resolvers ? { resolvers: options.resolvers } : {}),
     });
+    let firstRun = true;
     return {
       name: 'identifier',
-      provides: { caseSettlement: createCaseSettlement({ db: ctx.db, now: ctx.now, events: () => ports.events }) },
+      provides: {
+        caseSettlement: createCaseSettlement({ db: ctx.db, now: ctx.now, events: () => ports.events }),
+        identificationMaintenance: { dropProviderCandidates: (provider, updatedBefore) => dropProviderCandidates(ctx.db, provider, updatedBefore) },
+      },
       // Concurrency 1 (ADR 0001): providers are rate limited per host anyway.
       jobs: { [JOB_TYPES.identifierIdentify]: { concurrency: 1, maxAttempts: IDENTIFY_MAX_ATTEMPTS, handler: identifier.identify } },
       periodic: [
         {
           name: 'identifier.requeue_pending',
           everyMs: REQUEUE_PENDING_EVERY_MS,
+          // Also at start: pending cases retry as soon as a provider is configured, not a day later.
+          runAtStart: true,
           run: () => {
             const n = requeuePending(ctx.db, ports.jobs);
-            if (n) ctx.log.info({ requeued: n }, 'pending identifications queued again');
+            // The first run is the startup one: deferred jobs of pending cases become due now.
+            const moved = firstRun ? pullForwardPending(ctx.db, ctx.now()) : 0;
+            firstRun = false;
+            if (n || moved) ctx.log.info({ requeued: n, dueNow: moved }, 'pending identifications queued again');
           },
         },
       ],

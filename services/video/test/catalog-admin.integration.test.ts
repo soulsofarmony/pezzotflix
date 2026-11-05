@@ -24,6 +24,7 @@ import { createIdentifierModule } from '../src/modules/identifier/index.ts';
 import { normalizeTitle } from '../src/modules/identifier/normalize.ts';
 import { createJobRunner, createJobsModule, type JobRunner } from '../src/modules/jobs/index.ts';
 import { libraryModule } from '../src/modules/library/index.ts';
+import { JOB_TYPES } from '../src/shared/job-types.ts';
 import type { MetadataCandidate } from '../src/shared/metadata.ts';
 import { contractErrors } from './helpers/contract.ts';
 import { cand, fakeMetadata } from './helpers/fake-metadata.ts';
@@ -60,7 +61,12 @@ const metadata = fakeMetadata({
     },
   },
 });
-const createFakeMetadataModule: ModuleFactory = () => ({ name: 'metadata', provides: { metadataSearch: metadata } });
+// The catalog enqueues metadata.enrich for new works (F1a.4); this fake has no Enricher, so it drops them.
+const createFakeMetadataModule: ModuleFactory = () => ({
+  name: 'metadata',
+  provides: { metadataSearch: metadata },
+  jobs: { [JOB_TYPES.metadataEnrich]: { concurrency: 1, handler: async () => undefined } },
+});
 
 const log = pino({ level: 'silent' });
 let db: Db;
@@ -185,7 +191,10 @@ describe.skipIf(skipReason !== null)('catalog and review queue over the sample l
       ['Serie', 'online', null],
     ]);
     const ingest = await call('getIngestStatus', 'GET', '/video/api/v1/admin/ingest');
-    expect(ingest).toMatchObject({ running: false, queued: 0, failed: [] });
+    expect(ingest).toMatchObject({ running: false, failed: [] });
+    // Only enrichments wait: the one of the manual work and the series one, delayed a minute after
+    // its episodes (F1a.4). Ingest itself is done.
+    expect(ingest.queued).toBe(ingest.jobs['metadata.enrich']?.queued ?? 0);
     expect(ingest.jobs['identifier.identify'].done).toBeGreaterThan(0);
   });
 

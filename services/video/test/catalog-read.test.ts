@@ -261,9 +261,9 @@ describe('without a ProfileStatePort (profiles arrive in F1b)', () => {
 
   it('details a movie: versions, tracks, chapters, extras, ids, images, attributions', async () => {
     const db = h.db;
-    seedArtwork(db, lib.dune, 'poster', 'ab/aaaaaaaaaaaaaaa1.webp', { language: 'en' });
-    seedArtwork(db, lib.dune, 'poster', 'ab/aaaaaaaaaaaaaaa2.webp', { language: 'it' });
-    seedArtwork(db, lib.dune, 'backdrop', 'ab/bbbbbbbbbbbbbbb1.webp', { language: null, source: 'tmdb' });
+    seedArtwork(db, lib.dune, 'poster', 'aa/aaaaaaaaaaaaaaa1/original.webp', { language: 'en' });
+    seedArtwork(db, lib.dune, 'poster', 'aa/aaaaaaaaaaaaaaa2/original.webp', { language: 'it' });
+    seedArtwork(db, lib.dune, 'backdrop', 'bb/bbbbbbbbbbbbbbb1/original.webp', { language: null, source: 'tmdb' });
     db.$client.prepare("INSERT INTO item_field (item_id, field, source, value, fetched_at) VALUES (?, 'overview', 'tmdb', ?, ?)").run(lib.dune, JSON.stringify('Paul Atreides…'), h.clock.now);
     db.$client.prepare("INSERT INTO item_field (item_id, field, source, value, fetched_at) VALUES (?, 'genres', 'wikidata', ?, ?)").run(lib.dune, JSON.stringify(['fantascienza', 'avventura']), h.clock.now);
     db.$client.prepare("INSERT INTO person (id, name, source) VALUES ('p-dv', 'Denis Villeneuve', 'wikidata'), ('p-tc', 'Timothée Chalamet', 'wikidata')").run();

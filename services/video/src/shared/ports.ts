@@ -231,13 +231,20 @@ export type CatalogItemKind = 'movie' | 'series' | 'season' | 'episode' | 'extra
 export type ExtraType = 'trailer' | 'featurette' | 'behind-the-scenes' | 'deleted-scene' | 'interview' | 'other';
 export type ItemCategory = 'film' | 'documentary';
 
-/** Values of one source. A key left out is not touched; null removes that source's value. */
+/**
+ * Values of one source. A key left out is not touched; null (or an empty string or list) removes
+ * that source's value. overview, tagline and genres are stored in item_field under these keys and
+ * resolved on read (they are not projected onto catalog_item).
+ */
 export interface ItemFieldValues {
   title?: string | null;
   originalTitle?: string | null;
   year?: number | null;
   category?: ItemCategory | null;
   durationMs?: number | null;
+  overview?: string | null;
+  tagline?: string | null;
+  genres?: string[] | null;
 }
 
 export interface SourcedFieldValues {
@@ -294,6 +301,98 @@ export interface CatalogWritePort {
   getItem(itemId: string): CatalogItemRef | null;
   /** The item itself if it has that kind, else its nearest ancestor of that kind. */
   findAncestor(itemId: string, kind: CatalogItemKind): string | null;
+
+  // ---- F1a.4: Enricher, artwork, expiry and purge (ADR 0007 points 2, 5, 6)
+
+  /** Recomputes the projection and the search row of one item. */
+  refresh(itemId: string): void;
+  getExternalIds(itemId: string): ExternalIds;
+  /** Direct children (seasons of a series, episodes of a season, extras), by number then title. */
+  listChildren(itemId: string): CatalogItemRef[];
+  /** Replaces the credits of one source on the item (persons of that source are reused by ref). */
+  replaceCredits(itemId: string, source: FieldSource, credits: readonly CreditInput[]): void;
+  /**
+   * Replaces the artwork rows of (item, source, type) with these. Returns the local paths no
+   * artwork row references any more, so the Artwork Store can delete the files.
+   */
+  setArtwork(itemId: string, source: ArtworkSource, type: ArtworkType, images: readonly ArtworkInput[]): string[];
+  listArtwork(itemId: string): ArtworkRecord[];
+  /** Any artwork row whose file is the image with this key (contract imageKey), or null. */
+  findArtworkByKey(imageKey: string): ArtworkRecord | null;
+  /** Every artwork row of this image key gets fetched_at 0, so the next enrichment downloads it again. */
+  markImageMissing(imageKey: string): void;
+  /** True if any value, credit or artwork row of the source exists (one-row EXISTS, ADR 0007 point 8). */
+  hasSourceData(source: 'tmdb'): boolean;
+  /** Top-level works (movie, series) with the age of their provider values, for the refresh sweep. */
+  listWorkRefreshState(): WorkRefreshState[];
+  /**
+   * ExpireProviderValues (ADR 0007 point 5): drops the values, credits and artwork rows of the
+   * source fetched before the cutoff, even if locked, and recomputes the affected items.
+   */
+  expireSource(source: 'tmdb', fetchedBefore: number): SourceRemoval;
+  /** PurgeProviderData (ADR 0007 point 5): drops every value, credit and artwork row of the source. Idempotent. */
+  purgeSource(source: 'tmdb'): SourceRemoval;
+}
+
+export type ArtworkType = 'poster' | 'backdrop' | 'logo' | 'still' | 'thumbnail';
+export type ArtworkSource = 'tmdb' | 'wikidata' | 'upload' | 'generated';
+export type CreditRole = 'director' | 'creator' | 'actor';
+
+export interface CreditInput {
+  name: string;
+  role: CreditRole;
+  character: string | null;
+  /** Billing order within the role, 0 first. */
+  order: number;
+  /** Provider person id (Wikidata QID, TMDB person id), so a person is stored once per source. */
+  personRef: string | null;
+}
+
+export interface ArtworkInput {
+  type: ArtworkType;
+  language: string | null;
+  /** Relative to the artwork volume: `<key[0..2]>/<key>/<file>` (see imageKeyOf in shared/metadata.ts). */
+  localPath: string;
+  remoteRef: string | null;
+  width: number | null;
+  height: number | null;
+  fetchedAt: number;
+}
+
+export interface ArtworkRecord extends ArtworkInput {
+  id: string;
+  itemId: string;
+  source: ArtworkSource;
+  selected: boolean;
+}
+
+export interface WorkRefreshState {
+  itemId: string;
+  kind: WorkKind;
+  /**
+   * Age of the work's TMDB data: the newest fetched_at of its values (the last refresh), or the
+   * oldest fetched_at of its own TMDB artwork if that is older. Null if it has neither.
+   */
+  tmdbFetchedAt: number | null;
+  /** Newest fetched_at of the work's Wikidata values (the last refresh), null if it has none. */
+  wikidataFetchedAt: number | null;
+}
+
+export interface SourceRemoval {
+  /** Items whose projection was recomputed. */
+  itemIds: string[];
+  /** Artwork files no row references any more. */
+  unreferencedPaths: string[];
+}
+
+/** Implemented by modules/identifier: maintenance of identification_case data (ADR 0007 point 5). */
+export interface IdentificationMaintenancePort {
+  /**
+   * Removes the candidates of a provider from the stored cases (TMDB candidates are TMDB Content).
+   * With updatedBefore, only cases last written before it (expiry); null = every case (purge).
+   * Returns how many cases changed.
+   */
+  dropProviderCandidates(provider: MetadataProviderName, updatedBefore: number | null): number;
 }
 
 // ---------------------------------------------------------------- stream delivery (F1b)

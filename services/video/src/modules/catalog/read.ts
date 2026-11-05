@@ -4,6 +4,7 @@
 // Profile state comes from ProfileStatePort, which may be absent (profiles arrive in F1b).
 import type { Db } from '../../db/index.ts';
 import type { MediaFacts } from '../../shared/media-facts.ts';
+import { imageKeyOf, imageUrlOf, type ImageWidth, TMDB_NOTICE, WIKIDATA_NOTICE } from '../../shared/metadata.ts';
 import type {
   ApiSchemas,
   CatalogItemPosition,
@@ -29,8 +30,8 @@ type ItemKind = ItemSummary['kind'];
 /** Ids per describeItems statement: well below SQLite's limits, and a bounded JSON parameter. */
 export const DESCRIBE_CHUNK = 500;
 
-export const TMDB_NOTICE = 'This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.';
-export const WIKIDATA_NOTICE = 'Dati da Wikidata (CC0)';
+// One definition of the notices and of the image keys and URLs, shared with modules/metadata.
+export { imageKeyOf, TMDB_NOTICE, WIKIDATA_NOTICE } from '../../shared/metadata.ts';
 
 export interface ItemRow {
   id: string;
@@ -73,21 +74,8 @@ const TREE_FILES = `WITH RECURSIVE tree(root, id) AS (
     FROM tree t JOIN media_link l ON l.item_id = t.id JOIN media_file f ON f.id = l.file_id JOIN library_root r ON r.id = f.root_id
   )`;
 
-const IMAGE_KEY = /^[A-Za-z0-9_-]{8,128}$/;
-
-/**
- * imageKey of getImage (media.yaml) for an artwork row. F1a.4 stores images content-addressed:
- * the key is the file name without extension of local_path. A row without a usable key has no image.
- */
-export function imageKeyOf(localPath: string): string | null {
-  const name = localPath.slice(Math.max(localPath.lastIndexOf('/'), localPath.lastIndexOf('\\')) + 1);
-  const dot = name.lastIndexOf('.');
-  const key = dot > 0 ? name.slice(0, dot) : name;
-  return IMAGE_KEY.test(key) ? key : null;
-}
-
 /** Widths of getImage offered per artwork type. */
-const VARIANTS: Readonly<Record<ImageRef['type'], readonly number[]>> = {
+const VARIANTS: Readonly<Record<ImageRef['type'], readonly ImageWidth[]>> = {
   poster: [160, 320, 640],
   backdrop: [640, 1280, 1920],
   logo: [320, 640],
@@ -96,8 +84,7 @@ const VARIANTS: Readonly<Record<ImageRef['type'], readonly number[]>> = {
 };
 
 export function imageRef(type: ImageRef['type'], key: string): ImageRef {
-  const url = `/video/media/images/${key}`;
-  return { type, url, variants: Object.fromEntries(VARIANTS[type].map((w) => [String(w), `${url}?w=${w}`])) };
+  return { type, url: imageUrlOf(key), variants: Object.fromEntries(VARIANTS[type].map((w) => [String(w), imageUrlOf(key, w)])) };
 }
 
 /** Artwork language order of ADR 0007 point 3: it → none → en → others. */

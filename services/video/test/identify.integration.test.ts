@@ -145,6 +145,8 @@ describe.skipIf(skipReason !== null)('identification of the sample library (scan
       { type: 'analyzer.probe', state: 'done' },
       { type: 'identifier.identify', state: 'done' },
       { type: 'library.scan', state: 'done' },
+      // Enqueued by the catalog for the new works; the fake metadata module here has no Enricher.
+      { type: 'metadata.enrich', state: 'queued' },
     ]);
   });
 
