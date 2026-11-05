@@ -1,0 +1,117 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--page-gutter);
+  text-align: center;
+}
+
+.title {
+  font-size: var(--text-2xl);
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+
+.profile:hover,
+.profile:focus-visible {
+  color: var(--color-text);
+}
+
+.profile:hover .avatar,
+.profile:focus-visible .avatar {
+  outline: 3px solid var(--color-text);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 8rem;
+  height: 8rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(150deg, hsl(var(--hue, 210) 60% 45%), hsl(calc(var(--hue, 210) + 50) 60% 25%));
+  color: #fff;
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.add {
+  background: var(--color-bg-raised);
+  color: var(--color-text-muted);
+}
+
+.name {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.editMark {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-overlay);
+  color: #fff;
+}
+
+.dialog {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  padding: var(--space-5);
+  min-width: min(26rem, 90vw);
+}
+
+.dialog::backdrop {
+  background: var(--color-overlay);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.form p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

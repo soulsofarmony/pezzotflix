@@ -161,6 +161,7 @@ Scartati: Lit e web component scritti a mano (tutto da scrivere), Preact (compat
 7. **Dipendenze**, tutte fissate (licenze in 05 §7.10):
    - runtime: react e react-dom 19.3.1, @tanstack/react-router 1.170.46, @tanstack/react-query 5.106.1, openapi-fetch 0.17.0, zod 4.6.7, hls.js 1.7.4 (Apache-2.0, build light), libpgs 0.9.0;
    - sviluppo: vite 8.3.6, @vitejs/plugin-react 6.2.1, @types/react e @types/react-dom 19.3.0, eslint-plugin-react-hooks 7.1.1, eslint-plugin-jsx-a11y-x 0.2.0, jsdom 31.0.0, @testing-library/react 16.3.3, @testing-library/dom 10.4.2, @testing-library/user-event 14.6.8, @playwright/test 1.64.1 (Apache-2.0), @axe-core/playwright 4.14.0 (MPL-2.0, senza modifiche);
+   - aggiunte in F1c, solo sviluppo: typescript 6.0.3 anche nel workspace web (la dipendenza peer di openapi-typescript installava un TypeScript 5.9 annidato che `tsc` avrebbe usato) e @types/node 26.6.6 per i file di configurazione eseguiti da Node (Vite, Vitest, Playwright). Nessuna delle due entra nel bundle;
    - il resto è già nel workspace.
 
 **Perché:** decidono la qualità del codice scritto dall'AI e rivisto dal proprietario, un ecosistema tipizzato e maturo, e i TSX controllati da `tsc`. Il peso in più di React è misurato, ma in LAN conta poco, e il primo playback è dominato dal chunk del player, uguale per ogni framework.

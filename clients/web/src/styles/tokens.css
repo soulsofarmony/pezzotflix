@@ -1,0 +1,54 @@
+/* Design tokens (ADR 0005 point 5): dark theme, system fonts, no web fonts (the LAN must work offline). */
+:root {
+  color-scheme: dark;
+
+  --color-bg: #0e0f12;
+  --color-bg-elevated: #17191e;
+  --color-bg-raised: #20232a;
+  --color-bg-hover: #2a2e37;
+  --color-border: #2f333c;
+  --color-text: #eceef2;
+  --color-text-muted: #a3a8b4;
+  --color-text-faint: #7b8190;
+  --color-accent: #e5383b;
+  --color-accent-strong: #ff4d50;
+  --color-accent-text: #ffffff;
+  --color-success: #3ec27a;
+  --color-warning: #f2b33d;
+  --color-danger: #ff6b6b;
+  --color-focus: #6fb8ff;
+  --color-overlay: rgb(0 0 0 / 0.72);
+  --color-scrim-top: linear-gradient(to bottom, rgb(0 0 0 / 0.75), transparent);
+  --color-scrim-bottom: linear-gradient(to top, rgb(0 0 0 / 0.85), transparent);
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.5rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  --page-gutter: clamp(1rem, 4vw, 3.5rem);
+  --poster-width: clamp(8.5rem, 13vw, 12rem);
+  --header-height: 4rem;
+
+  --focus-ring: 0 0 0 3px var(--color-focus);
+  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.45);
+  --transition-fast: 120ms ease-out;
+}

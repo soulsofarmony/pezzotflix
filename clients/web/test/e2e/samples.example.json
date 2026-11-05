@@ -1,0 +1,13 @@
+{
+  "main": { "title": "Il Buono, il Brutto, il Cattivo" },
+  "directStream": { "title": "Blade Runner 2049", "mode": "direct_stream" },
+  "farSeek": { "title": "Long Test", "mode": "direct_stream", "subtitleLanguage": "ita", "cueAtMs": 3600000 },
+  "replan": { "title": "Oppenheimer" },
+  "h1": { "title": "S2 h1 AVC AAC", "codecs": ["avc1", "mp4a.40.2"] },
+  "h2": { "title": "S2 h2 HEVC HDR10 AAC", "codecs": ["hvc1", "mp4a.40.2"] },
+  "h6": { "title": "S2 h6 DV P8.1", "codecs": ["hvc1"] },
+  "c1": { "title": "S2 c1 FLAC 5.1", "codecs": ["avc1", "flac"] },
+  "c4": { "title": "S2 c4 Opus 5.1", "codecs": ["avc1", "opus"] },
+  "c7": { "title": "S2 c7 AAC 5.1", "codecs": ["avc1", "mp4a.40.2"] },
+  "s3": { "title": "S2 s3 PGS 4K HDR10", "subtitleLanguage": "ita", "cueAtMs": 5000 }
+}

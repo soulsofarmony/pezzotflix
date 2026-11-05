@@ -1716,12 +1716,15 @@ La ripianificazione è **automatica** (doc 04 §8): nessuna domanda all'utente p
 | `<video>` `error`, `MEDIA_ERR_DECODE` | `reportPlaybackFailure`: `video` se l'audio è stato decodificato, altrimenti `unknown` | |
 | `<video>` `error`, `MEDIA_ERR_NETWORK` in `progressive` | come i 5xx di hls.js: `reportPlaybackFailure` con `unknown` dopo un nuovo tentativo del browser | |
 | **Audio che sparisce** in `progressive` (Direct Play e fMP4 progressivo): dopo 4 s di `currentTime` avanzato con una traccia audio selezionata, `webkitAudioDecodedByteCount === 0` (Chromium) o `mozHasAudio === false` (Firefox) | `reportPlaybackFailure`: `audio` | Le proprietà non sono standard: se mancano, nessun segnale (S2). L'AAC con PCE in Firefox non si vede: lo previene il server |
-| libpgs: caricamento del `.sup` fallito | `reportPlaybackFailure`: `subtitle` | la riproduzione prosegue |
-| Errore di un motore in sostituzione (§7.8) | ignorato | mai una nuova `StartPlayback` |
+| libpgs o `<track>`: caricamento del sottotitolo fallito | `reportPlaybackFailure`: `subtitle`, con il motore staccato come per ogni cambio di stream | Il server ripianifica e restituisce uno stream nuovo, quindi il motore si ricrea (decisione in F1c). Un `503` sull'URL del sottotitolo non è un fallimento: si riprova dopo `Retry-After` e la traccia resta "in preparazione" |
+| Errore di un motore in sostituzione (§7.8) | ignorato | mai una nuova `StartPlayback`. Vale anche mentre è in volo una chiamata che sostituisce lo stream (`ChangeTracks`, `ChangeVersion`, `reportPlaybackFailure`): prima della chiamata il client alza la generazione, il motore vecchio continua a suonare ma i suoi errori, compreso il 410 dei locatori vecchi, non contano |
+| hls.js `ERROR` fatale, `bufferStalledError` o `bufferSeekOverHole` (fatali in 1.7.4 dopo `nudgeMaxRetry`) | un solo reload, poi `reportPlaybackFailure` con `unknown` | hls.js ferma il caricamento: senza azione resterebbe uno spinner infinito |
+| hls.js `ERROR` fatale, `mediaSourceRequiresReset` con `video.error` impostato, o ripetuto sulla stessa sessione | `reportPlaybackFailure`: scomposizione dei codec, poi `unknown`; al più un reload | In 1.7.4 un append fallito dopo che Chromium ha chiuso la MediaSource arriva con questo codice (casi di S2: AAC con PCE, DV) |
 
 - **Esclusioni:**
-  - `bufferFullError` e `mediaSourceRequiresReset` non sono fallimenti del piano;
-  - `bufferStalledError` è un evento di rete, non un fallimento.
+  - `bufferFullError` non è un fallimento del piano;
+  - `mediaSourceRequiresReset` e `bufferStalledError` non fatali sono gestiti da hls.js; le versioni fatali seguono la tabella.
+- **Posizione prima del posizionamento:** finché il motore non ha raggiunto la posizione di partenza (primo `playing` o `seeked`), il client usa la posizione di partenza per i fallimenti, lo stop, il progress e il `pagehide`, mai `currentTime` = 0 (revisione di F1c).
 - **Limite:** al massimo **3 tentativi automatici per avvio**, contando insieme le ripianificazioni e le nuove `StartPlayback` dopo una sessione chiusa. Il doc 04 §8 non fissa un numero: questo è il limite del web client. Esauriti i tentativi, il player mostra i motivi della sessione e solo allora offre "Riprova" all'utente.
 - **`422 NO_COMPATIBLE_PLAN`** mostra il motivo del server ("4K: serve un Transcode, non disponibile nell'MVP", P2).
 - **Diagnostica:** il pannello "Informazioni tecniche" del player mostra `mode`, `reasons`, `mimeType`, la capability dichiarata e l'ultimo fallimento, perché si possa capire perché un film non va in Direct Play (doc 03 §4.3).
@@ -1748,7 +1751,8 @@ La ripianificazione è **automatica** (doc 04 §8): nessuna domanda all'utente p
   - `switchWithoutRestart` riguarda solo lo stream: è vero per una traccia `client_render` o `sidecar` che ha un URL;
   - `availability` ∈ {`complete`, `growing`} dice se l'estrazione è finita;
   - scegliere una traccia `growing` **non** passa da `ChangeTracks`: il client carica l'URL e la UI la mostra "in preparazione", perché i cue prima dell'inizio dell'estrazione possono mancare;
-  - "Nessuno" spegne i sottotitoli (§6), sempre in locale.
+  - una traccia che il client sa mostrare da sé si sceglie in locale, ma il client manda anche `ChangeTracks` con `subtitleTrackId`, così il server registra l'ultima scelta del profilo (doc 04 §3.1); per una traccia servita il server non ripianifica e lo stream resta lo stesso;
+  - "Nessuno" passa da `ChangeTracks`: il server registra la scelta e mostra comunque la traccia forced nella lingua dell'audio, se c'è (doc 04 §3.1). La UI mostra la traccia che la sessione dichiara visibile.
 - **Regola di ricarica.**
   - `availability` arriva nelle tracce della sessione restituita da `StartPlayback` e da `ChangeTracks`.
   - Il passaggio a `complete` arriva con l'evento **`playback.subtitle_ready`** `{sessionId, trackId, availability}` su `listEvents`, che il client già interroga: ogni 5 s a pagina visibile, ogni 15 s a pagina nascosta con una sessione attiva (§7.7). `reportProgress` risponde 204 senza corpo, quindi non porta lo stato delle tracce.
