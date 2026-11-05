@@ -58,12 +58,19 @@ export interface AudioStreamFacts extends StreamBase {
   /** Object audio detected from profile/title: 'atmos' (TrueHD/E-AC-3 JOC) or 'dtsx'. */
   objectAudio: 'atmos' | 'dtsx' | null;
   commentary: boolean;
+  /**
+   * Audio description for the visually impaired (disposition visual_impaired): ranked last with the
+   * commentaries. Facts stored before this field read it as absent (false).
+   */
+  audioDescription: boolean;
 }
 
 export interface SubtitleStreamFacts extends StreamBase {
   type: 'subtitle';
   kind: 'text' | 'image';
   sdh: boolean;
+  /** Commentary track (disposition comment or title), as for audio. Absent in older facts (false). */
+  commentary: boolean;
   /** Number of events if cheaply known (e.g. from tags); null otherwise. */
   eventCount: number | null;
 }

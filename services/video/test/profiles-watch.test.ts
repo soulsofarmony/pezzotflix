@@ -230,21 +230,49 @@ describe('lastTrackChoice', () => {
     watch.recordProgress(sample(m, 600_000, 10)); // tracks unknown
     expect(watch.lastTrackChoice(pid, m)).toBeNull();
     watch.recordProgress(sample(m, 610_000, 20, { audioTrackId: 's2', subtitleTrackId: 'x:ita-forced' }));
-    expect(watch.lastTrackChoice(pid, m)).toEqual({ audioTrackId: 's2', subtitleTrackId: 'x:ita-forced' });
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: 's2', subtitleTrackId: 'x:ita-forced' });
     watch.recordProgress(sample(m, 620_000, 30));
-    expect(watch.lastTrackChoice(pid, m)).toEqual({ audioTrackId: 's2', subtitleTrackId: 'x:ita-forced' });
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: 's2', subtitleTrackId: 'x:ita-forced' });
     watch.recordProgress(sample(m, 630_000, 40, { subtitleTrackId: null })); // subtitles turned off
-    expect(watch.lastTrackChoice(pid, m)).toEqual({ audioTrackId: 's2', subtitleTrackId: null });
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: 's2', subtitleTrackId: null });
     watch.recordProgress(sample(m, 640_000, 50, { audioTrackId: 's1', subtitleTrackId: 's5' }));
-    expect(watch.lastTrackChoice(pid, m)).toEqual({ audioTrackId: 's1', subtitleTrackId: 's5' });
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: 's1', subtitleTrackId: 's5' });
     const row = db.$client.prepare('SELECT audio_stream_index AS a, subtitle_track_id AS s FROM playback_progress').get();
     expect(row).toEqual({ a: 1, s: 's5' });
+  });
+
+  it('carries the file of the latest sample (track ids are file-local)', () => {
+    const m = seed.item('m1');
+    watch.recordProgress(sample(m, 600_000, 10, { audioTrackId: 's1', subtitleTrackId: null }));
+    watch.recordProgress(sample(m, 610_000, 20, { fileId: 'f-other', audioTrackId: 's2', subtitleTrackId: 's3' }));
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: 'f-other', audioTrackId: 's2', subtitleTrackId: 's3' });
+  });
+
+  it('an unknown subtitle choice is absent, never read as off (E-1)', () => {
+    const m = seed.item('m1');
+    watch.recordProgress(sample(m, 600_000, 10, { audioTrackId: 's2' }));
+    const choice = watch.lastTrackChoice(pid, m);
+    expect(choice).toEqual({ fileId: `f-${m}`, audioTrackId: 's2' });
+    expect(choice).not.toHaveProperty('subtitleTrackId');
+  });
+
+  it('never carries one file’s tracks under another file (E-2)', () => {
+    const m = seed.item('m1');
+    watch.recordProgress(sample(m, 600_000, 10, { audioTrackId: 's1', subtitleTrackId: 's5' }));
+    watch.recordProgress(sample(m, 610_000, 20, { fileId: 'f-other', audioTrackId: 's2' })); // subtitle unknown on f-other
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: 'f-other', audioTrackId: 's2' });
+    watch.recordProgress(sample(m, 620_000, 30, { fileId: 'f-other' })); // same file: the stored tracks stay
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: 'f-other', audioTrackId: 's2' });
+    watch.recordProgress(sample(m, 630_000, 40, { subtitleTrackId: null })); // back on the first file: audio unknown
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: null, subtitleTrackId: null });
+    watch.recordProgress(sample(m, 640_000, 50, { fileId: 'f-third' })); // nothing known on a third file
+    expect(watch.lastTrackChoice(pid, m)).toBeNull();
   });
 
   it('subtitles off alone is a choice', () => {
     const m = seed.item('m1');
     watch.recordProgress(sample(m, 600_000, 10, { subtitleTrackId: null }));
-    expect(watch.lastTrackChoice(pid, m)).toEqual({ audioTrackId: null, subtitleTrackId: null });
+    expect(watch.lastTrackChoice(pid, m)).toEqual({ fileId: `f-${m}`, audioTrackId: null, subtitleTrackId: null });
   });
 
   it('goes with the progress on completion and is per profile', () => {

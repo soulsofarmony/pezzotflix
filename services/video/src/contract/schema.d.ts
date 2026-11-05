@@ -993,6 +993,7 @@ export interface components {
         StartPlaybackRequest: {
             itemId: components["schemas"]["Id"];
             capabilities: components["schemas"]["ClientCapabilities"];
+            /** @description The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise). */
             fileId?: components["schemas"]["Id"];
             audioTrackId?: string;
             subtitleTrackId?: string | null;
@@ -1202,23 +1203,26 @@ export interface components {
         };
         ExplainRequest: {
             itemId: components["schemas"]["Id"];
+            /** @description The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise). */
             fileId?: components["schemas"]["Id"];
             capabilities: components["schemas"]["ClientCapabilities"];
             audioTrackId?: string;
             subtitleTrackId?: string | null;
         };
+        /** @description Answered whenever the item exists, also when no plan is possible (mode and fileId null, reasons say why) or no file is available. */
         PlaybackPlanExplanation: {
-            mode: components["schemas"]["DeliveryMode"];
-            fileId: components["schemas"]["Id"];
+            mode: components["schemas"]["DeliveryMode"] | null;
+            fileId: components["schemas"]["Id"] | null;
             reasons: string[];
-            /** @description Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in */
+            /** @description Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in; empty when no plan */
             actions: {
                 [key: string]: string;
             };
-            candidates?: {
-                fileId?: components["schemas"]["Id"];
-                mode?: components["schemas"]["DeliveryMode"];
-                reasons?: string[];
+            /** @description One per available file of the item, with its mode (null when no mode works) and its reasons. */
+            candidates: {
+                fileId: components["schemas"]["Id"];
+                mode: components["schemas"]["DeliveryMode"] | null;
+                reasons: string[];
             }[];
         };
     };
@@ -1424,6 +1428,7 @@ export interface operations {
             };
             400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     selectProfile: {
@@ -1726,6 +1731,8 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
+            500: components["responses"]["Problem"];
             /** @description MEDIA_UNAVAILABLE, or STREAM_PREPARING when the file's keyframe index is not ready and needs a slow probe; the index job is moved to the front of the queue and the client shows "preparing" and retries after Retry-After (ADR 0003). */
             503: components["responses"]["ProblemRetryAfter"];
         };
@@ -1809,6 +1816,10 @@ export interface operations {
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
+            500: components["responses"]["Problem"];
+            /** @description STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE. */
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     changeVersion: {
@@ -1836,7 +1847,12 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
+            500: components["responses"]["Problem"];
+            /** @description STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE. */
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     reportPlaybackFailure: {
@@ -1864,7 +1880,12 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
+            500: components["responses"]["Problem"];
+            /** @description STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE. */
+            503: components["responses"]["ProblemRetryAfter"];
         };
     };
     listLibraryRoots: {
@@ -2153,6 +2174,8 @@ export interface operations {
                     "application/json": components["schemas"]["PlaybackPlanExplanation"];
                 };
             };
+            /** @description VALIDATION_FAILED, for example track ids without fileId on an item with several versions. */
+            400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
         };
     };

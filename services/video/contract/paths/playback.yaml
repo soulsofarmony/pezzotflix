@@ -31,6 +31,9 @@ sessions:
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '409': { $ref: '../components/responses.yaml#/Problem' }
       '422': { $ref: '../components/responses.yaml#/Problem' }
+      '500':
+        $ref: '../components/responses.yaml#/Problem'
+        description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.
       '503':
         $ref: '../components/responses.yaml#/ProblemRetryAfter'
         description: >-
@@ -97,6 +100,14 @@ tracks:
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '410': { $ref: '../components/responses.yaml#/Problem' }
       '422': { $ref: '../components/responses.yaml#/Problem' }
+      '500':
+        $ref: '../components/responses.yaml#/Problem'
+        description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.
+      '503':
+        $ref: '../components/responses.yaml#/ProblemRetryAfter'
+        description: >-
+          STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a
+          stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE.
 version:
   parameters:
     - { $ref: '../components/parameters.yaml#/SessionId' }
@@ -115,7 +126,16 @@ version:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
       '422': { $ref: '../components/responses.yaml#/Problem' }
+      '500':
+        $ref: '../components/responses.yaml#/Problem'
+        description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.
+      '503':
+        $ref: '../components/responses.yaml#/ProblemRetryAfter'
+        description: >-
+          STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a
+          stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE.
 failure:
   parameters:
     - { $ref: '../components/parameters.yaml#/SessionId' }
@@ -142,4 +162,13 @@ failure:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/PlaybackSession' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
+      '410': { $ref: '../components/responses.yaml#/Problem' }
       '422': { $ref: '../components/responses.yaml#/Problem' }
+      '500':
+        $ref: '../components/responses.yaml#/Problem'
+        description: STREAM_FAILED, the stream could not be produced and the automatic attempts are used up.
+      '503':
+        $ref: '../components/responses.yaml#/ProblemRetryAfter'
+        description: >-
+          STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a
+          stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE.

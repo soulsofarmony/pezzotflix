@@ -192,4 +192,7 @@ explain:
         content:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/PlaybackPlanExplanation' }
+      '400':
+        $ref: '../components/responses.yaml#/Problem'
+        description: VALIDATION_FAILED, for example track ids without fileId on an item with several versions.
       '404': { $ref: '../components/responses.yaml#/Problem' }

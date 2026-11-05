@@ -82,17 +82,21 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
      ) GROUP BY item_id`,
   );
 
-  // A null @audio or @sub (track unknown in the sample) keeps the stored choice.
+  // A null @audio or @sub (track unknown in the sample) keeps the stored choice of the same file.
+  // Track ids are file-local: on a file change the sample's values are taken as they are, unknowns
+  // included (SET expressions read the row before the update).
   const upsertProgress = sql.prepare(
     `INSERT INTO playback_progress (profile_id, item_id, position_ms, duration_ms, file_id, audio_stream_index, subtitle_track_id, client_ts, updated_at)
      VALUES (@p, @item, @pos, @dur, @file, @audio, @sub, @at, @now)
      ON CONFLICT (profile_id, item_id) DO UPDATE SET position_ms = excluded.position_ms, duration_ms = excluded.duration_ms,
        file_id = excluded.file_id, client_ts = excluded.client_ts, updated_at = excluded.updated_at,
-       audio_stream_index = coalesce(excluded.audio_stream_index, audio_stream_index),
-       subtitle_track_id = coalesce(excluded.subtitle_track_id, subtitle_track_id)`,
+       audio_stream_index = CASE WHEN file_id IS excluded.file_id
+         THEN coalesce(excluded.audio_stream_index, audio_stream_index) ELSE excluded.audio_stream_index END,
+       subtitle_track_id = CASE WHEN file_id IS excluded.file_id
+         THEN coalesce(excluded.subtitle_track_id, subtitle_track_id) ELSE excluded.subtitle_track_id END`,
   );
   const tracksOf = sql.prepare(
-    'SELECT audio_stream_index AS audio, subtitle_track_id AS sub FROM playback_progress WHERE profile_id = ? AND item_id = ?',
+    'SELECT file_id AS file, audio_stream_index AS audio, subtitle_track_id AS sub FROM playback_progress WHERE profile_id = ? AND item_id = ?',
   );
   const deleteProgress = sql.prepare('DELETE FROM playback_progress WHERE profile_id = ? AND item_id = ?');
   // A completed viewing counts one more play.
@@ -281,13 +285,16 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
 
   /**
    * Tracks of the progress in course. The choice lives on the progress row (schema), so it goes
-   * with it when the item is completed or its progress cleared. A stored audio track without a
-   * subtitle choice reads as subtitles off.
+   * with it when the item is completed or its progress cleared. The column tells the subtitle
+   * states apart: NULL is unknown (subtitleTrackId absent, the prefs decide), 'off' is off. fileId
+   * is the file of the latest sample: the stored tracks always belong to it (see upsertProgress).
    */
   function lastTrackChoice(profileId: string, itemId: string): TrackChoice | null {
-    const r = tracksOf.get(profileId, itemId) as { audio: number | null; sub: string | null } | undefined;
+    const r = tracksOf.get(profileId, itemId) as { file: string | null; audio: number | null; sub: string | null } | undefined;
     if (!r || (r.audio === null && r.sub === null)) return null;
-    return { audioTrackId: r.audio === null ? null : `s${r.audio}`, subtitleTrackId: r.sub === null || r.sub === SUBTITLES_OFF ? null : r.sub };
+    const out: TrackChoice = { fileId: r.file, audioTrackId: r.audio === null ? null : `s${r.audio}` };
+    if (r.sub !== null) out.subtitleTrackId = r.sub === SUBTITLES_OFF ? null : r.sub;
+    return out;
   }
 
   function resumePositionMs(profileId: string, itemId: string): number | null {

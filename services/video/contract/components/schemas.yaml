@@ -363,7 +363,11 @@ StartPlaybackRequest:
   properties:
     itemId: { $ref: '#/Id' }
     capabilities: { $ref: '#/ClientCapabilities' }
-    fileId: { $ref: '#/Id' }
+    fileId:
+      allOf: [{ $ref: '#/Id' }]
+      description: >-
+        The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a
+        subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise).
     audioTrackId: { type: string }
     subtitleTrackId: { type: [string, 'null'] }
     startPositionMs: { type: integer, minimum: 0 }
@@ -517,22 +521,27 @@ ActiveSession:
 
 PlaybackPlanExplanation:
   type: object
-  required: [mode, reasons, fileId, actions]
+  description: >-
+    Answered whenever the item exists, also when no plan is possible (mode and fileId null, reasons say why)
+    or no file is available.
+  required: [mode, reasons, fileId, actions, candidates]
   properties:
-    mode: { $ref: '#/DeliveryMode' }
-    fileId: { $ref: '#/Id' }
+    mode: { oneOf: [{ $ref: '#/DeliveryMode' }, { type: 'null' }] }
+    fileId: { oneOf: [{ $ref: '#/Id' }, { type: 'null' }] }
     reasons: { type: array, items: { type: string } }
     actions:
       type: object
       additionalProperties: { type: string }
-      description: 'Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in'
+      description: 'Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in; empty when no plan'
     candidates:
       type: array
+      description: One per available file of the item, with its mode (null when no mode works) and its reasons.
       items:
         type: object
+        required: [fileId, mode, reasons]
         properties:
           fileId: { $ref: '#/Id' }
-          mode: { $ref: '#/DeliveryMode' }
+          mode: { oneOf: [{ $ref: '#/DeliveryMode' }, { type: 'null' }] }
           reasons: { type: array, items: { type: string } }
 
 # ---------------------------------------------------------------- events
@@ -723,7 +732,11 @@ ExplainRequest:
   additionalProperties: false
   properties:
     itemId: { $ref: '#/Id' }
-    fileId: { $ref: '#/Id' }
+    fileId:
+      allOf: [{ $ref: '#/Id' }]
+      description: >-
+        The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a
+        subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise).
     capabilities: { $ref: '#/ClientCapabilities' }
     audioTrackId: { type: string }
     subtitleTrackId: { type: [string, 'null'] }

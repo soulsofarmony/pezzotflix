@@ -170,7 +170,8 @@ describe('audio: lossless and object audio', () => {
     expect(one({ codec_type: 'audio', codec_name: 'ac3', tags: { title: "Director's Commentary" } })).toMatchObject({ commentary: true });
     expect(one({ codec_type: 'audio', codec_name: 'ac3', disposition: { comment: 1 } })).toMatchObject({ commentary: true });
     expect(one({ codec_type: 'audio', codec_name: 'ac3', tags: { title: 'Italiano 5.1' } })).toMatchObject({ commentary: false });
-    expect(one({ codec_type: 'audio', codec_name: 'truehd', tags: { 'BPS-eng': '4521000' } })).toMatchObject({ bitRate: 4521000 });
+    expect(one({ codec_type: 'audio', codec_name: 'truehd', tags: { 'BPS-eng': '4521000' } })).toMatchObject({ bitRate: 4521000 });    expect(one({ codec_type: 'audio', codec_name: 'ac3', disposition: { visual_impaired: 1 } })).toMatchObject({ audioDescription: true, commentary: false });
+    expect(one({ codec_type: 'audio', codec_name: 'ac3' })).toMatchObject({ audioDescription: false });
   });
 });
 
@@ -182,6 +183,9 @@ describe('subtitles and other streams', () => {
     expect(s({ disposition: { captions: 1 } })).toMatchObject({ sdh: true });
     expect(s({ tags: { NUMBER_OF_FRAMES: '1234' } })).toMatchObject({ eventCount: 1234 });
     expect(s({ codec_name: 'dvd_subtitle' })).toMatchObject({ kind: 'image', eventCount: null });
+    expect(s({ tags: { title: 'Commento del regista' } })).toMatchObject({ commentary: true });
+    expect(s({ disposition: { comment: 1 } })).toMatchObject({ commentary: true });
+    expect(s({ tags: { title: 'Italiano' } })).toMatchObject({ commentary: false });
   });
 
   it.each([

@@ -225,6 +225,7 @@ function mapStream(s: FfprobeStream, hdr10Plus: boolean): StreamFacts | OtherStr
         lossless: isLossless(codec, profile),
         objectAudio: objectAudioOf(codec, profile, title),
         commentary: flag(s, 'comment') || COMMENTARY_TITLE.test(title ?? ''),
+        audioDescription: flag(s, 'visual_impaired'),
       } satisfies AudioStreamFacts;
     case 'subtitle':
       return {
@@ -233,6 +234,7 @@ function mapStream(s: FfprobeStream, hdr10Plus: boolean): StreamFacts | OtherStr
         forced: flag(s, 'forced') || titleSaysForced(title),
         kind: IMAGE_SUBTITLE_CODECS.has(codec) ? 'image' : 'text',
         sdh: flag(s, 'hearing_impaired') || flag(s, 'captions') || SDH_TITLE.test(title ?? ''),
+        commentary: isCommentarySubtitle(s),
         eventCount: toPositiveInt(tag(s.tags, 'NUMBER_OF_FRAMES')),
       } satisfies SubtitleStreamFacts;
     default:
@@ -254,9 +256,10 @@ function mapChapter(c: FfprobeChapter, index: number): ChapterFacts {
   return { index, title: tag(c.tags, 'title'), startMs, endMs: Math.max(endMs, startMs) };
 }
 
-// SubtitleStreamFacts has no commentary flag; media_stream.is_commentary still records it.
-const isCommentarySubtitle = (s: FfprobeStream): boolean =>
-  s.codec_type === 'subtitle' && (flag(s, 'comment') || COMMENTARY_TITLE.test(tag(s.tags, 'title') ?? ''));
+// Hoisted: also used by mapStream above.
+function isCommentarySubtitle(s: FfprobeStream): boolean {
+  return s.codec_type === 'subtitle' && (flag(s, 'comment') || COMMENTARY_TITLE.test(tag(s.tags, 'title') ?? ''));
+}
 
 export interface MappedProbe {
   facts: MediaFacts;

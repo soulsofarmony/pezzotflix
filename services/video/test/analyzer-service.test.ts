@@ -113,7 +113,7 @@ describe('analyzer.probe', () => {
     ]);
     expect(JSON.parse(streams[0]!.attrs)).toMatchObject({ width: 3840, hdr: 'HDR10', hdrFallback: [] });
     expect(JSON.parse(streams[1]!.attrs)).toMatchObject({ lossless: true, channels: 6, objectAudio: null });
-    expect(JSON.parse(streams[4]!.attrs)).toEqual({ kind: 'image', sdh: false, eventCount: null });
+    expect(JSON.parse(streams[4]!.attrs)).toEqual({ kind: 'image', sdh: false, commentary: false, eventCount: null });
 
     const chapters = db.$client.prepare("SELECT chapter_index AS i, title, start_ms AS s, end_ms AS e FROM chapter WHERE file_id = 'f1'").all();
     expect(chapters).toEqual([

@@ -226,6 +226,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
           }
         }
       },
@@ -735,6 +738,10 @@
           "422": {
             "$ref": "#/components/responses/Problem"
           },
+          "500": {
+            "$ref": "#/components/responses/Problem",
+            "description": "STREAM_FAILED, the stream could not be produced and the automatic attempts are used up."
+          },
           "503": {
             "$ref": "#/components/responses/ProblemRetryAfter",
             "description": "MEDIA_UNAVAILABLE, or STREAM_PREPARING when the file's keyframe index is not ready and needs a slow probe; the index job is moved to the front of the queue and the client shows \"preparing\" and retries after Retry-After (ADR 0003)."
@@ -866,6 +873,14 @@
           },
           "422": {
             "$ref": "#/components/responses/Problem"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem",
+            "description": "STREAM_FAILED, the stream could not be produced and the automatic attempts are used up."
+          },
+          "503": {
+            "$ref": "#/components/responses/ProblemRetryAfter",
+            "description": "STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE."
           }
         }
       }
@@ -905,8 +920,19 @@
           "404": {
             "$ref": "#/components/responses/Problem"
           },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          },
           "422": {
             "$ref": "#/components/responses/Problem"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem",
+            "description": "STREAM_FAILED, the stream could not be produced and the automatic attempts are used up."
+          },
+          "503": {
+            "$ref": "#/components/responses/ProblemRetryAfter",
+            "description": "STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE."
           }
         }
       }
@@ -948,8 +974,19 @@
           "404": {
             "$ref": "#/components/responses/Problem"
           },
+          "410": {
+            "$ref": "#/components/responses/Problem"
+          },
           "422": {
             "$ref": "#/components/responses/Problem"
+          },
+          "500": {
+            "$ref": "#/components/responses/Problem",
+            "description": "STREAM_FAILED, the stream could not be produced and the automatic attempts are used up."
+          },
+          "503": {
+            "$ref": "#/components/responses/ProblemRetryAfter",
+            "description": "STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE."
           }
         }
       }
@@ -1382,6 +1419,10 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem",
+            "description": "VALIDATION_FAILED, for example track ids without fileId on an item with several versions."
           },
           "404": {
             "$ref": "#/components/responses/Problem"
@@ -2708,7 +2749,12 @@
             "$ref": "#/components/schemas/ClientCapabilities"
           },
           "fileId": {
-            "$ref": "#/components/schemas/Id"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise)."
           },
           "audioTrackId": {
             "type": "string"
@@ -3481,7 +3527,12 @@
             "$ref": "#/components/schemas/Id"
           },
           "fileId": {
-            "$ref": "#/components/schemas/Id"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "The version to play. Track ids are file-local: on an item with several versions, audioTrackId or a subtitleTrackId string requires fileId (400 VALIDATION_FAILED otherwise)."
           },
           "capabilities": {
             "$ref": "#/components/schemas/ClientCapabilities"
@@ -3499,18 +3550,34 @@
       },
       "PlaybackPlanExplanation": {
         "type": "object",
+        "description": "Answered whenever the item exists, also when no plan is possible (mode and fileId null, reasons say why) or no file is available.",
         "required": [
           "mode",
           "reasons",
           "fileId",
-          "actions"
+          "actions",
+          "candidates"
         ],
         "properties": {
           "mode": {
-            "$ref": "#/components/schemas/DeliveryMode"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "fileId": {
-            "$ref": "#/components/schemas/Id"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "reasons": {
             "type": "array",
@@ -3523,18 +3590,31 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in"
+            "description": "Per dimension: container, video, audio, subtitles → none | remux | convert:<codec> | transcode | burn_in; empty when no plan"
           },
           "candidates": {
             "type": "array",
+            "description": "One per available file of the item, with its mode (null when no mode works) and its reasons.",
             "items": {
               "type": "object",
+              "required": [
+                "fileId",
+                "mode",
+                "reasons"
+              ],
               "properties": {
                 "fileId": {
                   "$ref": "#/components/schemas/Id"
                 },
                 "mode": {
-                  "$ref": "#/components/schemas/DeliveryMode"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DeliveryMode"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "reasons": {
                   "type": "array",

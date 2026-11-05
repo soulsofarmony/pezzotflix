@@ -87,7 +87,7 @@ export interface VideoCopy {
 }
 
 /** Why the video is re-encoded (doc 04 §4.2, §4.4, §4.5). */
-export type TranscodeCause = 'codec' | 'resolution' | 'bitrate' | 'hdr_tonemap' | 'dv_p5' | 'burn_in';
+export type TranscodeCause = 'codec' | 'resolution' | 'bitrate' | 'hdr_tonemap' | 'dv_p5' | 'burn_in' | 'excluded'; // excluded: lighter modes excluded by failures (doc 04 §8)
 
 /**
  * Software Transcode, sources up to 1080p only (P2), at most MAX_TRANSCODES at once (P4).
@@ -103,7 +103,7 @@ export interface VideoTranscode {
   height: number;
   /** VBV max rate: min(client limits.maxBitrate minus audio, delivery default). */
   maxBitrateBps: number;
-  /** HDR10/HLG to SDR (doc 04 §4.2); 'none' for SDR sources or clients presenting HDR. */
+  /** HDR10/HLG to SDR (doc 04 §4.2): 'to_sdr' for every HDR source (8-bit H.264 output), 'none' for SDR sources. */
   toneMap: 'none' | 'to_sdr';
   causes: TranscodeCause[];
 }
@@ -203,7 +203,7 @@ export interface PlanSubtitles<D extends SubtitleDelivery> {
 export type ReasonCode =
   | 'direct_play'
   | 'forced_mode' // StartPlayback.forceMode, diagnostics only
-  | 'version_chosen' // another file of the item won (D2): lighter mode, higher quality or lower cost
+  | 'version_chosen' // another file of the item won (D2): no video transcode, higher quality, lighter mode or lower cost
   | 'container_unsupported'
   | 'audio_track_selection' // multi-audio container on a client without audioTrackSelection (doc 04 §4.1)
   | 'dv_direct_play_unmeasured' // DV in MKV never Direct Play in the browser (doc 04 §4.1)
@@ -215,9 +215,11 @@ export type ReasonCode =
   | 'dv_p81_as_hdr10'
   | 'dv_p7_remove_dovi' // H11, provisional
   | 'dv_p5_transcode'
+  | 'dv_base_layer' // native player without DV: plays the HDR10/HLG base layer of the file (doc 04 §4.1–4.2)
   | 'audio_copy'
   | 'audio_converted'
   | 'audio_downmixed' // 7.1 → 5.1 for a lossy output, or → stereo
+  | 'audio_unsupported' // no step of the audio ladder serves the track (doc 04 §4.3)
   | 'subtitle_client_render'
   | 'subtitle_sidecar'
   | 'subtitle_burn_in'
@@ -225,7 +227,8 @@ export type ReasonCode =
   | 'transcode_limited' // P2 deviation: a 4K source that would need a Transcode
   | 'transcode_disabled' // MAX_TRANSCODES = 0 or the transcode slot is taken (P4)
   | 'format_excluded' // a format excluded by an earlier failure of this session (doc 04 §8)
-  | 'replanned_after_failure';
+  | 'replanned_after_failure'
+  | 'file_unavailable'; // explain candidates: the file is missing or its root offline
 
 export interface PlanReason {
   code: ReasonCode;
@@ -239,14 +242,17 @@ export interface PlanReason {
  * stays excluded"). The Session Manager accumulates them and passes them to every re-plan, and the
  * plan echoes the set it was computed with, so explain and re-plan are reproducible.
  * - mode: this file can no longer use this mode (video, container or unknown suspect → heavier mode);
- * - audio: this audio output can no longer be used, for any track ('copy' + source codec, or a conversion);
+ * - audio: this audio output can no longer be used, for any track ('copy' + source codec and profile,
+ *   so a DTS-HD MA copy does not exclude a DTS core; or a conversion);
  * - subtitle: this treatment of this track can no longer be used (→ next treatment of doc 04 §4.4).
+ *   fileId names the file the track belongs to (track ids are per file); null = any file.
+ *   Not optional: the plan carries no undefined-valued fields (JSON across C1).
  */
 export type PlanExclusion = (
   | { dimension: 'container' | 'video'; fileId: string; mode: DeliveryMode }
-  | { dimension: 'audio'; action: 'copy'; codec: string }
+  | { dimension: 'audio'; action: 'copy'; codec: string; profile: string | null }
   | { dimension: 'audio'; action: 'convert'; codec: AudioOutputCodec }
-  | { dimension: 'subtitle'; trackId: string; delivery: SubtitleDelivery }
+  | { dimension: 'subtitle'; trackId: string; delivery: SubtitleDelivery; fileId: string | null }
 ) & {
   /** Who blamed it: the client (reportPlaybackFailure) or delivery's own failure record (ADR 0003 D7). */
   cause: 'client' | 'server';

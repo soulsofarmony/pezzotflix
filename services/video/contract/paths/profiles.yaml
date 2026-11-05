@@ -52,6 +52,7 @@ single:
             schema: { $ref: '../components/schemas.yaml#/Profile' }
       '400': { $ref: '../components/responses.yaml#/Problem' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
   delete:
     operationId: deleteProfile
     tags: [profiles]

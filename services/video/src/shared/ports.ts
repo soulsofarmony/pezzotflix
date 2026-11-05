@@ -89,9 +89,14 @@ export interface ProgressSample {
 
 /** The last track choice of a profile on an item, reused by StartPlayback (doc 03, doc 01 §7.2). */
 export interface TrackChoice {
+  /**
+   * File the choice was made on (the progress row's file). Track ids are file-local: on another
+   * version playback matches the track by its descriptor instead. Null when unknown.
+   */
+  fileId: string | null;
   audioTrackId: string | null;
-  /** Null: subtitles were off. */
-  subtitleTrackId: string | null;
+  /** Null: subtitles were off. Absent: unknown (never recorded on this file), the prefs decide. */
+  subtitleTrackId?: string | null;
 }
 
 /**
