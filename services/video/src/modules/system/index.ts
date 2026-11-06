@@ -112,7 +112,10 @@ export const createSystemModule: ModuleFactory = ({ db, config, ports, now, log 
           ingest: {
             running: count("SELECT count(*) AS n FROM job WHERE state = 'running'") > 0,
             queued: count("SELECT count(*) AS n FROM job WHERE state = 'queued'"),
-            needsReview: count("SELECT count(*) AS n FROM identification_case WHERE state = 'needs_review'"),
+            // The "Da verificare" queue (ListIdentificationCases): a forgotten file's case is not in it.
+            needsReview: count(
+              "SELECT count(*) AS n FROM identification_case c JOIN media_file f ON f.id = c.file_id WHERE c.state = 'needs_review' AND f.state <> 'removed'",
+            ),
           },
           providers: providers(),
         };

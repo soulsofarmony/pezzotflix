@@ -31,8 +31,29 @@ describe('invalidateForEvents', () => {
     const events: AppEvent[] = Array.from({ length: 50 }, (_, i) => ({ seq: i, at: 0, type: 'library.item_updated', itemId: `i${i}` }));
     events.push({ seq: 50, at: 0, type: 'ingest.progress' }, { seq: 51, at: 0, type: 'ingest.progress' });
     invalidateForEvents(qc, events);
-    // home, items, search, item; then ingest, roots, server.
-    expect(spy).toHaveBeenCalledTimes(7);
+    // home, items, search, item; then ingest, roots, missing files, cases, server.
+    expect(spy).toHaveBeenCalledTimes(9);
+  });
+
+  it('a scan refreshes the missing files of every root filter', () => {
+    const qc = seeded();
+    qc.setQueryData(keys.admin.files(null), {});
+    qc.setQueryData(keys.admin.files('r1'), {});
+    invalidateForEvents(qc, [{ seq: 1, at: 0, type: 'ingest.progress' }]);
+    expect(stale(qc, keys.admin.files(null))).toBe(true);
+    expect(stale(qc, keys.admin.files('r1'))).toBe(true);
+  });
+
+  it('missing files forgotten by themselves leave the list and take their cases out of the review queue', () => {
+    const qc = seeded();
+    qc.setQueryData(keys.admin.files(null), {});
+    qc.setQueryData(keys.admin.cases('needs_review'), {});
+    qc.setQueryData(keys.server, {});
+    // The server publishes { phase: 'remove_missing', forgotten }; the client keys on the type alone.
+    invalidateForEvents(qc, [{ seq: 1, at: 0, type: 'ingest.progress' }]);
+    expect(stale(qc, keys.admin.files(null))).toBe(true);
+    expect(stale(qc, keys.admin.cases('needs_review'))).toBe(true);
+    expect(stale(qc, keys.server)).toBe(true);
   });
 
   it('playback events are for the player, not for the cache', () => {

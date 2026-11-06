@@ -192,6 +192,7 @@ Tutte le risorse di sessione sono autorizzate dal **token di sessione nell'URL**
 | Metadata | `UpdateItemMetadata` (i campi modificati diventano **locked**), `UnlockFields`, `RefreshMetadata` |
 | Artwork | `ListArtwork` (item, tipo), `SelectArtwork`, `UploadArtwork` |
 | Diagnostica | `GetMediaFileDetails` (tutte le tracce, HDR, capitoli), `ExplainPlaybackDecision` (item × capability → piano e motivi, senza avviare nulla) |
+| File mancanti (dopo l'MVP) | `listMediaFiles` (`state=missing`, filtro per radice, paginato, con `total` e `autoRemoveAfterDays`), `forgetMediaFile` (409 `CONFLICT` se il file non è mancante), `forgetMissingFiles` (tutti i mancanti di una radice; 409 se la radice è offline o trattenuta). `library.item_updated` ha i motivi `media_removed` e `media_restored` |
 
 `ExplainPlaybackDecision` espone la logica pura del Decision Engine: è lo strumento principale per verificare che il Direct Play venga preferito davvero.
 

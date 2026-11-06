@@ -22,7 +22,7 @@ import { ProfilesPage } from '../features/profiles/ProfilesPage.tsx';
 import { SearchPage } from '../features/search/SearchPage.tsx';
 import { t } from '../i18n/t.ts';
 import { Layout } from './Layout.tsx';
-import { browseSearch, casesSearch, playerSearch, searchSearch } from './search.ts';
+import { browseSearch, casesSearch, filesSearch, playerSearch, searchSearch } from './search.ts';
 
 export interface RouterContext {
   store: ProfileStore;
@@ -54,6 +54,7 @@ const CasesPage = lazyRouteComponent(() => import('../features/admin/CasesPage.t
 const CaseDetailPage = lazyRouteComponent(() => import('../features/admin/CaseDetailPage.tsx'), 'CaseDetailPage');
 const RootsPage = lazyRouteComponent(() => import('../features/admin/RootsPage.tsx'), 'RootsPage');
 const IngestPage = lazyRouteComponent(() => import('../features/admin/IngestPage.tsx'), 'IngestPage');
+const MissingFilesPage = lazyRouteComponent(() => import('../features/admin/MissingFilesPage.tsx'), 'MissingFilesPage');
 const ProvidersPage = lazyRouteComponent(() => import('../features/admin/ProvidersPage.tsx'), 'ProvidersPage');
 
 /**
@@ -83,6 +84,7 @@ const caseRoute = createRoute({
 });
 const rootsRoute = createRoute({ getParentRoute: () => adminRoute, path: '/roots', component: RootsPage });
 const ingestRoute = createRoute({ getParentRoute: () => adminRoute, path: '/ingest', component: IngestPage });
+const filesRoute = createRoute({ getParentRoute: () => adminRoute, path: '/files', validateSearch: filesSearch, component: MissingFilesPage });
 const providersRoute = createRoute({ getParentRoute: () => adminRoute, path: '/providers', component: ProvidersPage });
 
 const profileRoute = createRoute({ getParentRoute: () => shellRoute, id: '_profile', beforeLoad: requireProfile });
@@ -116,7 +118,7 @@ const routeTree = rootRoute.addChildren([
   shellRoute.addChildren([
     profilesRoute,
     aboutRoute,
-    adminRoute.addChildren([adminIndexRoute, casesRoute, caseRoute, rootsRoute, ingestRoute, providersRoute]),
+    adminRoute.addChildren([adminIndexRoute, casesRoute, caseRoute, rootsRoute, filesRoute, ingestRoute, providersRoute]),
     profileRoute.addChildren([homeRoute, browseRoute, searchRoute, itemRoute]),
   ]),
   watchRoute,

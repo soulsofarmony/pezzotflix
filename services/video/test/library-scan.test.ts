@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, renameSync, rmSync, statSync, symlinkSync, utim
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import pino from 'pino';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { compose } from '../src/app/compose.ts';
 import { loadConfig, type LibraryRootSpec } from '../src/app/config.ts';
 import type { ModuleFactory } from '../src/app/module.ts';
@@ -137,6 +137,14 @@ async function harness(roots: LibraryRootSpec[], stableAfterMs = 0, extra: Modul
 }
 
 const factsOf = (row: { facts: string | null } | undefined) => JSON.parse(row?.facts ?? 'null') as MediaFacts | null;
+
+/** The library.item_updated payloads that announce a forgotten file back (reason media_restored), in order. */
+const restoredOf = (h: { events: () => { type: string; payload: string }[] }) =>
+  h
+    .events()
+    .filter((e) => e.type === 'library.item_updated')
+    .map((e) => JSON.parse(e.payload) as Record<string, unknown>)
+    .filter((p) => p.reason === 'media_restored');
 
 describe('library scan', () => {
   it('records videos, sidecars and disc structures, ignores the rest, and enqueues probes', async () => {
@@ -485,6 +493,125 @@ describe('library scan', () => {
     expect(h.file('Movie A (2001)/Movie A (2001).mkv')).toMatchObject({ id, state: 'discovered' });
     expect(h.file('Copy (2001)/Copy (2001).mkv')?.id).not.toBe(id);
     expect(h.files()).toHaveLength(3);
+  });
+
+  it('a forgotten file that comes back, in place or elsewhere, revives with its links and its items show again', async () => {
+    const root = tempDir();
+    const away = tempDir();
+    const moved = randomBytes(8192);
+    writeFile(root, 'Here (2001)/Here (2001).mkv');
+    writeFile(root, 'There (2002)/There (2002).mkv', moved);
+    writeFile(root, 'Keep (2000)/Keep (2000).mkv');
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }], 0, [createCatalogModule]);
+    await h.scan();
+    const here = h.file('Here (2001)/Here (2001).mkv')?.id;
+    const there = h.file('There (2002)/There (2002).mkv')?.id;
+    for (const id of [here, there]) {
+      h.analyzed(id);
+      h.link(id);
+    }
+    h.allJobsDone();
+    const itemOf = (fileId: string | undefined) => h.q<{ item_id: string }>('SELECT item_id FROM media_link WHERE file_id = ?', fileId)[0]!.item_id;
+    const files = (fileId: string | undefined) => h.comp.ports.catalogRead.getPlayableItem(itemOf(fileId))?.files.map((f) => f.fileId);
+
+    renameSync(abs(root, 'Here (2001)'), join(away, 'Here (2001)'));
+    renameSync(abs(root, 'There (2002)'), join(away, 'There (2002)'));
+    await h.scan();
+    expect([h.byId(here)?.state, h.byId(there)?.state]).toEqual(['missing', 'missing']);
+    for (const id of [here, there]) expect(h.comp.ports.library.forgetFile(id!)).toBe('forgotten');
+    expect([h.byId(here)?.state, h.byId(there)?.state]).toEqual(['removed', 'removed']);
+    expect(files(here)).toEqual([]);
+    await h.scan(); // still away: nothing changes
+    expect([h.byId(here)?.state, h.byId(there)?.state]).toEqual(['removed', 'removed']);
+
+    renameSync(join(away, 'Here (2001)'), abs(root, 'Here (2001)'));
+    writeFile(root, 'Elsewhere (2002)/There (2002).mkv', moved); // same content, new path
+    await h.scan();
+    expect(h.byId(here)).toMatchObject({ rel_path: 'Here (2001)/Here (2001).mkv', state: 'identified', missing_since: null });
+    expect(h.byId(there)).toMatchObject({ rel_path: 'Elsewhere (2002)/There (2002).mkv', state: 'identified', missing_since: null });
+    expect(h.files()).toHaveLength(3);
+    expect(files(here)).toEqual([here]);
+    expect(files(there)).toEqual([there]);
+    const restored = h
+      .events()
+      .filter((e) => e.type === 'library.item_updated')
+      .map((e) => JSON.parse(e.payload) as Record<string, unknown>)
+      .filter((p) => p.reason === 'media_restored');
+    expect(restored).toEqual(
+      expect.arrayContaining([
+        { itemId: itemOf(here), fileId: here, reason: 'media_restored' },
+        { itemId: itemOf(there), fileId: there, reason: 'media_restored' },
+      ]),
+    );
+    expect(restored).toHaveLength(2);
+  });
+
+  it.each([
+    ['the same content with another mtime (a touch)', 'touched', 'identified'],
+    ['new content at its path', 'changed', 'discovered'],
+  ] as const)('a forgotten file back as %s revives and is announced', async (_, path, state) => {
+    const root = tempDir();
+    const content = randomBytes(8192);
+    writeFile(root, 'Keep (2000)/Keep (2000).mkv');
+    writeFile(root, 'A (2001)/A (2001).mkv', content);
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
+    await h.scan();
+    const id = h.file('A (2001)/A (2001).mkv')?.id;
+    h.analyzed(id);
+    h.link(id);
+    h.allJobsDone();
+    const itemId = h.q<{ item_id: string }>('SELECT item_id FROM media_link WHERE file_id = ?', id)[0]!.item_id;
+    rmSync(abs(root, 'A (2001)'), { recursive: true });
+    await h.scan();
+    expect(h.comp.ports.library.forgetFile(id!)).toBe('forgotten');
+
+    writeFile(root, 'A (2001)/A (2001).mkv', path === 'touched' ? content : randomBytes(9000));
+    const later = new Date(Date.now() + 10_000);
+    utimesSync(abs(root, 'A (2001)/A (2001).mkv'), later, later);
+    await h.scan();
+    expect(h.progress()).toMatchObject([{ [path]: 1 }]);
+    expect(h.byId(id)).toMatchObject({ state, missing_since: null });
+    expect(restoredOf(h)).toEqual([{ itemId, fileId: id, reason: 'media_restored' }]);
+  });
+
+  it('a forget between the scan plan and its writes: the file revives all the same, and its return is announced', async () => {
+    const root = tempDir();
+    const away = tempDir();
+    writeFile(root, 'Keep (2000)/Keep (2000).mkv');
+    writeFile(root, 'A (2001)/A (2001).mkv');
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
+    await h.scan();
+    const id = h.file('A (2001)/A (2001).mkv')?.id;
+    h.analyzed(id);
+    h.link(id);
+    h.allJobsDone();
+    const itemId = h.q<{ item_id: string }>('SELECT item_id FROM media_link WHERE file_id = ?', id)[0]!.item_id;
+    renameSync(abs(root, 'A (2001)'), join(away, 'A (2001)'));
+    await h.scan();
+    expect(h.byId(id)?.state).toBe('missing');
+
+    // Back, unchanged: the scan plans the revival of a missing file. The owner forgets it when the plan is
+    // done and its writes start (runInBatches opens their transaction).
+    renameSync(join(away, 'A (2001)'), abs(root, 'A (2001)'));
+    const client = h.db.$client;
+    const transaction = client.transaction.bind(client);
+    let armed = true;
+    let forgot: string | null = null;
+    const spy = vi.spyOn(client, 'transaction').mockImplementation((fn) => {
+      if (armed && new Error().stack?.includes('runInBatches')) {
+        armed = false;
+        forgot = h.comp.ports.library.forgetFile(id!);
+      }
+      return transaction(fn);
+    });
+    try {
+      await h.scan();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(forgot).toBe('forgotten');
+    expect(h.byId(id)).toMatchObject({ state: 'identified', missing_since: null });
+    expect(restoredOf(h)).toEqual([{ itemId, fileId: id, reason: 'media_restored' }]);
   });
 });
 

@@ -37,12 +37,19 @@ export interface HarnessOptions {
   extra?: ModuleFactory[];
   /** LIBRARY_ROOTS of the config; the roots are not created (seed them, or let a scan sync them). */
   roots?: { name: string; path: string; hint?: 'movies' | 'series' | 'mixed' }[];
+  /** More configuration keys (e.g. MISSING_REMOVE_AFTER_DAYS). */
+  env?: Record<string, string>;
 }
 
 export async function harness(opts: HarnessOptions = {}): Promise<Harness> {
   const db = await openDb({ path: ':memory:' });
   const clock = { now: 1_000_000 };
-  const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: JSON.stringify((opts.roots ?? []).map((r) => ({ hint: 'movies', ...r }))) });
+  const config = loadConfig({
+    NODE_ENV: 'test',
+    DATA_DIR: '/nonexistent',
+    LIBRARY_ROOTS: JSON.stringify((opts.roots ?? []).map((r) => ({ hint: 'movies', ...r }))),
+    ...opts.env,
+  });
   const factories: ModuleFactory[] = [createEventsModule, createJobsModule, createLibraryModule, createCatalogModule, createIdentifierModule, createAdminModule, ...(opts.extra ?? [])];
   if (opts.profileState) {
     const profileState = opts.profileState;

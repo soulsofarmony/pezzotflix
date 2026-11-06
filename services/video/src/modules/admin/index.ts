@@ -1,13 +1,14 @@
 // Module 'admin' (doc 03 §6): libraries, ingest status and jobs, the "Da verificare" queue and its
-// resolutions, manual provider search, file diagnostics. Reads the media and case tables; writes
-// cases and manual links in admin/resolve.ts; everything else goes through ports.
-// explainPlaybackDecision belongs to playback (F1b).
+// resolutions, manual provider search, file diagnostics, missing files and forgetting them. Reads the
+// media and case tables; writes cases and manual links in admin/resolve.ts; everything else goes
+// through ports (file states through the library's). explainPlaybackDecision belongs to playback (F1b).
 import { typed, type Ok } from '../../app/http.ts';
 import type { ModuleFactory, Ports } from '../../app/module.ts';
 import { notFound, ProblemError } from '../../app/problem.ts';
 import type { MetadataCandidate, MetadataProviderName } from '../../shared/metadata.ts';
 import type { ApiSchemas } from '../../shared/ports.ts';
 import { allowedResolutions, type Candidate, type CaseReason, parseCase, publicParsed, searchScore, storedCandidates, toContractCandidate } from './cases.ts';
+import { createFileList } from './files.ts';
 import { createResolver } from './resolve.ts';
 
 type CaseView = ApiSchemas['IdentificationCase'];
@@ -63,6 +64,7 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
     metadata: () => optionalPort(ports, 'metadataSearch'),
     lang: config.METADATA_LANGUAGE,
   });
+  const files = createFileList({ db, views: () => ports.catalogViews });
 
   const CASE_COLS = `c.id, c.file_id AS fileId, c.state, c.reason, c.parsed, c.candidates, c.updated_at AS updatedAt, c.created_at AS createdAt, f.rel_path AS relPath, r.name AS rootName
     FROM identification_case c JOIN media_file f ON f.id = c.file_id JOIN library_root r ON r.id = f.root_id`;
@@ -161,6 +163,28 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
         return { accepted: true, jobId: r.jobId };
       },
 
+      forgetMissingFiles: async (req): Promise<Ok<'forgetMissingFiles'>> => {
+        const { rootId } = typed<'forgetMissingFiles'>(req).params;
+        const r = await ports.library.forgetRootMissing(rootId);
+        if (r.status === 'not_found') throw notFound('Library root');
+        if (r.status === 'held') throw new ProblemError('CONFLICT', 'the root is held by the unmounted-root guard: its missing files are not forgotten in bulk');
+        if (r.status === 'offline') throw new ProblemError('CONFLICT', 'the root is offline: its missing files are not forgotten in bulk');
+        return { forgotten: r.forgotten };
+      },
+
+      listMediaFiles: async (req): Promise<Ok<'listMediaFiles'>> => {
+        const { state, rootId, cursor, limit } = typed<'listMediaFiles'>(req).query;
+        return { ...files.list({ state, rootId, cursor, limit }), autoRemoveAfterDays: config.MISSING_REMOVE_AFTER_DAYS };
+      },
+
+      forgetMediaFile: async (req): Promise<Ok<'forgetMediaFile'>> => {
+        const { fileId } = typed<'forgetMediaFile'>(req).params;
+        const r = ports.library.forgetFile(fileId);
+        if (r === 'not_found') throw notFound('Media file');
+        if (r === 'not_missing') throw new ProblemError('CONFLICT', 'only a missing file can be forgotten');
+        return { forgotten: 1 };
+      },
+
       getIngestStatus: async (): Promise<Ok<'getIngestStatus'>> => {
         const stats = ports.jobAdmin.stats(FAILED_SHOWN);
         const total = (state: string) => Object.values(stats.counts).reduce((n, byState) => n + (byState[state] ?? 0), 0);
@@ -190,9 +214,10 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
         const state = query.state ?? 'needs_review';
         const limit = query.limit ?? 50;
         const after = query.cursor ? decodeCursor(query.cursor, state) : null;
+        // A forgotten file left the library: its case leaves the queue until the file comes back.
         const rows = db.$client
           .prepare(
-            `SELECT ${CASE_COLS} WHERE c.state = @state ${after ? 'AND (c.created_at, c.id) < (@k, @i)' : ''}
+            `SELECT ${CASE_COLS} WHERE c.state = @state AND f.state <> 'removed' ${after ? 'AND (c.created_at, c.id) < (@k, @i)' : ''}
              ORDER BY c.created_at DESC, c.id DESC LIMIT @limit`,
           )
           .all({ state, limit: limit + 1, ...(after ? { k: after.k, i: after.i } : {}) }) as CaseListRow[];

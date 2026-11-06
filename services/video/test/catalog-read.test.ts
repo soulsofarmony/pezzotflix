@@ -344,6 +344,23 @@ describe('without a ProfileStatePort (profiles arrive in F1b)', () => {
     expect((await h.call('getNextUp', 'GET', '/video/api/v1/items/nope/next-up')).status).toBe(404);
   });
 
+  it('leaves forgotten files out: next up skips a forgotten episode; a missing one still counts, unavailable', async () => {
+    const setState = (state: string, ...items: string[]) =>
+      h.db.$client.prepare(`UPDATE media_file SET state = ? WHERE id IN (SELECT file_id FROM media_link WHERE item_id IN (${items.map(() => '?').join(', ')}))`).run(state, ...items);
+    const series = async () =>
+      (await h.call('listItems', 'GET', '/video/api/v1/items?kind=series')).body.items.map((i: { title: string; available: boolean }) => [i.title, i.available]);
+    const nextUp = async () => (await h.call('getNextUp', 'GET', `/video/api/v1/items/${lib.dark}/next-up`)).body.item?.id;
+
+    setState('removed', lib.ep1); // its file was missing (seed); now forgotten
+    expect(await nextUp()).toBe(lib.ep2);
+    expect(await series()).toEqual([['Dark', true]]);
+    setState('missing', lib.ep2, lib.special1);
+    expect(await series()).toEqual([['Dark', false]]);
+    expect(await nextUp()).toBe(lib.ep2);
+    setState('removed', lib.ep2, lib.special1);
+    expect(await series()).toEqual([]);
+  });
+
   it('provides CatalogReadPort for playback', () => {
     const read = h.comp.ports.catalogRead;
     const dune = read.getPlayableItem(lib.dune);

@@ -44,7 +44,7 @@ export interface PlayableItem {
   files: PlayableFile[];
 }
 
-/** Implemented by modules/catalog. */
+/** Implemented by modules/catalog. Files forgotten by the library ('removed') are left out everywhere. */
 export interface CatalogReadPort {
   getPlayableItem(itemId: string): PlayableItem | null;
   /**
@@ -240,6 +240,18 @@ export interface LibraryControlPort {
   confirmRootContents(
     rootId: string,
   ): { status: 'queued'; jobId: string | null } | { status: 'not_found' } | { status: 'not_configured' } | { status: 'not_held' };
+  /**
+   * ForgetMediaFile (doc 01 §6.1): a missing file becomes 'removed'. Links, case and watch state stay, so the
+   * same content coming back revives with them. Publishes library.item_updated (reason media_removed) for
+   * the items it is linked to.
+   */
+  forgetFile(fileId: string): 'forgotten' | 'not_found' | 'not_missing';
+  /**
+   * ForgetMissingFiles: every missing file of the root becomes 'removed', in batches. Refused while the root
+   * is offline or held, i.e. while the unmounted-root guard sees it as unmounted. Publishes ingest.progress
+   * (phase remove_missing) when it forgot any.
+   */
+  forgetRootMissing(rootId: string): Promise<{ status: 'done'; forgotten: number } | { status: 'not_found' } | { status: 'offline' } | { status: 'held' }>;
 }
 
 export interface JobStats {

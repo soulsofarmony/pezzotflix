@@ -42,11 +42,12 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `4a6b9c1` | Doc 04 §8 "Precisazioni decise in F2", ADR 0003 e 0005 aggiornati |
 | `910ad92` | **Revisione F2, ingest e dati** (tre giri di revisione): film diversi in una cartella comune non vengono più collegati al primo, anno preso dalla cartella solo per un titolo tradotto, tagli come edizioni e parole di release come versioni, migrazioni con chiavi esterne spente e controllo dopo (prima cancellavano progressi e stato di visione), backup giornaliero verificato con retention 7+4, copia prima di una migrazione solo se serve, job che falliscono solo dopo due interruzioni, `/healthz` con `503` quando il servizio non sta bene. 1731 test video, 509 web |
 | `1afffe2` | Standard di libreria, ADR 0002, doc 01 e diario allineati alle correzioni. **Test end-to-end finali** su uno stack ricostruito da volumi vuoti: 74 passati, 20 saltati (sample c4 e c7 mancanti, HEVC assente in Edge e Firefox su questo portatile), 0 falliti, in 5,2 minuti; nel log del gateway nessun token in chiaro |
-| (questo commit) | **Dopo l'MVP, item provvisori:** un file che aspetta Wikidata o TMDB compare subito col titolo dal nome del file ("In attesa"), si guarda, e quando arriva l'identificazione progressi, "visto", cronologia e watchlist passano al titolo vero (migrazione 0004). Le sessioni aperte seguono il file; il web client va al titolo nuovo. Tre giri di revisione (unione di copie che perdeva i progressi, sessioni chiuse per errore, "visto" sul film sbagliato, adozione incompleta). 1697 test video più 388 sui sample, 528 web |
+| `6287985` | **Dopo l'MVP, item provvisori:** un file che aspetta Wikidata o TMDB compare subito col titolo dal nome del file ("In attesa"), si guarda, e quando arriva l'identificazione progressi, "visto", cronologia e watchlist passano al titolo vero (migrazione 0004). Le sessioni aperte seguono il file; il web client va al titolo nuovo. Tre giri di revisione (unione di copie che perdeva i progressi, sessioni chiuse per errore, "visto" sul film sbagliato, adozione incompleta). 1697 test video più 388 sui sample, 528 web |
+| (questo commit) | **Dopo l'MVP, file spariti:** un file mancante esce dal catalogo dopo 30 giorni (`MISSING_REMOVE_AFTER_DAYS`, 0 = mai), solo se la sua libreria è in linea e non trattenuta; nuova pagina **Gestione → File mancanti** con "Dimentica" per un file o per tutti i mancanti di una libreria. Niente si cancella: un file che torna riprende titolo e progressi. Regola "un disco per radice". Una revisione, correzioni piccole. 1807 test video con i sample, 550 web |
 
 ## 2. In corso
 
-- **Lacune dopo l'MVP**, una alla volta per la memoria del portatile: item provvisori ✅; poi file spariti (`missing` → `removed` e "Dimentica" nell'admin).
+- **Lacune dopo l'MVP**, una alla volta per la memoria del portatile: item provvisori ✅ (`6287985`), file spariti ✅ (questo commit). Poi i test end-to-end su uno stack nuovo.
 - **MVP completo (F2 chiuso, 2026-11-06).** Revisione finale con cinque revisori (sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione); i rilievi gravi sono stati riprodotti, corretti e rivisti di nuovo. Quello che non è stato corretto è nelle lacune (§4).
 - **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non risponde all'iPad, probabilmente per l'indirizzo Wi‑Fi privato dell'iPad, che cambia.
 
@@ -88,7 +89,13 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
     - se cambia il contenuto di un'opera adottata, lo stato del contenuto vecchio passa a quello nuovo;
     - un episodio in attesa di una serie già adottata crea una seconda serie provvisoria invece di agganciarsi a quella adottata;
     - le sostituzioni (`replacedBy`) per sessioni e web client stanno in memoria: si perdono al riavvio del servizio o della scheda;
-  - un file sparito resta `missing` per sempre: manca il passaggio a `removed` (doc 01 §6.1) e un'azione "dimentica il file" nell'admin.
+  - ~~un file sparito resta `missing` per sempre~~: risolto con la rimozione dopo 30 giorni e "Dimentica" in **Gestione → File mancanti** (doc 01 §6.1). Restano:
+    - nessun evento quando un file passa da presente a mancante o torna presente (solo il passaggio a `removed` e il ritorno ne hanno uno);
+    - quando una radice trattenuta viene sbloccata, i file mancanti da più del periodo di grazia vengono dimenticati tutti insieme al controllo successivo;
+    - nessun indice sullo stato dei file: il controllo giornaliero e la lista leggono tutta la tabella, che va bene per una libreria di casa;
+    - un disco montato in una sottocartella di una radice non è visto dalla protezione contro i dischi smontati: i suoi file escono dal catalogo dopo il periodo di grazia (tornano col disco). Per ora la regola è "un disco per radice"; una protezione per sottocartella sarebbe una decisione a parte;
+    - allo spegnimento il servizio non aspetta il controllo giornaliero in corso: il blocco in corso è atomico, il resto riprende al giro dopo;
+    - un item con file in due blocchi riceve due eventi `media_removed`.
 - **F2a, browser e codec:**
   - su questo portatile Edge e Firefox non hanno HEVC (manca probabilmente l'estensione HEVC di Windows, a pagamento): il 4K e il flusso principale si provano solo in Chromium e Chrome;
   - per circa 0,5 s dopo l'avvio Firefox dice di decodificare HEVC anche senza decoder: un link aperto in quella finestra dichiarerebbe HEVC, fallirebbe e ripianificherebbe;

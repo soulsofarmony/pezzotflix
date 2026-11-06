@@ -33,6 +33,26 @@ confirmRootContents:
             schema: { $ref: '../components/schemas.yaml#/Accepted' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
       '409': { $ref: '../components/responses.yaml#/Problem' }
+forgetMissingFiles:
+  parameters:
+    - { name: rootId, in: path, required: true, schema: { type: string } }
+  post:
+    operationId: forgetMissingFiles
+    tags: [admin]
+    security: []
+    summary: >-
+      ForgetMissingFiles — every missing file of the root becomes removed, as ForgetMediaFile does for one.
+      Refused with 409 CONFLICT while the root is offline or held (LibraryRoot.held): the files of a root the
+      unmounted-root guard sees as unmounted are not forgotten in bulk. The guard sees the root as a whole: a
+      separate disk mounted in a subfolder of the root that goes away looks like deleted files.
+    responses:
+      '200':
+        description: Files forgotten (0 when the root had none missing).
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ForgetResult' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
 scan:
   post:
     operationId: triggerScan
@@ -175,6 +195,54 @@ file:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/MediaFileDetails' }
       '404': { $ref: '../components/responses.yaml#/Problem' }
+files:
+  get:
+    operationId: listMediaFiles
+    tags: [admin]
+    security: []
+    summary: >-
+      ListMediaFiles — the media files in one state, newest missing first. Only state=missing is supported for
+      now: the files a scan found gone, with the catalog items they are linked to. Such an item shows as not
+      available until its file comes back or is forgotten (ForgetMediaFile); autoRemoveAfterDays says when
+      missing files are forgotten by themselves.
+    parameters:
+      - { name: state, in: query, required: true, schema: { type: string, enum: [missing] } }
+      - { name: rootId, in: query, required: false, schema: { type: string }, description: Only the files of this root. }
+      - { $ref: '../components/parameters.yaml#/Cursor' }
+      - { $ref: '../components/parameters.yaml#/Limit' }
+    responses:
+      '200':
+        description: Files.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/MediaFilePage' }
+      '400': { $ref: '../components/responses.yaml#/Problem' }
+      '404':
+        $ref: '../components/responses.yaml#/Problem'
+        description: NOT_FOUND, an unknown rootId.
+forgetFile:
+  parameters:
+    - { $ref: '../components/parameters.yaml#/FileId' }
+  post:
+    operationId: forgetMediaFile
+    tags: [admin]
+    security: []
+    summary: >-
+      ForgetMediaFile — the owner says a missing file is gone on purpose: it becomes removed (doc 01 §6.1). Its
+      links, its identification case and every profile's watch state stay, so the same file coming back (same
+      fingerprint) revives with them. Items left with no other file are hidden from Home, lists and search
+      (library.item_updated, reason media_removed); its case leaves the "Da verificare" queue. Only a missing
+      file can be forgotten: any other state is 409 CONFLICT. It works whatever the state of the file's root
+      (offline or held too); only ForgetMissingFiles and the automatic removal need a root that is online and
+      not held.
+    responses:
+      '200':
+        description: Forgotten (forgotten is 1).
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ForgetResult' }
+      '404': { $ref: '../components/responses.yaml#/Problem' }
+      '409': { $ref: '../components/responses.yaml#/Problem' }
 explain:
   post:
     operationId: explainPlaybackDecision

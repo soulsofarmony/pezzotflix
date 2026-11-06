@@ -73,3 +73,17 @@ describe('data and media apart', () => {
     expect(load({ DATA_DIR: join(b, 'alias', 'data'), LIBRARY_ROOTS: roots(join(b, 'media', 'Film')) })).toThrow(/is inside library root/);
   });
 });
+
+describe('MISSING_REMOVE_AFTER_DAYS', () => {
+  const days = (v?: string) => loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', ...(v === undefined ? {} : { MISSING_REMOVE_AFTER_DAYS: v }) }).MISSING_REMOVE_AFTER_DAYS;
+
+  it('defaults to 30 days; 0 turns the automatic removal off', () => {
+    expect(days()).toBe(30);
+    expect(days('0')).toBe(0);
+    expect(days(' 7 ')).toBe(7);
+  });
+
+  it.each(['', '-1', '1.5', 'thirty'])('refuses %j instead of reading it as a number of days', (v) => {
+    expect(() => days(v)).toThrow(/MISSING_REMOVE_AFTER_DAYS: a whole number of days/);
+  });
+});

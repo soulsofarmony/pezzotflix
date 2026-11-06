@@ -295,6 +295,48 @@ export function useProviderSearch(q: string, kind: 'movie' | 'series' | undefine
   });
 }
 
+/** The missing files (ListMediaFiles state=missing), of one root or of all, newest missing first. */
+export function useMissingFiles(rootId: string | undefined) {
+  const c = useVideoClient();
+  return useInfiniteQuery({
+    queryKey: keys.admin.files(rootId ?? null),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ signal, pageParam }) =>
+      call(c.GET('/video/api/v1/admin/files', { signal, params: { query: { state: 'missing', rootId, cursor: pageParam, limit: 50 } } })),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * After files are forgotten: the list, the roots (a refusal may mean one went offline) and the ingest counters;
+ * the "Da verificare" queue and its count (a forgotten file's case leaves it); the catalog, where items with no
+ * file left disappear.
+ */
+function invalidateAfterForget(qc: QueryClient): Promise<unknown> {
+  const stale = [keys.admin.filesAll, keys.admin.roots, keys.admin.ingest, keys.admin.casesAll, keys.server, keys.home, keys.itemsAll, keys.searchAll, keys.itemAll];
+  return Promise.all(stale.map((queryKey) => qc.invalidateQueries({ queryKey })));
+}
+
+export function useForgetFile() {
+  const c = useVideoClient();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) => call(c.POST('/video/api/v1/admin/files/{fileId}/forget', { params: { path: { fileId } } })),
+    // Also after a failure: a 409 means the file came back or the root went offline, so the list is stale.
+    onSettled: () => invalidateAfterForget(qc),
+  });
+}
+
+export function useForgetRootMissing() {
+  const c = useVideoClient();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rootId: string) => call(c.POST('/video/api/v1/admin/roots/{rootId}/forget-missing', { params: { path: { rootId } } })),
+    // Also after a failure: a 409 means the file came back or the root went offline, so the list is stale.
+    onSettled: () => invalidateAfterForget(qc),
+  });
+}
+
 export function useMediaFile(fileId: string | null) {
   const c = useVideoClient();
   return useQuery({

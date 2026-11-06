@@ -1,10 +1,11 @@
 // Module 'library' (doc 02 §3.1, Library Monitor): configured roots, periodic full scan as the
 // primary mechanism, file states, moves and sidecars; enqueues analyzer.probe for added, changed
-// and revived files.
+// and revived files. Missing files are forgotten ('removed') after a grace period or on request.
 import { z } from 'zod';
 import type { ModuleFactory } from '../../app/module.ts';
 import { JOB_TYPES, type LibraryScanPayload } from '../../shared/job-types.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
+import { createRemoval, DAY_MS } from './removal.ts';
 import { confirmRootContents, syncRoots } from './roots.ts';
 import { createScanner } from './scan.ts';
 
@@ -13,6 +14,9 @@ const STABLE_AFTER_MS = 60_000;
 
 /** Payload of library.scan: one root, or every configured root when rootId is absent. */
 const ScanPayload: z.ZodType<LibraryScanPayload | null | undefined> = z.object({ rootId: z.string().min(1).optional() }).nullish();
+
+/** Periodic task that forgets files missing for longer than MISSING_REMOVE_AFTER_DAYS. */
+export const REMOVE_MISSING_TASK = 'library.remove_missing';
 
 /** Idempotency key of a scan: at most one queued scan per target. */
 export const scanJobKey = (rootId?: string): string => `library.scan:${rootId ?? 'all'}`;
@@ -47,6 +51,8 @@ export function libraryModule(options: LibraryModuleOptions = {}): ModuleFactory
       settlement: () => ports.caseSettlement,
       stableAfterMs: options.stableAfterMs ?? STABLE_AFTER_MS,
     });
+    const removal = createRemoval({ db, now, events: () => ports.events });
+    let removing = false;
     return {
       name: 'library',
       provides: {
@@ -56,6 +62,8 @@ export function libraryModule(options: LibraryModuleOptions = {}): ModuleFactory
             const found = confirmRootContents(db, config.LIBRARY_ROOTS, rootId, now());
             return found === 'queued' ? { status: 'queued', jobId: requestScan(ports.jobs, rootId) } : { status: found };
           },
+          forgetFile: removal.forgetFile,
+          forgetRootMissing: removal.forgetRootMissing,
         },
       },
       start: () => {
@@ -86,6 +94,22 @@ export function libraryModule(options: LibraryModuleOptions = {}): ModuleFactory
           runAtStart: true,
           run: () => {
             requestScan(ports.jobs);
+          },
+        },
+        {
+          // Daily, and at start: a service that never stays up for a day still forgets. One run at a time.
+          name: REMOVE_MISSING_TASK,
+          everyMs: DAY_MS,
+          runAtStart: true,
+          run: async () => {
+            if (removing) return;
+            removing = true;
+            try {
+              const forgotten = await removal.removeAged(config.MISSING_REMOVE_AFTER_DAYS);
+              if (forgotten) log.info({ forgotten, afterDays: config.MISSING_REMOVE_AFTER_DAYS }, 'missing files forgotten after the grace period');
+            } finally {
+              removing = false;
+            }
           },
         },
       ],

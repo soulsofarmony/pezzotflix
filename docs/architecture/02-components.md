@@ -70,6 +70,7 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
   - **Scansione periodica completa come meccanismo primario.** Il file watching è solo un'ottimizzazione: con Docker Desktop su Windows e con i NAS gli eventi del filesystem non arrivano in modo affidabile.
   - **Attesa di stabilità:** un file in copia (dimensione che cresce) non viene analizzato finché non si stabilizza.
   - **Root offline ≠ file mancanti:** se un'intera root sparisce, si segna la root offline invece di marcare migliaia di file come `missing` (Domain Model §6.1).
+  - **Da `missing` a `removed`** (dopo l'MVP): un compito giornaliero, che gira anche all'avvio, porta a `removed` i file mancanti da più di `MISSING_REMOVE_AFTER_DAYS` giorni, a blocchi di 500 in transazioni separate, ricontrollando ogni volta file e radice. "Dimentica" dell'admin passa dalla porta del Library Monitor, che resta il solo a cambiare lo stato dei file. Doc 01 §6.1.
 - **Possiede:** stato delle LibraryRoot, inventario grezzo dei path.
 - **Dipende da:** Media Storage (lettura).
 

@@ -49,6 +49,7 @@ paths:
 
   /video/api/v1/admin/roots: { $ref: './paths/admin.yaml#/roots' }
   /video/api/v1/admin/roots/{rootId}/confirm-contents: { $ref: './paths/admin.yaml#/confirmRootContents' }
+  /video/api/v1/admin/roots/{rootId}/forget-missing: { $ref: './paths/admin.yaml#/forgetMissingFiles' }
   /video/api/v1/admin/scan: { $ref: './paths/admin.yaml#/scan' }
   /video/api/v1/admin/ingest: { $ref: './paths/admin.yaml#/ingest' }
   /video/api/v1/admin/jobs/{jobId}/retry: { $ref: './paths/admin.yaml#/retryJob' }
@@ -57,7 +58,9 @@ paths:
   /video/api/v1/admin/cases/{caseId}/resolve: { $ref: './paths/admin.yaml#/resolve' }
   /video/api/v1/admin/cases/{caseId}/ignore: { $ref: './paths/admin.yaml#/ignore' }
   /video/api/v1/admin/provider-search: { $ref: './paths/admin.yaml#/providerSearch' }
+  /video/api/v1/admin/files: { $ref: './paths/admin.yaml#/files' }
   /video/api/v1/admin/files/{fileId}: { $ref: './paths/admin.yaml#/file' }
+  /video/api/v1/admin/files/{fileId}/forget: { $ref: './paths/admin.yaml#/forgetFile' }
   /video/api/v1/admin/explain: { $ref: './paths/admin.yaml#/explain' }
 
   /video/media/s/{sessionToken}/file: { $ref: './paths/media.yaml#/file' }

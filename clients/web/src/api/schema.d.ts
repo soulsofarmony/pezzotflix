@@ -442,6 +442,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video/api/v1/admin/roots/{rootId}/forget-missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rootId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ForgetMissingFiles — every missing file of the root becomes removed, as ForgetMediaFile does for one. Refused with 409 CONFLICT while the root is offline or held (LibraryRoot.held): the files of a root the unmounted-root guard sees as unmounted are not forgotten in bulk. The guard sees the root as a whole: a separate disk mounted in a subfolder of the root that goes away looks like deleted files. */
+        post: operations["forgetMissingFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/api/v1/admin/scan": {
         parameters: {
             query?: never;
@@ -582,6 +601,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video/api/v1/admin/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ListMediaFiles — the media files in one state, newest missing first. Only state=missing is supported for now: the files a scan found gone, with the catalog items they are linked to. Such an item shows as not available until its file comes back or is forgotten (ForgetMediaFile); autoRemoveAfterDays says when missing files are forgotten by themselves. */
+        get: operations["listMediaFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/api/v1/admin/files/{fileId}": {
         parameters: {
             query?: never;
@@ -594,6 +630,25 @@ export interface paths {
         get: operations["getMediaFileDetails"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video/api/v1/admin/files/{fileId}/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fileId: components["parameters"]["FileId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** ForgetMediaFile — the owner says a missing file is gone on purpose: it becomes removed (doc 01 §6.1). Its links, its identification case and every profile's watch state stay, so the same file coming back (same fingerprint) revives with them. Items left with no other file are hidden from Home, lists and search (library.item_updated, reason media_removed); its case leaves the "Da verificare" queue. Only a missing file can be forgotten: any other state is 409 CONFLICT. It works whatever the state of the file's root (offline or held too); only ForgetMissingFiles and the automatic removal need a root that is online and not held. */
+        post: operations["forgetMediaFile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -748,7 +803,7 @@ export interface components {
         };
         Event: {
             seq: number;
-            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog; replacedBy, optional, is the item that took its place (a provisional item replaced by the identified one): a client showing the removed item can move to it. A playback session on the removed item follows its file to replacedBy and goes on. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
+            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. library.item_updated payload: { itemId, fileId?, reason? } when an item changed. reason (open set, unknown values must be tolerated): media_linked / media_unlinked = a file was linked to it or left it; media_removed = a missing file of the item was forgotten (by the owner or after the grace period): with no other file left the item is hidden from Home, lists and search; media_restored = a forgotten file came back and the item shows again. ingest.progress payload: { phase, … } when ingest work changed the library. phase (open set, unknown values must be tolerated): scan = a scan ended; remove_missing = missing files were forgotten, after the grace period or by ForgetMissingFiles, with forgotten = how many. library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog; replacedBy, optional, is the item that took its place (a provisional item replaced by the identified one): a client showing the removed item can move to it. A playback session on the removed item follows its file to replacedBy and goes on. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
             type: string;
             at: number;
             payload: {
@@ -855,7 +910,7 @@ export interface components {
             images?: components["schemas"]["ImageRef"][];
             /** @description Technical badges, e.g. 4K, HDR10, DV, Atmos, TrueHD. */
             badges: string[];
-            /** @description At least one linked file is online. */
+            /** @description At least one linked file is online. A missing file makes it false; a forgotten (removed) file does not count at all, and an item whose files are all forgotten is not listed. */
             available: boolean;
             /** @description True while the item stands in for a file whose identification waits for a metadata provider: its values come from the file name, it has no provider data, and it is playable. When the file is identified it moves to the real item and this one is removed (library.item_removed, replacedBy the real item); a file sent to review keeps it. Seasons and episodes of a provisional series are provisional too. Linking a file to it by hand (ResolveCase link_item) adopts the whole work: it stops being provisional. */
             provisional: boolean;
@@ -1124,6 +1179,10 @@ export interface components {
             accepted: boolean;
             jobId?: components["schemas"]["Id"] | null;
         };
+        ForgetResult: {
+            /** @description Files that went from missing to removed. */
+            forgotten: number;
+        };
         ScanRequest: {
             rootId?: components["schemas"]["Id"];
         };
@@ -1202,6 +1261,37 @@ export interface components {
         };
         ProviderSearchResult: {
             candidates: components["schemas"]["Candidate"][];
+        };
+        FileItem: {
+            id: components["schemas"]["Id"];
+            kind: components["schemas"]["ItemKind"];
+            title: string;
+            year?: number | null;
+            /** @description Episodes and seasons only: the title of their series. */
+            seriesTitle?: string | null;
+            seasonNumber?: number | null;
+            episodeNumber?: number | null;
+        };
+        MediaFileEntry: {
+            fileId: components["schemas"]["Id"];
+            rootId: components["schemas"]["Id"];
+            rootName: string;
+            relPath: string;
+            /** @description File state (open set): missing, removed, … */
+            state: string;
+            sizeBytes: number;
+            /** @description When a scan found the file gone (ms UTC). */
+            missingSince: number | null;
+            /** @description The catalog items the file is linked to, oldest link first. */
+            items: components["schemas"]["FileItem"][];
+        };
+        MediaFilePage: {
+            files: components["schemas"]["MediaFileEntry"][];
+            nextCursor: components["schemas"]["Cursor"] | null;
+            /** @description Files matching the filter (state, rootId), on every page. */
+            total: number;
+            /** @description A file missing for more than this many days is forgotten by itself (MISSING_REMOVE_AFTER_DAYS), as by ForgetMediaFile, but only while its root is online and not held: never on a root the unmounted-root guard sees as unmounted. 0 = never. */
+            autoRemoveAfterDays: number;
         };
         MediaFileDetails: {
             id: components["schemas"]["Id"];
@@ -1958,6 +2048,30 @@ export interface operations {
             409: components["responses"]["Problem"];
         };
     };
+    forgetMissingFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rootId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Files forgotten (0 when the root had none missing). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgetResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
     triggerScan: {
         parameters: {
             query?: never;
@@ -2153,6 +2267,36 @@ export interface operations {
             503: components["responses"]["Problem"];
         };
     };
+    listMediaFiles: {
+        parameters: {
+            query: {
+                state: "missing";
+                /** @description Only the files of this root. */
+                rootId?: string;
+                /** @description Opaque cursor from a previous page (nextCursor). */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Files. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaFilePage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            /** @description NOT_FOUND, an unknown rootId. */
+            404: components["responses"]["Problem"];
+        };
+    };
     getMediaFileDetails: {
         parameters: {
             query?: never;
@@ -2174,6 +2318,30 @@ export interface operations {
                 };
             };
             404: components["responses"]["Problem"];
+        };
+    };
+    forgetMediaFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fileId: components["parameters"]["FileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forgotten (forgotten is 1). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgetResult"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     explainPlaybackDecision: {

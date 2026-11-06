@@ -1,4 +1,5 @@
-// Admin section of the web client (doc 02 C3, doc 03 §6): "Da verificare", libraries, ingest, data sources.
+// Admin section of the web client (doc 02 C3, doc 03 §6): "Da verificare", libraries, missing files, ingest,
+// data sources.
 import { Link, Outlet } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 import { t } from '../../i18n/t.ts';
@@ -16,6 +17,9 @@ export function AdminLayout(): ReactElement {
         </Link>
         <Link to="/admin/roots" activeProps={active}>
           {t('admin.roots')}
+        </Link>
+        <Link to="/admin/files" activeProps={active}>
+          {t('admin.files')}
         </Link>
         <Link to="/admin/ingest" activeProps={active}>
           {t('admin.ingest')}

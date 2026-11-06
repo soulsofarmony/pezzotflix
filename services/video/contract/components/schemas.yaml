@@ -169,7 +169,11 @@ ItemSummary:
       type: array
       description: Technical badges, e.g. 4K, HDR10, DV, Atmos, TrueHD.
       items: { type: string }
-    available: { type: boolean, description: At least one linked file is online. }
+    available:
+      type: boolean
+      description: >-
+        At least one linked file is online. A missing file makes it false; a forgotten (removed) file does not
+        count at all, and an item whose files are all forgotten is not listed.
     provisional:
       type: boolean
       description: >-
@@ -592,6 +596,14 @@ Event:
       description: >-
         library.item_added | library.item_updated | library.item_removed | ingest.progress |
         identification.needs_review | playback.session_terminated | playback.subtitle_ready.
+        library.item_updated payload: { itemId, fileId?, reason? } when an item changed. reason (open set, unknown
+        values must be tolerated): media_linked / media_unlinked = a file was linked to it or left it;
+        media_removed = a missing file of the item was forgotten (by the owner or after the grace period): with
+        no other file left the item is hidden from Home, lists and search; media_restored = a forgotten file
+        came back and the item shows again.
+        ingest.progress payload: { phase, … } when ingest work changed the library. phase (open set, unknown values
+        must be tolerated): scan = a scan ended; remove_missing = missing files were forgotten, after the grace
+        period or by ForgetMissingFiles, with forgotten = how many.
         library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog;
         replacedBy, optional, is the item that took its place (a provisional item replaced by the identified
         one): a client showing the removed item can move to it. A playback session on the removed item follows
@@ -748,6 +760,55 @@ MediaFileDetails:
     version: { $ref: '#/MediaVersion' }
     links: { type: array, items: { $ref: '#/ItemSummary' } }
     facts: { type: object, additionalProperties: true }
+
+MediaFileEntry:
+  type: object
+  required: [fileId, rootId, rootName, relPath, state, sizeBytes, missingSince, items]
+  properties:
+    fileId: { $ref: '#/Id' }
+    rootId: { $ref: '#/Id' }
+    rootName: { type: string }
+    relPath: { type: string }
+    state: { type: string, description: 'File state (open set): missing, removed, …' }
+    sizeBytes: { type: integer }
+    missingSince: { type: [integer, 'null'], description: When a scan found the file gone (ms UTC). }
+    items:
+      type: array
+      description: The catalog items the file is linked to, oldest link first.
+      items: { $ref: '#/FileItem' }
+
+FileItem:
+  type: object
+  required: [id, kind, title]
+  properties:
+    id: { $ref: '#/Id' }
+    kind: { $ref: '#/ItemKind' }
+    title: { type: string }
+    year: { type: [integer, 'null'] }
+    seriesTitle: { type: [string, 'null'], description: 'Episodes and seasons only: the title of their series.' }
+    seasonNumber: { type: [integer, 'null'] }
+    episodeNumber: { type: [integer, 'null'] }
+
+MediaFilePage:
+  type: object
+  required: [files, nextCursor, total, autoRemoveAfterDays]
+  properties:
+    files: { type: array, items: { $ref: '#/MediaFileEntry' } }
+    nextCursor: { oneOf: [{ $ref: '#/Cursor' }, { type: 'null' }] }
+    total: { type: integer, minimum: 0, description: 'Files matching the filter (state, rootId), on every page.' }
+    autoRemoveAfterDays:
+      type: integer
+      minimum: 0
+      description: >-
+        A file missing for more than this many days is forgotten by itself (MISSING_REMOVE_AFTER_DAYS), as by
+        ForgetMediaFile, but only while its root is online and not held: never on a root the unmounted-root guard
+        sees as unmounted. 0 = never.
+
+ForgetResult:
+  type: object
+  required: [forgotten]
+  properties:
+    forgotten: { type: integer, minimum: 0, description: Files that went from missing to removed. }
 
 Health:
   type: object

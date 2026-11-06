@@ -27,6 +27,7 @@ Serve Docker con Compose v2 (su Windows Docker Desktop con WSL2). Tutti i comand
    - `TMDB_READ_TOKEN`: facoltativo. Senza, la libreria funziona con i soli dati di Wikidata.
    - `MEDIA_GID`: solo su un host Linux o un NAS, il gruppo che può leggere `MEDIA_DIR` (vedi [Utente e permessi](#utente-e-permessi)).
    - `PZF_HOSTS`: facoltativo, i nomi con cui apri l'app oltre all'indirizzo IP (vedi [Indirizzi accettati](#indirizzi-accettati)).
+   - `MISSING_REMOVE_AFTER_DAYS`: facoltativo, default 30. Dopo quanti giorni un file sparito da una libreria online esce dal catalogo; `0` spegne la rimozione automatica. I file mancanti si vedono, e si dimenticano a mano, in **Gestione → File mancanti**. Niente viene cancellato: se il file torna, torna con il suo titolo e i suoi progressi. **Un disco per radice:** la protezione contro i dischi smontati guarda la radice intera (vuota, irraggiungibile, o più di metà dei file spariti); un secondo disco montato in una sottocartella di una radice non viene riconosciuto, e dopo il periodo di grazia i suoi file uscirebbero dal catalogo. Mettete ogni disco nella sua radice in `LIBRARY_ROOTS`.
 2. Build e avvio:
 
    ```sh

@@ -21,6 +21,7 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'POST /video/api/v1/profiles/{profileId}/select',
   'GET /video/api/v1/admin/roots',
   'POST /video/api/v1/admin/roots/{rootId}/confirm-contents',
+  'POST /video/api/v1/admin/roots/{rootId}/forget-missing',
   'POST /video/api/v1/admin/scan',
   'GET /video/api/v1/admin/ingest',
   'POST /video/api/v1/admin/jobs/{jobId}/retry',
@@ -29,7 +30,9 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'POST /video/api/v1/admin/cases/{caseId}/resolve',
   'POST /video/api/v1/admin/cases/{caseId}/ignore',
   'GET /video/api/v1/admin/provider-search',
+  'GET /video/api/v1/admin/files',
   'GET /video/api/v1/admin/files/{fileId}',
+  'POST /video/api/v1/admin/files/{fileId}/forget',
   'POST /video/api/v1/admin/explain',
 ]);
 

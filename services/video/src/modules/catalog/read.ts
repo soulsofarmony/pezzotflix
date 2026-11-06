@@ -57,16 +57,22 @@ const COLS = `i.id, i.kind, i.category, i.parent_id AS parentId, i.season_number
   i.extra_type AS extraType, i.edition_label AS editionLabel, i.title, i.original_title AS originalTitle, i.sort_title AS sortTitle,
   i.year, i.duration_ms AS durationMs, i.added_at AS addedAt, i.provisional`;
 
+/**
+ * A link that counts: its file was not forgotten. A removed file keeps its links, so that it revives with them
+ * when it comes back (doc 01 §6.1), but its items read as if it had none. A missing file still counts.
+ */
+const KEPT_LINK = `JOIN media_file lf ON lf.id = l.file_id AND lf.state <> 'removed'`;
+
 /** The item, or for a container one of its episodes, has a linked file. Items left without files are hidden. */
-const HAS_MEDIA = `(EXISTS (SELECT 1 FROM media_link l WHERE l.item_id = i.id)
-  OR EXISTS (SELECT 1 FROM catalog_item e JOIN media_link l ON l.item_id = e.id WHERE e.parent_id = i.id AND e.kind = 'episode')
-  OR EXISTS (SELECT 1 FROM catalog_item s JOIN catalog_item e ON e.parent_id = s.id JOIN media_link l ON l.item_id = e.id
+const HAS_MEDIA = `(EXISTS (SELECT 1 FROM media_link l ${KEPT_LINK} WHERE l.item_id = i.id)
+  OR EXISTS (SELECT 1 FROM catalog_item e JOIN media_link l ON l.item_id = e.id ${KEPT_LINK} WHERE e.parent_id = i.id AND e.kind = 'episode')
+  OR EXISTS (SELECT 1 FROM catalog_item s JOIN catalog_item e ON e.parent_id = s.id JOIN media_link l ON l.item_id = e.id ${KEPT_LINK}
              WHERE s.parent_id = i.id AND s.kind = 'season' AND e.kind = 'episode'))`;
 
 /** A linked file can be played: present and on an online root. */
 const FILE_AVAILABLE = `(f.state NOT IN ('missing', 'removed') AND r.status = 'online')`;
 
-/** Files of each requested item and of its seasons and episodes (not of its extras). */
+/** Files of each requested item and of its seasons and episodes (not of its extras); forgotten ones left out. */
 const TREE_FILES = `WITH RECURSIVE tree(root, id) AS (
     SELECT value, value FROM json_each(@ids)
     UNION ALL
@@ -75,7 +81,11 @@ const TREE_FILES = `WITH RECURSIVE tree(root, id) AS (
   files AS (
     SELECT DISTINCT t.root AS root, f.id AS fileId, ${FILE_AVAILABLE} AS available
     FROM tree t JOIN media_link l ON l.item_id = t.id JOIN media_file f ON f.id = l.file_id JOIN library_root r ON r.id = f.root_id
+    WHERE f.state <> 'removed'
   )`;
+
+/** Ids among the JSON array ? with a link that counts (KEPT_LINK). */
+const WITH_KEPT_LINK = `SELECT DISTINCT l.item_id AS id FROM media_link l ${KEPT_LINK} WHERE l.item_id IN (SELECT value FROM json_each(?))`;
 
 /** Widths of getImage offered per artwork type. */
 const VARIANTS: Readonly<Record<ImageRef['type'], readonly ImageWidth[]>> = {
@@ -250,11 +260,13 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState, repla
     `SELECT item_id AS itemId, type, local_path AS localPath, language, selected, fetched_at AS fetchedAt
      FROM artwork WHERE item_id IN (SELECT value FROM json_each(?))`,
   );
+  // Versions of an item and the files playback may use: a forgotten file is neither.
   const linkedFiles = prep(
     `SELECT f.id AS fileId, f.facts AS facts, ${FILE_AVAILABLE} AS available
      FROM media_link l JOIN media_file f ON f.id = l.file_id JOIN library_root r ON r.id = f.root_id
-     WHERE l.item_id = ? ORDER BY f.created_at, f.id`,
+     WHERE l.item_id = ? AND f.state <> 'removed' ORDER BY f.created_at, f.id`,
   );
+  const withKeptLink = prep(WITH_KEPT_LINK).pluck();
   const fileRow = prep(
     `SELECT f.id, f.size_bytes AS sizeBytes, f.container, f.duration_ms AS durationMs, f.bit_rate AS bitRate, f.facts, ${FILE_AVAILABLE} AS available
      FROM media_file f JOIN library_root r ON r.id = f.root_id WHERE f.id = ?`,
@@ -526,15 +538,11 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState, repla
     return rows.map((r) => r.id);
   }
 
-  /** Episodes of a series/season that have at least one linked file, in viewing order. */
+  /** Episodes of a series/season that have at least one linked file (not forgotten), in viewing order. */
   function playableEpisodeIds(itemId: string): string[] {
     const ids = episodeIds(itemId);
     if (!ids.length) return ids;
-    const linked = new Set(
-      (prep('SELECT DISTINCT item_id AS id FROM media_link WHERE item_id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)) as { id: string }[]).map(
-        (r) => r.id,
-      ),
-    );
+    const linked = new Set(withKeptLink.all(JSON.stringify(ids)) as string[]);
     return ids.filter((id) => linked.has(id));
   }
 
@@ -548,12 +556,7 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState, repla
       next = port.nextUp(profileId, seriesId);
     } else {
       // Without profile state nothing is watched: the first regular episode (specials last) with media.
-      const linked = new Set(
-        (prep('SELECT DISTINCT item_id AS id FROM media_link WHERE item_id IN (SELECT value FROM json_each(?))').all(JSON.stringify(episodeIds(seriesId))) as { id: string }[]).map(
-          (r) => r.id,
-        ),
-      );
-      const ordered = rowsByIds(episodeIds(seriesId)).filter((r) => linked.has(r.id));
+      const ordered = rowsByIds(playableEpisodeIds(seriesId));
       next = (ordered.find((r) => r.seasonNumber !== 0) ?? ordered[0])?.id ?? null;
     }
     const row = next ? rowsByIds([next])[0] : undefined;

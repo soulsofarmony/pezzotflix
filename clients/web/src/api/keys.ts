@@ -36,6 +36,9 @@ export const keys = {
     ingest: ['admin', 'ingest'] as const,
     providerSearch: (q: string, kind: string | undefined, year: number | undefined) => ['admin', 'provider-search', q, kind ?? null, year ?? null] as const,
     file: (id: string) => ['admin', 'file', id] as const,
+    /** Missing files, per root filter (null: every root). */
+    files: (rootId: string | null) => ['admin', 'files', rootId] as const,
+    filesAll: ['admin', 'files'] as const,
   },
 };
 
@@ -62,7 +65,9 @@ export function staleKeysForEvent(e: AppEvent): QueryKey[] {
       // added item joins.
       return [keys.home, keys.itemsAll, keys.searchAll, keys.itemAll];
     case 'ingest.progress':
-      return [keys.admin.ingest, keys.admin.roots, keys.server];
+      // A scan marks files missing or brings them back; forgotten missing files (phase remove_missing, also the
+      // automatic removal) leave the missing list and take their cases out of the "Da verificare" queue.
+      return [keys.admin.ingest, keys.admin.roots, keys.admin.filesAll, keys.admin.casesAll, keys.server];
     case 'identification.needs_review':
       return [keys.admin.casesAll, keys.server, ...(e.caseId ? [keys.admin.case(e.caseId)] : [])];
     default:

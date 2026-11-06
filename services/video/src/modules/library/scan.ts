@@ -2,7 +2,8 @@
 // - Change detection by size + mtime; the fingerprint tells a content change from a touch.
 // - Moves, and copies whose original is then deleted, are recognised by fingerprint: the older row
 //   keeps its id, links, cases and state.
-// - A file that comes back from 'missing' gets its state back from durable evidence (links, cases).
+// - A file that comes back from 'missing' or 'removed' (forgotten, removal.ts) gets its state back from
+//   durable evidence (links, cases); a forgotten one announces its items again.
 // - An unreachable root, or one that looks unmounted, goes offline instead of marking files missing.
 // - The library owns sidecars: external_subtitle and MediaFacts.sidecars are written with the file row.
 // Writes run in short transactions with a yield to the event loop in between (ADR 0001 rule 5,
@@ -311,6 +312,15 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
   const hasLink = (fileId: string): boolean =>
     db.select({ id: mediaLink.id }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).limit(1).get() !== undefined;
 
+  /** Read before a revival writes the row: a forgotten file coming back shows its items again. */
+  const wasRemoved = (fileId: string): boolean => currentOf(fileId)?.state === 'removed';
+
+  /** The items of a forgotten file that came back are listed again (removal.ts hid them). */
+  const announceRestored = (fileId: string) => {
+    const items = db.selectDistinct({ itemId: mediaLink.itemId }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).all();
+    for (const { itemId } of items) events().publish('library.item_updated', { itemId, fileId, reason: 'media_restored' });
+  };
+
   /** The identifier's settlement port, or null without one (tests of the library alone). */
   const settle = (): CaseSettlementPort | null => {
     try {
@@ -603,6 +613,7 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
           summary.moved++;
           ops.push(() => {
             // Links, cases and decisions survive a move (doc 01 §6.1).
+            const restored = revive && wasRemoved(from.id);
             const state = revive ? reviveState(from.id, entry.disc, t, summary) : null;
             db.update(mediaFile)
               .set({
@@ -618,6 +629,7 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
               })
               .where(eq(mediaFile.id, from.id))
               .run();
+            if (restored) announceRestored(from.id);
             if (entry.disc) return;
             writeSidecars(from.id, parseSidecars(entry.relPath, entry.sidecars), true);
             afterRelocation(from.id, entry.mtimeMs);
@@ -666,11 +678,13 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
           summary.changed++;
           const fingerprint = isDiscFolder(disc) ? null : fpOf(root.id, entry.relPath);
           ops.push(() => {
+            const restored = wasGone && wasRemoved(file.id);
             const state = wasGone ? ensureDiscCase(file.id, disc, t, summary) : null;
             db.update(mediaFile)
               .set({ sizeBytes: entry.sizeBytes, mtimeMs: entry.mtimeMs, fingerprint, missingSince: null, updatedAt: t, ...(state ? { state } : {}) })
               .where(eq(mediaFile.id, file.id))
               .run();
+            if (restored) announceRestored(file.id);
           });
           continue;
         }
@@ -680,6 +694,7 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
           // Only the mtime changed (touch, copy without -p, exFAT rounding): same content, same state.
           summary.touched++;
           ops.push(() => {
+            const restored = wasGone && wasRemoved(file.id);
             const state = wasGone ? reviveState(file.id, null, t, summary) : null;
             db.update(mediaFile)
               .set({
@@ -690,6 +705,7 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
               })
               .where(eq(mediaFile.id, file.id))
               .run();
+            if (restored) announceRestored(file.id);
             if (sidecars) writeSidecars(file.id, sidecars, true);
             if (!currentOf(file.id)?.hasFacts) enqueueProbe(file.id, entry.mtimeMs);
           });
@@ -700,10 +716,12 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
           // New content at the same path: probed and identified again. Back to 'discovered', then
           // 'analyzed', a linked file tells the identifier that its auto links were made for the old
           // content: it drops them and identifies the file again, keeping manual links (doc 01 §5.1).
+          const restored = wasGone && wasRemoved(file.id);
           db.update(mediaFile)
             .set({ sizeBytes: entry.sizeBytes, mtimeMs: entry.mtimeMs, fingerprint, state: 'discovered', missingSince: null, updatedAt: t })
             .where(eq(mediaFile.id, file.id))
             .run();
+          if (restored) announceRestored(file.id);
           if (sidecars) writeSidecars(file.id, sidecars, true);
           enqueueProbe(file.id, entry.mtimeMs);
         });
@@ -717,8 +735,10 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs, settl
         if (isGone(file.state)) {
           summary.revived++;
           ops.push(() => {
+            const restored = wasRemoved(file.id);
             const state = reviveState(file.id, entry.disc, t, summary);
             db.update(mediaFile).set({ state, fingerprint, missingSince: null, updatedAt: t }).where(eq(mediaFile.id, file.id)).run();
+            if (restored) announceRestored(file.id);
             if (entry.disc) return;
             if (sidecars) writeSidecars(file.id, sidecars, true);
             if (!currentOf(file.id)?.hasFacts) enqueueProbe(file.id, entry.mtimeMs);

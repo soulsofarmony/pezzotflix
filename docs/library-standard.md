@@ -245,6 +245,7 @@ Esistono due livelli:
 
 - **Come si risolvono `multi_part` e `disc_structure`:** solo con **Ignora** (`IgnoreCase`, doc 03) oppure correggendo i file fuori da Pezzotflix e rifacendo la scansione. Collegarli a mano a un item ricreerebbe un item su più file (D7) o collegherebbe un file non riproducibile. Il vincolo va riportato negli enum di doc 03.
 - `no_year` **non** è un motivo di coda: è un segnale del parser. Con un candidato unico il file viene abbinato (D6); altrimenti finisce in coda come `ambiguous`, `low_score` o `no_candidates`.
+- Un file tolto dalla libreria per più di 30 giorni (`MISSING_REMOVE_AFTER_DAYS`) esce dal catalogo finché non torna; i progressi restano. I file mancanti si vedono in **Gestione → File mancanti**, dove si possono anche dimenticare subito (doc 01 §6.1). Ogni disco va nella sua radice: un disco montato in una sottocartella di una radice non è protetto dalla rimozione (vedi `deploy/README.md`).
 - Se il provider non risponde, il caso **non** va in coda: resta in attesa (`pending`) e viene riprovato. Il file resta visibile con il titolo ricavato dal nome (S4; doc 02 §3.5).
   - Da dopo l'MVP (2026-11-06) è così davvero: il file compare nel catalogo come item provvisorio, con l'avviso "In attesa di identificazione", e si può guardare;
   - quando arriva l'identificazione, o la risolvi a mano, progressi, "visto", cronologia e watchlist passano al titolo vero; se ignori il file, l'item provvisorio sparisce;

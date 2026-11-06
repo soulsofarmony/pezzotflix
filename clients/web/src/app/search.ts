@@ -32,6 +32,11 @@ export const playerSearch = z.object({
   force: z.enum(['direct_play', 'direct_stream', 'transcode']).optional().catch(undefined),
 });
 
+/** "File mancanti": the root filter. */
+export const filesSearch = z.object({
+  rootId: z.string().min(1).optional().catch(undefined),
+});
+
 export const casesSearch = z.object({
   state: z.enum(['pending', 'auto_matched', 'needs_review', 'resolved', 'ignored']).optional().catch(undefined),
 });

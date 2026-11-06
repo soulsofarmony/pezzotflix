@@ -208,6 +208,12 @@ missing ──(oltre periodo di grazia, o rimozione esplicita)──→ removed
 ```
 
 - **File scomparso ≠ contenuto cancellato.** Un disco scollegato o un NAS offline non deve cancellare catalogo, metadata, correzioni manuali o progress. L'item diventa "non disponibile".
+- **Da `missing` a `removed`** (dopo l'MVP, 2026-11-06):
+  - **in automatico:** dopo `MISSING_REMOVE_AFTER_DAYS` giorni (default 30; 0 la spegne), con un controllo giornaliero e all'avvio. Vale solo per i file di una radice online e non trattenuta dalla protezione contro i dischi smontati, così un disco scollegato non fa mai sparire nulla. Un file senza data di scomparsa conta dall'ultima modifica della riga;
+  - **a mano:** "Dimentica" nella pagina **Gestione → File mancanti**, per un file (anche su una radice offline) o per tutti i mancanti di una radice (solo se è online e non trattenuta);
+  - **è solo un cambio di stato.** Collegamenti, caso e stato di visione restano. Un item con tutti i file `removed` sparisce da Home, liste, ricerca, figli, "continua a guardare" e prossimo episodio; con almeno un file soltanto `missing` resta "non disponibile". I casi dei file `removed` escono da "Da verificare";
+  - **se il file torna** con la stessa fingerprint, riprende i suoi collegamenti e l'item ricompare (`media_restored`). Vale anche per un file dimenticato a mano;
+  - un item provvisorio il cui file è `removed` resta nascosto, ma non viene cancellato: se il file torna, torna anche lui.
 - **File spostato o rinominato:** riconosciuto tramite fingerprint. Path aggiornato, link e stato preservati.
 - **File sostituito** (nuovo remux dello stesso film): nuovo MediaFile. Se viene collegato allo stesso item, il progress resta valido (vedi §7.2).
 - **Contenuto cambiato allo stesso path** (F2, 2026-11-06):

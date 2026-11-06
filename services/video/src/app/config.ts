@@ -19,6 +19,13 @@ const byteSize = z.union([z.number(), z.string()]).transform((v, ctx) => {
   return Math.round(Number(m[1]) * unit);
 });
 
+/** Whole days, 0 or more. An empty value is refused rather than read as 0, which would turn a feature off. */
+const days = z
+  .union([z.number(), z.string()])
+  .transform((v) => String(v).trim())
+  .pipe(z.string().regex(/^\d+$/, 'a whole number of days, 0 or more'))
+  .transform(Number);
+
 const LibraryRootSpec = z.object({
   name: z.string().min(1),
   path: z.string().min(1),
@@ -56,6 +63,11 @@ const Env = z.object({
     }),
   LIBRARY_WATCH: z.enum(['off', 'auto']).default('off'),
   LIBRARY_SCAN_INTERVAL_MIN: z.coerce.number().int().min(1).default(15),
+  /**
+   * A file missing for more than this many days is forgotten ('removed', doc 01 §6.1) by a daily task, only
+   * on a root online and not held by the unmounted-root guard. 0 turns it off.
+   */
+  MISSING_REMOVE_AFTER_DAYS: days.default(30),
   FFMPEG_PATH: z.string().default('ffmpeg'),
   FFPROBE_PATH: z.string().default('ffprobe'),
   SCRATCH_MAX_BYTES: byteSize.default(20 * 1024 ** 3),
