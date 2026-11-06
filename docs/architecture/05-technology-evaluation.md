@@ -562,7 +562,7 @@ Nessun container di database: SQLite è un file nel volume `video-db` (ADR 0002)
 - **Video Service giù** (§2, §18): il gateway non dipende dallo stato del video per partire (nessun `depends_on: service_healthy`); le route `/video/*` rispondono `503` JSON tramite `handle_errors`; il web client si carica e mostra "video non disponibile" (doc 02 §7).
 - **Health check:** `video` espone `/video/healthz` (processo vivo e database raggiungibile), usato sia dal `healthcheck` di Compose sia dall'health check attivo di Caddy (`health_uri /video/healthz`, intervallo 10 s). Il `healthcheck` di Compose non richiede `curl` nell'immagine: `node -e "fetch('http://127.0.0.1:8096/video/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`. `gateway` ha un proprio `healthcheck` su una route `respond` locale.
 - **Processi figli:** `video` gira con `init: true`. Un init minimale raccoglie gli zombie e inoltra i segnali ai processi ffmpeg (doc 02 C1). Gira inoltre con un utente non root, con `stop_grace_period` di circa 20 s per chiudere le sessioni.
-- **Permessi:** il Dockerfile crea con `mkdir -p` tutti i mount point (`/data/db`, `/data/cache`, `/data/artwork`, `/data/thumbnails`, `/data/scratch`, `/data/backup`, `/media`) e ne fa il `chown` all'utente del servizio prima di `USER`, così i volumi nominati nuovi nascono con il proprietario giusto. Per i bind mount su Linux si documentano `PUID`/`PGID`.
+- **Permessi:** il Dockerfile crea con `mkdir -p` tutti i mount point (`/data/db`, `/data/cache`, `/data/artwork`, `/data/thumbnails`, `/data/scratch`, `/data/backup`, `/media`) e ne fa il `chown` all'utente del servizio prima di `USER`, così i volumi nominati nuovi nascono con il proprietario giusto. In F2 `PUID`/`PGID` sono stati sostituiti da un utente fisso 1000:1000 e da `MEDIA_GID` per leggere i media (ADR 0006, aggiornamento F2).
 - **Log:** stdout, driver `local` con rotazione.
 
 #### 4.6.2 Volumi e mount
@@ -630,7 +630,7 @@ Tutti i dati stanno sotto `DATA_DIR=/data` (decisione dopo la revisione di desig
 - Il servizio parte **anche senza `.env`**: ogni chiave ha un default, tranne `MEDIA_DIR`, che va impostato perché non ha un default sensato. Compose carica il file con `env_file` e `required: false`.
 - **Segreti** oggi: solo `TMDB_READ_TOKEN`. Per ogni segreto si accetta anche la variante `<NOME>_FILE`, che punta a un file: è la convenzione dei Docker secrets, per il server.
 - Chiavi principali:
-  - `MEDIA_DIR`, `HTTP_PORT`, `TZ`, `LOG_LEVEL`, `DATA_DIR` (default `/data`), `PUID`/`PGID` (solo bind mount su Linux);
+  - `MEDIA_DIR`, `HTTP_PORT`, `TZ`, `LOG_LEVEL`, `DATA_DIR` (default `/data`), `MEDIA_GID` e `PZF_HOSTS` (da F2, al posto di `PUID`/`PGID`);
   - `LIBRARY_SCAN_INTERVAL_MIN`, `LIBRARY_WATCH`;
   - `SESSION_MAX`, `TRANSCODE_MAX`, `SCRATCH_MAX_BYTES`, `HWACCEL`, `FFMPEG_PATH`;
   - `TMDB_READ_TOKEN`, `WIKIDATA_CONTACT` (ADR 0007).

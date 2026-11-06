@@ -90,7 +90,7 @@ La portabilità verso un mini-PC o NAS Linux è un vincolo rigido (§18).
    - `healthcheck` di `video` su `/video/healthz`, senza `curl` nell'immagine:
      `node -e "fetch('http://127.0.0.1:8096/video/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`.
      Lo stesso path è l'`health_uri` dell'health check attivo di Caddy;
-   - **utente e permessi:** il Dockerfile crea tutti i mount point (`/data/db`, `/data/cache`, `/data/artwork`, `/data/thumbnails`, `/data/scratch`, `/data/backup`, `/media`) con `mkdir -p` e ne fa il `chown` all'utente non root del servizio prima dello `USER`. Così i volumi nominati nuovi ereditano il proprietario giusto. Per i bind mount su Linux si documentano `PUID`/`PGID`, da far coincidere con il proprietario delle directory dell'host.
+   - **utente e permessi:** il Dockerfile crea tutti i mount point (`/data/db`, `/data/cache`, `/data/artwork`, `/data/thumbnails`, `/data/scratch`, `/data/backup`, `/media`) con `mkdir -p` e ne fa il `chown` all'utente non root del servizio prima dello `USER`. Così i volumi nominati nuovi ereditano il proprietario giusto. ~~Per i bind mount su Linux si documentano `PUID`/`PGID`~~: sostituiti in F2 da un utente fisso e da `MEDIA_GID` (vedi l'aggiornamento F2 in fondo).
 3. **Volumi e mount del container `video`** (`DATA_DIR=/data`; i path sotto `/data` sono fissi, cambia solo cosa c'è dietro):
 
    | Path nel container | Volume o sorgente | Modalità | Contenuto |
@@ -108,20 +108,41 @@ La portabilità verso un mini-PC o NAS Linux è un vincolo rigido (§18).
    - **limiti del backup nell'MVP:** su Docker Desktop `video-backup` e `video-db` stanno nello stesso disco virtuale WSL (vhdx), quindi il backup **non** protegge dalla perdita del disco. L'artwork caricato dal proprietario (`video-artwork`) non ha backup. Un backup fuori dall'host avrà una sua ADR; sul server Linux un override può puntare `video-backup` a un altro disco.
 4. **Library Monitor:** `LIBRARY_WATCH=off` su Docker Desktop, scansione periodica ogni `LIBRARY_SCAN_INTERVAL_MIN` minuti (default 15), `auto` su Linux nativo.
 5. **Sviluppo:**
-   - tutto in Compose, con `compose.dev.yaml` (`develop.watch`, porte di debug);
+   - tutto in Compose, con `develop.watch` (in F0 è finito dentro `compose.yaml`, non in un `compose.dev.yaml` separato; nessuna porta di debug pubblicata);
    - i test unitari dei moduli puri possono girare sull'host, quelli d'integrazione girano nel container;
    - il dev server del web client, se c'è, gira sull'host e fa da proxy verso il gateway.
 6. **Configurazione:**
    - un solo `.env` alla radice (gitignorato) e un `.env.example` versionato;
    - default per ogni chiave tranne `MEDIA_DIR`;
-   - `DATA_DIR=/data` è la radice dei dati nel container (punto 3); `PUID`/`PGID` servono solo per i bind mount su Linux (punto 2);
-   - segreti anche come `<NOME>_FILE`;
+   - `DATA_DIR=/data` è la radice dei dati nel container (punto 3); `MEDIA_GID` è il gruppo che legge i media (aggiornamento F2);
+   - segreti anche come `<NOME>_FILE`: **non ancora implementato** (lacuna nota; oggi il token TMDB arriva solo da `env_file`);
    - le modifiche diventano effettive con `docker compose up -d`.
 7. **ffmpeg:**
    - immagine base `node:26.13.0-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39` (ADR 0001);
    - `jellyfin-ffmpeg8` **8.1.3-2**, versione fissata nell'`apt-get install` come `jellyfin-ffmpeg8=8.1.3-2-trixie`, installato dal repository firmato di Jellyfin, con `FFMPEG_PATH`/`FFPROBE_PATH` configurabili;
-   - nessuna GPU nel Compose base: override `compose.gpu-nvidia.yaml` / `compose.gpu-intel.yaml` e probe delle capability all'avvio;
+   - nessuna GPU nel Compose base: override `compose.gpu-nvidia.yaml` / `compose.gpu-intel.yaml` e probe delle capability all'avvio. **Non ancora presenti** (il transcode dell'MVP è software): arrivano con l'ADR sull'accelerazione hardware;
    - si passa a ffmpeg 9 solo con un driver ≥ 610.
+
+### Aggiornamento F2 (2026-11-06, orchestratore su delega)
+
+Decisioni prese nell'integrazione finale, dopo la revisione approfondita:
+
+- **Gateway:**
+  - un solo `reverse_proxy` per tutto `/video/*`, con l'health check attivo (`health_interval 10s`, `health_timeout 5s`, `health_fails 3`): con un solo fallimento una sonda lenta toglieva tutto `/video/*` per 10 s;
+  - il `503` JSON di `handle_errors` è un Problem `MEDIA_UNAVAILABLE` con `Retry-After: 5`. Nel catalogo e nell'admin il web client lo mostra come "il servizio non risponde";
+  - **log senza token:** il logger di default maschera `/media/s/<token>` in `uri` e `Referer` e toglie `Authorization` e `Cookie`. Caddy scrive la richiesta quando una risposta si interrompe (ogni seek in Direct Play) o quando il proxy fallisce;
+  - **Host ammessi:** un indirizzo IP (v4 o v6), `localhost` e i nomi in `PZF_HOSTS`, con qualunque porta; gli altri ricevono `421`. Senza autenticazione, protegge dal DNS rebinding da una pagina aperta in LAN;
+  - `/assets/*` senza ripiego su `index.html`: un asset mancante è un `404` `no-store`, non HTML in cache per un anno.
+- **Compose:**
+  - una sola rete `platform`, non `internal`: il Video Service deve raggiungere Wikidata e TMDB (ADR 0007). Resta non pubblicato: lo si raggiunge solo dal gateway;
+  - **utente fisso `1000:1000`** (l'utente `node` dell'immagine), con `group_add: ${MEDIA_GID:-1000}` per leggere i media. Con `PUID`/`PGID` un uid diverso non poteva scrivere nei volumi nominati, creati dall'immagine per l'uid 1000;
+  - nuovo volume **`video-secrets`** su `/data/secrets` (mode 700): la chiave che firma i token dei profili. Senza volume ogni ricostruzione del container scollegava tutti i profili;
+  - media in **bind read-only con `create_host_path: false`**: su Linux un `MEDIA_DIR` sbagliato fa fallire `up`. Docker Desktop su Windows crea comunque la cartella mancante, e restano le difese del Video Service sulle radici smontate;
+  - `pull_policy: never` sulle immagini costruite in locale: `docker compose pull` non scarica mai un `pezzotflix/*` altrui da Docker Hub. `build` ricostruiva e ricreava i container a ogni `up -d` (misurato su Compose 2.35);
+  - log dei container a rotazione, 3 file da 10 MB; nome del progetto, porta, tag delle immagini e file `.env` sovrascrivibili dalla shell, per uno stack di prova accanto a quello principale;
+  - il codice nell'immagine appartiene a `node`, così `docker compose watch` può sincronizzarlo.
+- **Volume `video-backup`:** copia giornaliera con `integrity_check`, tenute 7 giornaliere e 4 settimanali, più una copia prima di ogni migrazione (ADR 0002 §10). `down -v` cancella anche i backup e la chiave dei profili: il README lo dice e descrive il ripristino.
+- **Test end-to-end** (doc 06 §4): `PZF_E2E_BASE_URL` è obbligatorio, così i test non girano per sbaglio sullo stack principale. Un sample mancante fa fallire il gate, salvo quelli elencati in `PZF_E2E_ALLOW_SKIP`.
 
 ## Conseguenze
 
