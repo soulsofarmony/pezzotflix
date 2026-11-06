@@ -49,6 +49,14 @@ export function parseCase(parsed: unknown): ParsedCase {
   return r.success ? r.data : ParsedCase.parse({});
 }
 
+/** Identifier bookkeeping kept next to the parser output: item ids, not something the file name says. */
+const INTERNAL_PARSED_KEYS: readonly string[] = ['provisionalWorks'];
+
+/** The stored parser output as the API shows it (IdentificationCase.parsed), without the bookkeeping keys. */
+export function publicParsed(raw: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(raw).filter(([k]) => !INTERNAL_PARSED_KEYS.includes(k)));
+}
+
 export function storedCandidates(raw: unknown): StoredCandidate[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((c) => {

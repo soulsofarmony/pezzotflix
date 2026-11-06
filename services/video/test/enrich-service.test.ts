@@ -170,6 +170,28 @@ describe('a film', () => {
     expect(s.fetch.calls.length).toBe(before);
     expect(fields(s, extra.itemId)).toEqual({ 'title:filename': 'Trailer' });
   });
+
+  it('a provisional work (and its episodes) is never enriched, nor swept for refresh (doc 02 §3.5)', async () => {
+    s = await setup();
+    const c = cat(s);
+    const filename = [{ source: 'filename' as const, fetchedAt: 0, values: { title: 'Serie di prova' } }];
+    const series = c.upsertWork({ kind: 'series', editionLabel: null, externalIds: {}, provisional: true, fields: filename }).itemId;
+    const episode = c.ensureEpisode(c.ensureSeason(series, 1).itemId, 1).itemId;
+    expect(c.getItem(episode)?.provisional).toBe(true);
+    // A stand-in takes no ids; one written behind the catalog's back still leaves the Enricher out.
+    expect(() => c.addExternalIds(series, { wikidata: 'Q98000001' })).toThrow(/provisional/);
+    c.addExternalIds(series, {}); // nothing to add: no error
+    const put = s.db.$client.prepare('INSERT INTO external_id (item_id, provider, external_id) VALUES (?, ?, ?)');
+    put.run(series, 'wikidata', 'Q98000001');
+    put.run(series, 'tmdb', String(SHOW.id));
+    expect(jobs(s)).toEqual([]);
+    expect(c.listWorkRefreshState()).toEqual([]);
+    for (const itemId of [series, episode]) s.comp.ports.jobs.enqueue({ type: JOB_TYPES.metadataEnrich, payload: { itemId }, idempotencyKey: `enrich:${itemId}` });
+    const before = s.fetch.calls.length;
+    await s.runner.drain();
+    expect(s.fetch.calls.length).toBe(before);
+    expect(fields(s, series)).toEqual({ 'title:filename': 'Serie di prova' });
+  });
 });
 
 describe('offline-first', () => {

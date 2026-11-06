@@ -748,7 +748,7 @@ export interface components {
         };
         Event: {
             seq: number;
-            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
+            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog; replacedBy, optional, is the item that took its place (a provisional item replaced by the identified one): a client showing the removed item can move to it. A playback session on the removed item follows its file to replacedBy and goes on. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
             type: string;
             at: number;
             payload: {
@@ -857,6 +857,8 @@ export interface components {
             badges: string[];
             /** @description At least one linked file is online. */
             available: boolean;
+            /** @description True while the item stands in for a file whose identification waits for a metadata provider: its values come from the file name, it has no provider data, and it is playable. When the file is identified it moves to the real item and this one is removed (library.item_removed, replacedBy the real item); a file sent to review keeps it. Seasons and episodes of a provisional series are provisional too. Linking a file to it by hand (ResolveCase link_item) adopts the whole work: it stops being provisional. */
+            provisional: boolean;
             state?: components["schemas"]["ProfileItemState"];
         };
         /** @description Opaque keyset cursor. */

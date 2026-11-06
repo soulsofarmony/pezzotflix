@@ -5,14 +5,16 @@ import type { ModuleFactory, Ports } from '../../app/module.ts';
 import { catalogHandlers } from './handlers.ts';
 import { createCatalogLinks } from './links.ts';
 import { createCatalogReader } from './read.ts';
+import { createReplacements } from './replacements.ts';
 import { createCatalogWriter } from './write.ts';
 
 const DAY_MS = 24 * 3600_000;
 
 export const createCatalogModule: ModuleFactory = ({ db, now, ports, config, log }) => {
   const tmdbMaxAgeMs = config.TMDB_MAX_AGE_DAYS * DAY_MS;
-  const writer = createCatalogWriter({ db, now, log, events: () => ports.events, jobs: () => ports.jobs, tmdbMaxAgeMs });
-  const reader = createCatalogReader({ db, now, tmdbMaxAgeMs, profileState: () => optionalPort(ports, 'profileState') });
+  const replacements = createReplacements();
+  const writer = createCatalogWriter({ db, now, log, events: () => ports.events, jobs: () => ports.jobs, tmdbMaxAgeMs, replacements });
+  const reader = createCatalogReader({ db, now, tmdbMaxAgeMs, profileState: () => optionalPort(ports, 'profileState'), replacements });
   return {
     name: 'catalog',
     provides: {

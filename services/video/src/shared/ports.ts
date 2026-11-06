@@ -47,6 +47,14 @@ export interface PlayableItem {
 /** Implemented by modules/catalog. */
 export interface CatalogReadPort {
   getPlayableItem(itemId: string): PlayableItem | null;
+  /**
+   * Where a playback of itemId on fileId goes once itemId left the catalog (a provisional item replaced by
+   * the identified one, doc 02 §3.5): the item the removal named as replacedBy (following a chain of them)
+   * when it holds that file, else the one playable item (movie, episode, extra) the file is linked to now.
+   * Null while itemId exists, or when neither is found (the file is linked to none or to several). The
+   * replacements are remembered in memory, for the items removed since the service started.
+   */
+  replacementFor(itemId: string, fileId: string): string | null;
   /** Ids of the episodes of a series/season that have at least one linked file, in viewing order. */
   listPlayableDescendants(itemId: string): string[];
   itemExists(itemId: string): boolean;
@@ -137,6 +145,22 @@ export interface ProfileStatePort {
    * rows moved. Optional: admin skips it when no module provides it.
    */
   moveFileState?(fileId: string, fromItemIds: readonly string[], toItemId: string): number;
+  /**
+   * fromItemId is about to be removed and toItemId took its place (a provisional item replaced by the
+   * identified one, doc 02 §3.5). What every profile recorded on fromItemId itself, after moveFileState
+   * moved what belongs to a file, moves to toItemId, merged last-write-wins as in moveFileState: the
+   * watchlist entry (an entry already on toItemId is kept), and for a playable item a watched mark set by
+   * hand, plays no record explains, and the progress and history of a file that did not follow. A series
+   * or season takes only the watchlist entry. Synchronous: joins the caller's open transaction. Returns
+   * the rows moved. Optional: skipped when no module provides it.
+   */
+  moveItemState?(fromItemId: string, toItemId: string): number;
+  /**
+   * The library merged the file fromFileId into the row toFileId (same content, doc 02 §3.5): the progress
+   * and history recorded on fromFileId name toFileId. Synchronous: joins the caller's open transaction.
+   * Returns the rows changed. Optional: skipped when no module provides it.
+   */
+  replaceFileId?(fromFileId: string, toFileId: string): number;
 }
 
 /** Implemented by modules/catalog: catalog views the admin API shows next to cases and files. */
@@ -152,7 +176,11 @@ export interface CatalogViewPort {
  * Synchronous: a call joins the caller's open transaction. Publishes library.item_updated.
  */
 export interface CatalogLinkPort {
-  /** The file's manual links become exactly itemIds (which must exist). Returns the items that lost a manual link. */
+  /**
+   * The file's manual links become exactly itemIds (which must exist). Returns the items that lost a
+   * manual link. Linking a file to a provisional item adopts it: its whole provisional work (the series
+   * with all its seasons and episodes, the movie with its extras) stops being provisional.
+   */
   replaceManualLinks(fileId: string, itemIds: readonly string[]): { removed: string[] };
   /** Removes the file's manual links; returns the items they pointed to. */
   removeManualLinks(fileId: string): string[];
@@ -169,6 +197,36 @@ export interface CaseSettlementPort {
    * Null if the case does not exist.
    */
   settleCase(caseId: string, decision: 'resolved' | 'ignored'): { fileId: string; removedAutoLinks: string[] } | null;
+  /**
+   * Call once the file's links changed (in the caller's transaction): the file left the items `from` for
+   * `to` (none when it was ignored). What profiles recorded on that file follows it (moveFileState): to the
+   * one item of `to`, or episode by episode when `from` and `to` are episodes whose numbers pair one to
+   * one; otherwise it stays. Then the provisional items of `from` left with no link and no child are
+   * removed, with their emptied provisional parents (doc 02 §3.5). Before that, what profiles recorded on
+   * each of them itself (moveItemState) moves to its replacement, published as library.item_removed
+   * replacedBy: for a series, the one series every linked file it stood in for went to; for a movie, the
+   * one movie those files went to (files that went to another kind do not count), else the item this file
+   * went to itself; for an episode, the episode this file went to; for a season, the season of its
+   * episodes' replacements. Returns the removed ids.
+   */
+  fileLeft(fileId: string, from: readonly string[], to: readonly string[]): string[];
+  /**
+   * Undecided like a file with no link: no link at all, or only the stand-in links of a file waiting for
+   * its identification (auto, to provisional items) with its case still pending or in review. The library
+   * merges such a copy into an older row with the same content (doc 02 §3.5).
+   */
+  undecided(fileId: string): boolean;
+  /**
+   * The library merges the copy copyId into the older row intoId (same content: intoId takes the copy's
+   * path, then the copy's row is deleted). Call before the delete, in the caller's transaction:
+   * - intoId with no link and no owner decision takes the copy's place: the copy's links and its case,
+   *   with the provisional works it stood in for, move to intoId, which stays shown where the copy was
+   *   until the identifier settles it;
+   * - otherwise the copy leaves its items for intoId's (fileLeft);
+   * then what profiles recorded on the copy's file names intoId (ProfileStatePort.replaceFileId).
+   * Returns the removed ids.
+   */
+  copyMerged(copyId: string, intoId: string): string[];
 }
 
 /** Implemented by modules/library (Library Monitor). */
@@ -275,6 +333,19 @@ export interface WorkInput {
   editionLabel: string | null;
   externalIds: ExternalIds;
   fields: SourcedFieldValues[];
+  /**
+   * A provisional work (doc 02 §3.5): always a new item, never found by findWork, never enriched;
+   * externalIds must be empty. Its seasons and episodes are provisional too.
+   */
+  provisional?: boolean;
+}
+
+/** A provisional work, for the identifier to reuse it (episodes of one pending series share it). */
+export interface ProvisionalWork {
+  id: string;
+  title: string;
+  year: number | null;
+  editionLabel: string | null;
 }
 
 export interface CatalogItemRef {
@@ -287,6 +358,8 @@ export interface CatalogItemRef {
   /** Extras only; optional so fakes may leave it out. */
   extraType?: ExtraType | null;
   title: string;
+  /** Optional so fakes may leave it out (= false). */
+  provisional?: boolean;
 }
 
 export interface CatalogWriteResult {
@@ -314,11 +387,30 @@ export interface CatalogWritePort {
    */
   createExtra(input: { parentId: string | null; extraType: ExtraType; title: string; numberIfTaken: boolean; fetchedAt: number }): CatalogWriteResult;
   writeFields(itemId: string, fields: readonly SourcedFieldValues[]): void;
-  /** Adds the ids the item has no value for; an existing id of the same provider is kept. */
+  /**
+   * Adds the ids the item has no value for; an existing id of the same provider is kept. Throws for a
+   * provisional item, which has no identity (doc 02 §3.5).
+   */
   addExternalIds(itemId: string, externalIds: ExternalIds): void;
   getItem(itemId: string): CatalogItemRef | null;
   /** The item itself if it has that kind, else its nearest ancestor of that kind. */
   findAncestor(itemId: string, kind: CatalogItemKind): string | null;
+
+  // ---- provisional items (doc 02 §3.5)
+
+  /** Top-level provisional works of that kind, oldest first. */
+  listProvisionalWorks(kind: WorkKind): ProvisionalWork[];
+  /** What retireProvisional(itemIds) would remove now, leaves first; nothing is written. */
+  provisionalToRetire(itemIds: readonly string[]): string[];
+  /**
+   * Removes the provisional items among itemIds that have no media link and no child, then walks up to
+   * their provisional parents. Checked here, in the caller's transaction: an item with any link (a manual
+   * one above all) is never removed. Publishes library.item_removed, with `replacedBy` when the map names
+   * the item that took its place. Returns the removed ids, leaves first.
+   */
+  retireProvisional(itemIds: readonly string[], replacedBy?: ReadonlyMap<string, string>): string[];
+  /** Provisional items with no media link and no child (left behind, e.g. by a deleted root). */
+  provisionalOrphans(): string[];
 
   // ---- F1a.4: Enricher, artwork, expiry and purge (ADR 0007 points 2, 5, 6)
 

@@ -8,10 +8,15 @@ import pino from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import { compose } from '../src/app/compose.ts';
 import { loadConfig, type LibraryRootSpec } from '../src/app/config.ts';
+import type { ModuleFactory } from '../src/app/module.ts';
 import { closeDb, type Db, openDb } from '../src/db/index.ts';
+import { createCatalogModule } from '../src/modules/catalog/index.ts';
 import { createEventsModule } from '../src/modules/events/index.ts';
+import { createIdentifierModule } from '../src/modules/identifier/index.ts';
 import { createJobRunner, createJobsModule, enqueueJob } from '../src/modules/jobs/index.ts';
 import { libraryModule, requestScan, scanJobKey } from '../src/modules/library/index.ts';
+import { profilesModule } from '../src/modules/profiles/index.ts';
+import { DEFAULT_PREFS } from '../src/modules/profiles/rules.ts';
 import { syncRoots, validateRoots } from '../src/modules/library/roots.ts';
 import { SUSPECT_MIN_PRESENT } from '../src/modules/library/scan.ts';
 import type { MediaFacts } from '../src/shared/media-facts.ts';
@@ -53,11 +58,11 @@ interface JobRow {
   state: string;
 }
 
-async function harness(roots: LibraryRootSpec[], stableAfterMs = 0) {
+async function harness(roots: LibraryRootSpec[], stableAfterMs = 0, extra: ModuleFactory[] = []) {
   const db: Db = await openDb({ path: ':memory:' });
   cleanup.push(() => closeDb(db));
   const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: tempDir(), LIBRARY_ROOTS: JSON.stringify(roots) });
-  const comp = compose({ config, db, log, factories: [createEventsModule, createJobsModule, libraryModule({ stableAfterMs })] });
+  const comp = compose({ config, db, log, factories: [createEventsModule, createJobsModule, libraryModule({ stableAfterMs }), ...extra] });
   for (const m of comp.modules) await m.start?.();
   const runner = createJobRunner({ db, log, jobTypes: comp.jobTypes, periodic: comp.periodic });
   cleanup.push(() => void runner.stop());
@@ -93,6 +98,12 @@ async function harness(roots: LibraryRootSpec[], stableAfterMs = 0) {
       requestScan(jobsPort, rootId(name));
       await runner.drain();
     },
+    /** Runs one identification with the identifier module, if composed (no provider: it waits). */
+    identify: async (fileId: string | undefined) => {
+      jobsPort.enqueue({ type: 'identifier.identify', payload: { fileId }, idempotencyKey: `identify:${fileId}` });
+      await runner.drain();
+    },
+    q,
     probes: () => jobs('analyzer.probe'),
     queuedProbes: () => jobs('analyzer.probe').filter((j) => j.state === 'queued'),
     queuedIdentifies: () => jobs('identifier.identify').filter((j) => j.state === 'queued'),
@@ -397,10 +408,10 @@ describe('library scan', () => {
     expect(h.queuedIdentifies()).toEqual([]);
   });
 
-  it('a file back from missing keeps a re-identification that was still pending', async () => {
+  it('a file back from missing keeps a re-identification that was still pending, or its review', async () => {
     const root = tempDir();
     const away = tempDir();
-    const names = ['Relinking', 'Settled', 'Manual'];
+    const names = ['Relinking', 'Settled', 'Manual', 'Waiting'];
     for (const name of names) writeFile(root, `Gone/${name} (2001).mkv`);
     writeFile(root, 'Keep (2000)/Keep (2000).mkv');
     const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
@@ -408,7 +419,7 @@ describe('library scan', () => {
     const ids = Object.fromEntries(names.map((n) => [n, h.file(`Gone/${n} (2001).mkv`)?.id]));
     for (const n of names) h.analyzed(ids[n]);
     h.exec("INSERT INTO catalog_item (id, kind, title, sort_title, added_at, updated_at) VALUES ('old', 'movie', 'Old', 'old', 0, 0)");
-    const decided = (n: string, origin: 'auto' | 'manual', caseState: 'pending' | 'auto_matched', fileState: string) => {
+    const decided = (n: string, origin: 'auto' | 'manual', caseState: 'pending' | 'auto_matched' | 'needs_review', fileState: string) => {
       h.exec("INSERT INTO media_link (id, file_id, item_id, origin, created_at) VALUES (?, ?, 'old', ?, 0)", `l-${n}`, ids[n], origin);
       h.exec('INSERT INTO identification_case (id, file_id, state, created_at, updated_at) VALUES (?, ?, ?, 0, 0)', `c-${n}`, ids[n], caseState);
       h.exec('UPDATE media_file SET state = ? WHERE id = ?', fileState, ids[n]);
@@ -417,6 +428,8 @@ describe('library scan', () => {
     decided('Relinking', 'auto', 'pending', 'analyzed');
     decided('Settled', 'auto', 'auto_matched', 'identified');
     decided('Manual', 'manual', 'pending', 'identified');
+    // In review, still shown under its provisional item (doc 02 §3.5): its only link is that auto one.
+    decided('Waiting', 'auto', 'needs_review', 'needs_review');
     h.allJobsDone();
 
     renameSync(abs(root, 'Gone'), join(away, 'Gone'));
@@ -424,7 +437,7 @@ describe('library scan', () => {
     expect(names.map((n) => h.byId(ids[n])?.state)).toEqual(names.map(() => 'missing'));
     renameSync(join(away, 'Gone'), abs(root, 'Gone'));
     await h.scan();
-    expect(names.map((n) => h.byId(ids[n])?.state)).toEqual(['analyzed', 'identified', 'identified']);
+    expect(names.map((n) => h.byId(ids[n])?.state)).toEqual(['analyzed', 'identified', 'identified', 'needs_review']);
   });
 
   it('recognises a file that reappears in another root as the missing one', async () => {
@@ -476,17 +489,21 @@ describe('library scan', () => {
 });
 
 describe('copy then delete, and moves seen by single-root scans', () => {
-  const setup = async () => {
+  const setup = async (extra: ModuleFactory[] = []) => {
     const film = tempDir();
     const docs = tempDir();
     const content = randomBytes(8192);
     writeFile(film, 'Free Solo (2018)/Free Solo (2018).mkv', content);
     writeFile(film, 'Keep (2000)/Keep (2000).mkv');
     writeFile(docs, 'Keep (2001)/Keep (2001).mkv');
-    const h = await harness([
-      { name: 'Film', path: film, hint: 'movies' },
-      { name: 'Documentari', path: docs, hint: 'movies' },
-    ]);
+    const h = await harness(
+      [
+        { name: 'Film', path: film, hint: 'movies' },
+        { name: 'Documentari', path: docs, hint: 'movies' },
+      ],
+      0,
+      extra,
+    );
     await h.scan();
     const id = h.file('Free Solo (2018)/Free Solo (2018).mkv')?.id;
     h.analyzed(id);
@@ -526,6 +543,94 @@ describe('copy then delete, and moves seen by single-root scans', () => {
     expect(h.files().filter((f) => f.rel_path === 'Free Solo (2018)/Free Solo (2018).mkv')).toMatchObject([
       { id, root: 'Documentari', state: 'identified' },
     ]);
+  });
+
+  it('a copy shown under a provisional item while it waits is still undecided: merged, its provisional item retired', async () => {
+    const { film, docs, content, h, id } = await setup([createCatalogModule, createIdentifierModule, profilesModule({ tokenKey: randomBytes(32) })]);
+    h.exec('INSERT INTO profile (id, name, avatar, prefs, created_at) VALUES (?, ?, NULL, ?, 0)', 'p1', 'Simone', JSON.stringify(DEFAULT_PREFS));
+    writeFile(docs, 'Free Solo (2018)/Free Solo (2018).mkv', content);
+    await h.scan();
+    const copyId = h.files().find((f) => f.root === 'Documentari' && f.rel_path.startsWith('Free Solo'))?.id;
+    h.analyzed(copyId);
+    // The identifier showed the copy under a provisional movie while the providers were down (doc 02 §3.5).
+    const w = h.comp.ports.catalogWrite;
+    const p = w.upsertWork({ kind: 'movie', editionLabel: null, externalIds: {}, provisional: true, fields: [{ source: 'filename', fetchedAt: 0, values: { title: 'Free Solo' } }] }).itemId;
+    h.exec("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('stand-in', ?, ?, 'auto', NULL, 0)", copyId, p);
+    h.exec("INSERT INTO identification_case (id, file_id, state, created_at, updated_at) VALUES ('case-copy', ?, 'pending', 0, 0)", copyId);
+    h.comp.ports.profilePlayback.recordProgress({ profileId: 'p1', itemId: p, fileId: copyId!, positionMs: 600_000, durationMs: 6_000_000, at: 1_000, ended: false });
+    h.allJobsDone();
+
+    rmSync(abs(film, 'Free Solo (2018)'), { recursive: true });
+    await h.scan();
+    expect(h.files().filter((f) => f.rel_path === 'Free Solo (2018)/Free Solo (2018).mkv')).toMatchObject([{ id, root: 'Documentari', state: 'identified' }]);
+    expect(h.byId(copyId)).toBeUndefined();
+    expect(w.getItem(p)).toBeNull();
+    const removed = h.events().filter((e) => e.type === 'library.item_removed').map((e) => JSON.parse(e.payload) as Record<string, unknown>);
+    expect(removed).toEqual([{ itemId: p, kind: 'movie', parentId: null, replacedBy: 'item-1' }]);
+    // What was watched on the copy follows the original's item, and names the row that is left.
+    expect(h.q('SELECT item_id, file_id, position_ms FROM playback_progress')).toEqual([{ item_id: 'item-1', file_id: id, position_ms: 600_000 }]);
+    expect(h.q('SELECT item_id, file_id FROM viewing_record')).toEqual([{ item_id: 'item-1', file_id: id }]);
+  });
+
+  it('a copy shown under a provisional item merged into an original with no link: the original takes its stand-in, case and watch state', async () => {
+    const film = tempDir();
+    const docs = tempDir();
+    const content = randomBytes(8192);
+    writeFile(film, 'Gone/x.mkv', content);
+    writeFile(film, 'Keep (2000)/Keep (2000).mkv');
+    writeFile(docs, 'Keep (2001)/Keep (2001).mkv');
+    const roots = [
+      { name: 'Film', path: film, hint: 'movies' as const },
+      { name: 'Documentari', path: docs, hint: 'movies' as const },
+    ];
+    const h = await harness(roots, 0, [createCatalogModule, createIdentifierModule, profilesModule({ tokenKey: randomBytes(32) })]);
+    h.exec('INSERT INTO profile (id, name, avatar, prefs, created_at) VALUES (?, ?, NULL, ?, 0)', 'p1', 'Simone', JSON.stringify(DEFAULT_PREFS));
+    await h.scan();
+    const id = h.file('Gone/x.mkv')?.id;
+    h.analyzed(id);
+    h.openCase(id, 'needs_review'); // no title in its name: in review, no link
+    h.allJobsDone();
+
+    writeFile(docs, 'Dune (2021)/Dune (2021).mkv', content);
+    await h.scan();
+    const copyId = h.file('Dune (2021)/Dune (2021).mkv')?.id;
+    h.analyzed(copyId);
+    await h.identify(copyId); // no provider: shown under a provisional movie (doc 02 §3.5)
+    const links = () => h.q<{ file_id: string; item_id: string; origin: string }>('SELECT file_id, item_id, origin FROM media_link');
+    const p = links()[0]?.item_id ?? '';
+    const w = h.comp.ports.catalogWrite;
+    expect(w.getItem(p)?.provisional).toBe(true);
+    h.comp.ports.profilePlayback.recordProgress({ profileId: 'p1', itemId: p, fileId: copyId!, positionMs: 600_000, durationMs: 6_000_000, at: 1_000, ended: false });
+    h.allJobsDone();
+
+    rmSync(abs(film, 'Gone'), { recursive: true });
+    await h.scan(); // the merge, then the identification of the row that took the copy over (still no provider)
+    expect(h.files().filter((f) => f.rel_path === 'Dune (2021)/Dune (2021).mkv')).toMatchObject([{ id, root: 'Documentari' }]);
+    expect(h.byId(copyId)).toBeUndefined();
+    expect(links()).toEqual([{ file_id: id, item_id: p, origin: 'auto' }]);
+    expect(w.getItem(p)?.provisional).toBe(true);
+    expect(h.q('SELECT item_id, file_id, position_ms FROM playback_progress')).toEqual([{ item_id: p, file_id: id, position_ms: 600_000 }]);
+    expect(h.q('SELECT item_id, file_id FROM viewing_record')).toEqual([{ item_id: p, file_id: id }]);
+    const c = h.q<{ state: string; parsed: string }>('SELECT state, parsed FROM identification_case WHERE file_id = ?', id)[0];
+    expect(c?.state).toBe('pending');
+    expect(JSON.parse(c?.parsed ?? '{}')).toMatchObject({ title: 'Dune', year: 2021, provisionalWorks: [p] });
+    expect(h.events().filter((e) => e.type === 'library.item_removed')).toEqual([]);
+  });
+
+  it('a copy shown under a provisional item that the owner adopted carries a decision', async () => {
+    const { film, docs, content, h, id } = await setup([createCatalogModule, createIdentifierModule]);
+    writeFile(docs, 'Free Solo (2018)/Free Solo (2018).mkv', content);
+    await h.scan();
+    const copyId = h.files().find((f) => f.root === 'Documentari' && f.rel_path.startsWith('Free Solo'))?.id;
+    h.analyzed(copyId);
+    const p = h.comp.ports.catalogWrite.upsertWork({ kind: 'movie', editionLabel: null, externalIds: {}, provisional: true, fields: [{ source: 'filename', fetchedAt: 0, values: { title: 'Free Solo' } }] }).itemId;
+    h.exec("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('stand-in', ?, ?, 'auto', NULL, 0)", copyId, p);
+    h.exec("INSERT INTO identification_case (id, file_id, state, created_at, updated_at) VALUES ('case-copy', ?, 'pending', 0, 0)", copyId);
+    h.exec('UPDATE catalog_item SET provisional = 0 WHERE id = ?', p); // adopted
+    rmSync(abs(film, 'Free Solo (2018)'), { recursive: true });
+    await h.scan();
+    expect(h.byId(id)?.state).toBe('missing');
+    expect(h.byId(copyId)).toBeDefined();
   });
 
   it('never merges into a copy that already carries a decision', async () => {

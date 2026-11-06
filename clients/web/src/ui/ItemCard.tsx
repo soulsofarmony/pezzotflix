@@ -50,7 +50,8 @@ function cardProgress(item: ItemSummary): number | null {
 /**
  * Accessible name of a card link: its visible lines, in order ("Blade Runner 2049 · 2017"), so that the name
  * contains the visible label (WCAG 2.5.3, axe label-content-name-mismatch); then what the card only draws (the
- * watched mark, the progress bar, the unavailable marker), which the name would otherwise hide.
+ * watched mark, the progress bar, the unavailable marker), which the name would otherwise hide; last, an item
+ * still waiting for its identification, whose title comes from the file name.
  */
 export function cardLabel(item: ItemSummary): string {
   const { heading, sub } = cardLines(item);
@@ -61,6 +62,7 @@ export function cardLabel(item: ItemSummary): string {
     item.state?.watched ? t('item.watched') : null,
     progress !== null ? t('item.progress', { percent: progress }) : null,
     item.available ? null : t('item.unavailableShort'),
+    item.provisional ? t('item.provisionalShort') : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -97,6 +99,9 @@ export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElemen
             !
           </span>
         )}
+        {/* Drawn by CSS like the placeholder title, so the visible label of the link stays its two lines; the
+            name says it in full (cardLabel). */}
+        {item.provisional && <span className={styles.provisional} data-text={t('item.provisionalBadge')} title={t('item.provisionalShort')} aria-hidden="true" />}
       </div>
       <span className={styles.title}>{heading}</span>
       {/* The space keeps the lines apart in the visible text ("Titolo 2017", not "Titolo2017"); the flex layout

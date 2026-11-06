@@ -55,6 +55,7 @@ export function fakeCatalogRead(db: Db): FakeCatalog {
     noMedia,
     describeItems: (ids) => new Map((positions.all(JSON.stringify(ids)) as CatalogItemPosition[]).map((r) => [r.id, r])),
     itemExists: (id) => row.get(id) !== undefined,
+    replacementFor: () => null,
     listPlayableDescendants: (id) => (descendants.all({ id }) as { id: string }[]).map((r) => r.id).filter((e) => !noMedia.has(e)),
     getPlayableItem(id) {
       const r = row.get(id) as { id: string; kind: PlayableItem['kind']; title: string; durationMs: number | null } | undefined;

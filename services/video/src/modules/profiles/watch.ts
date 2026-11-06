@@ -124,6 +124,18 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
   );
   const addWatchlist = sql.prepare('INSERT OR IGNORE INTO watchlist_entry (profile_id, item_id, added_at) VALUES (?, ?, ?)');
   const removeWatchlist = sql.prepare('DELETE FROM watchlist_entry WHERE profile_id = ? AND item_id = ?');
+  const watchlistEntriesOf = sql.prepare('SELECT profile_id AS profileId, added_at AS addedAt FROM watchlist_entry WHERE item_id = ? ORDER BY added_at, profile_id');
+  const putWatchlist = sql.prepare('INSERT OR IGNORE INTO watchlist_entry (profile_id, item_id, added_at) VALUES (?, ?, ?)');
+  const progressRowsOn = sql.prepare(
+    `SELECT profile_id AS profileId, item_id AS itemId, position_ms AS positionMs, duration_ms AS durationMs, file_id AS fileId,
+       audio_stream_index AS audio, subtitle_track_id AS sub, client_ts AS clientTs, updated_at AS updatedAt
+     FROM playback_progress WHERE item_id = ?`,
+  );
+  const watchRowsOn = sql.prepare('SELECT profile_id AS profileId, watched, watched_at AS watchedAt, play_count AS playCount FROM watch_state WHERE item_id = ?');
+  const deleteWatch = sql.prepare('DELETE FROM watch_state WHERE profile_id = ? AND item_id = ?');
+  const moveViewingsOf = sql.prepare('UPDATE viewing_record SET item_id = ? WHERE item_id = ?');
+  const progressFileTo = sql.prepare('UPDATE playback_progress SET file_id = ? WHERE file_id = ?');
+  const viewingFileTo = sql.prepare('UPDATE viewing_record SET file_id = ? WHERE file_id = ?');
 
   const progressOnFile = sql.prepare(
     `SELECT profile_id AS profileId, item_id AS itemId, position_ms AS positionMs, duration_ms AS durationMs, file_id AS fileId,
@@ -273,13 +285,21 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
     else insertViewing.run(newId(), s.profileId, s.itemId, s.at, s.at, s.positionMs, completed ? 1 : 0, s.fileId);
   }
 
-  const recordProgress = (s: ProgressSample): void =>
+  const recordProgress = (sample: ProgressSample): void =>
     sql.transaction(() => {
       // The profile may have been deleted while a session was open.
-      if (!profileExists(s.profileId)) return;
+      if (!profileExists(sample.profileId)) return;
+      let s = sample;
+      let kind = kinds([s.itemId]).get(s.itemId)?.kind;
+      // A provisional item retired mid-session: the sample goes to the item that took its place for this file
+      // (replacementFor). Playback sessions follow their file already; this covers a sample sent with the old id.
+      const moved = kind ? null : catalog().replacementFor(s.itemId, s.fileId);
+      if (moved) {
+        s = { ...s, itemId: moved };
+        kind = kinds([moved]).get(moved)?.kind;
+      }
       // Never a foreign-key error: an item removed from the catalog mid-session is skipped. Progress
       // belongs to playable items, never to a series or season.
-      const kind = kinds([s.itemId]).get(s.itemId)?.kind;
       if (!kind || CONTAINER_KINDS.has(kind)) {
         log.warn({ itemId: s.itemId, kind: kind ?? null }, 'progress sample ignored: not a playable catalog item');
         return;
@@ -414,6 +434,78 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
       return moved;
     })();
 
+  /**
+   * fromItemId is about to be removed and toItemId took its place (a provisional item replaced by the
+   * identified one, doc 02 §3.5). Called after moveFileState: what is left on fromItemId belongs to no
+   * moved file. It moves to toItemId, per profile:
+   * - the watchlist entry, with the date it was added; an entry already on toItemId is kept as it is. The
+   *   watchlist holds films, series and extras (doc 01): an episode or season passes it to its series;
+   * - for playable items only (a series or season has no state of its own):
+   *   - progress, as in moveFileState: toItemId's row wins if it is as recent, and a toItemId watched at
+   *     or after it takes none;
+   *   - history: every viewing record left;
+   *   - watched, merged last-write-wins: watched if either is, the latest watched_at, the plays added;
+   *     a toItemId progress older than the merged watched_at goes, as a completion clears it.
+   * Returns the rows moved.
+   */
+  /** The item a watchlist entry for itemId goes to: itself, or the series of an episode or season. */
+  function listableItem(itemId: string): string | null {
+    let current: string | null = itemId;
+    for (let depth = 0; current !== null && depth < 3; depth++) {
+      const d = kinds([current]).get(current);
+      if (!d) return null;
+      if (d.kind !== 'season' && d.kind !== 'episode') return current;
+      current = d.parentId;
+    }
+    return null;
+  }
+
+  /** ProfileStatePort.replaceFileId: the library merged the file into another row with its content. */
+  const replaceFileId = (fromFileId: string, toFileId: string): number =>
+    sql.transaction(() => (fromFileId === toFileId ? 0 : progressFileTo.run(toFileId, fromFileId).changes + viewingFileTo.run(toFileId, fromFileId).changes))();
+
+  const moveItemState = (fromItemId: string, toItemId: string): number =>
+    sql.transaction(() => {
+      if (fromItemId === toItemId || !catalog().itemExists(toItemId)) return 0;
+      let moved = 0;
+      const listed = listableItem(toItemId);
+      for (const e of watchlistEntriesOf.all(fromItemId) as { profileId: string; addedAt: number }[]) {
+        if (listed) moved += putWatchlist.run(e.profileId, listed, e.addedAt).changes;
+        removeWatchlist.run(e.profileId, fromItemId);
+      }
+      const k = kinds([fromItemId, toItemId]);
+      const playable = (id: string) => {
+        const kind = k.get(id)?.kind;
+        return kind !== undefined && !CONTAINER_KINDS.has(kind);
+      };
+      if (!playable(fromItemId) || !playable(toItemId)) return moved;
+
+      type Row = { profileId: string; clientTs: number } & Record<string, unknown>;
+      type Watch = { profileId: string; watched: number; watchedAt: number | null; playCount: number };
+      for (const r of progressRowsOn.all(fromItemId) as Row[]) {
+        deleteProgress.run(r.profileId, fromItemId);
+        const target = progressRowOf.get(r.profileId, toItemId) as { clientTs: number } | undefined;
+        if (target && target.clientTs >= r.clientTs) continue;
+        const w = watchedAtOf.get(r.profileId, toItemId) as { watched: number; watchedAt: number | null } | undefined;
+        if (!target && w?.watched === 1 && w.watchedAt !== null && r.clientTs <= w.watchedAt) continue;
+        putProgress.run({ ...r, itemId: toItemId });
+        moved++;
+      }
+      moved += moveViewingsOf.run(toItemId, fromItemId).changes;
+      for (const a of watchRowsOn.all(fromItemId) as Watch[]) {
+        deleteWatch.run(a.profileId, fromItemId);
+        const b = watchRowOf.get(a.profileId, toItemId) as Omit<Watch, 'profileId'> | undefined;
+        const times = [a, b].filter((w) => w?.watched === 1 && w.watchedAt !== null).map((w) => w!.watchedAt!);
+        const watched = a.watched === 1 || b?.watched === 1;
+        const at = times.length ? Math.max(...times) : null;
+        putWatch.run({ p: a.profileId, item: toItemId, watched: watched ? 1 : 0, at: watched ? at : null, plays: (b?.playCount ?? 0) + a.playCount });
+        moved++;
+        const p = progressRowOf.get(a.profileId, toItemId) as { clientTs: number } | undefined;
+        if (watched && at !== null && p && p.clientTs <= at) deleteProgress.run(a.profileId, toItemId);
+      }
+      return moved;
+    })();
+
   /** Idempotent: an already watched episode keeps its date and play count. Clears progress. */
   const markWatched = (profileId: string, itemId: string): void =>
     sql.transaction(() => {
@@ -446,6 +538,8 @@ export function createWatchState({ db, now, catalog, profileExists, log }: Watch
     markWatched,
     markUnwatched,
     moveFileState,
+    moveItemState,
+    replaceFileId,
     clearProgress: (profileId: string, itemId: string): void => void deleteProgress.run(profileId, itemId),
     addToWatchlist(profileId: string, itemId: string): void {
       if (!catalog().itemExists(itemId)) throw notFound('item');

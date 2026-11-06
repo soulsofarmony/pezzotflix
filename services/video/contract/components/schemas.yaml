@@ -144,7 +144,7 @@ ProfileItemState:
 
 ItemSummary:
   type: object
-  required: [id, kind, title, badges, available]
+  required: [id, kind, title, badges, available, provisional]
   properties:
     id: { $ref: '#/Id' }
     kind: { $ref: '#/ItemKind' }
@@ -170,6 +170,15 @@ ItemSummary:
       description: Technical badges, e.g. 4K, HDR10, DV, Atmos, TrueHD.
       items: { type: string }
     available: { type: boolean, description: At least one linked file is online. }
+    provisional:
+      type: boolean
+      description: >-
+        True while the item stands in for a file whose identification waits for a metadata provider: its
+        values come from the file name, it has no provider data, and it is playable. When the file is
+        identified it moves to the real item and this one is removed (library.item_removed, replacedBy the
+        real item); a file sent to review keeps it. Seasons and episodes of a provisional series are
+        provisional too. Linking a file to it by hand (ResolveCase link_item) adopts the whole work: it
+        stops being provisional.
     state: { $ref: '#/ProfileItemState' }
 
 Track:
@@ -583,6 +592,10 @@ Event:
       description: >-
         library.item_added | library.item_updated | library.item_removed | ingest.progress |
         identification.needs_review | playback.session_terminated | playback.subtitle_ready.
+        library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog;
+        replacedBy, optional, is the item that took its place (a provisional item replaced by the identified
+        one): a client showing the removed item can move to it. A playback session on the removed item follows
+        its file to replacedBy and goes on.
         playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a
         session the client did not stop. reason (open set, unknown values must be tolerated): expired = no
         heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the

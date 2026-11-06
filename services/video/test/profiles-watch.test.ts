@@ -684,3 +684,71 @@ describe('moveFileState (a file re-linked by the admin)', () => {
     expect(watchRow('a')).toMatchObject({ watched: 1 });
   });
 });
+
+describe('moveItemState (a provisional item replaced by the identified one)', () => {
+  const entries = (profileId: string) => db.$client.prepare('SELECT item_id AS item, added_at AS at FROM watchlist_entry WHERE profile_id = ? ORDER BY item_id').all(profileId);
+  const watchRow = (itemId: string, profileId = pid) =>
+    db.$client.prepare('SELECT watched, watched_at AS at, play_count AS plays FROM watch_state WHERE profile_id = ? AND item_id = ?').get(profileId, itemId);
+  const progress = (itemId: string) => db.$client.prepare('SELECT position_ms AS pos, client_ts AS ts FROM playback_progress WHERE profile_id = ? AND item_id = ?').get(pid, itemId);
+  const viewings = (itemId: string) => db.$client.prepare('SELECT file_id AS file FROM viewing_record WHERE item_id = ? ORDER BY started_at').all(itemId);
+
+  it('moves the watchlist entries with their date; one the profile already has on the target is kept as it is', () => {
+    seed.item('a');
+    seed.item('b');
+    const anna = store.create({ name: 'Anna' }).id;
+    clock = 100;
+    watch.addToWatchlist(pid, 'a');
+    watch.addToWatchlist(anna, 'a');
+    clock = 200;
+    watch.addToWatchlist(anna, 'b');
+    expect(watch.moveItemState('a', 'b')).toBe(1); // Anna already had b
+    expect(entries(pid)).toEqual([{ item: 'b', at: 100 }]);
+    expect(entries(anna)).toEqual([{ item: 'b', at: 200 }]);
+    expect(watch.moveItemState('b', 'b')).toBe(0);
+    expect(watch.moveItemState('b', 'nope')).toBe(0); // an unknown target takes nothing, the entries stay
+    expect([entries(pid), entries(anna)].flat()).toHaveLength(2);
+  });
+
+  it('a hand-set watched mark moves, merged with the target last-write-wins; older target progress goes', () => {
+    seed.item('a');
+    seed.item('b');
+    clock = 500;
+    watch.markWatched(pid, 'a');
+    watch.recordProgress(sample('b', 600_000, 400, { fileId: 'G' }));
+    expect(watch.moveItemState('a', 'b')).toBe(1);
+    expect(watchRow('a')).toBeUndefined();
+    expect(watchRow('b')).toEqual({ watched: 1, at: 500, plays: 1 });
+    expect(progress('b')).toBeUndefined(); // older than the mark: cleared, as markWatched does
+
+    seed.item('c');
+    complete2('c', 'H', 900);
+    seed.item('d');
+    clock = 600;
+    watch.markWatched(pid, 'd');
+    watch.moveItemState('d', 'c');
+    expect(watchRow('c')).toEqual({ watched: 1, at: 900, plays: 2 }); // the latest date, the plays added
+  });
+
+  it('progress and history left on the item (a file that did not follow) move too, last write wins', () => {
+    seed.item('a');
+    seed.item('b');
+    watch.recordProgress(sample('a', 600_000, 300, { fileId: 'OTHER' }));
+    watch.recordProgress(sample('b', 100_000, 200, { fileId: 'G' }));
+    expect(watch.moveItemState('a', 'b')).toBe(2); // the progress row, the viewing record
+    expect(progress('b')).toEqual({ pos: 600_000, ts: 300 });
+    expect(viewings('b')).toEqual([{ file: 'G' }, { file: 'OTHER' }]);
+    expect(progress('a')).toBeUndefined();
+  });
+
+  it('a series or a season takes only the watchlist entry', () => {
+    const s = seed.series('dark', { 1: 1 });
+    const t = seed.series('dark2', { 1: 1 });
+    watch.addToWatchlist(pid, s.seriesId);
+    expect(watch.moveItemState(s.seriesId, t.seriesId)).toBe(1);
+    expect(entries(pid)).toEqual([{ item: t.seriesId, at: clock }]);
+  });
+
+  function complete2(itemId: string, fileId: string, at: number) {
+    watch.recordProgress(sample(itemId, MOVIE_MS, at, { fileId, ended: true }));
+  }
+});

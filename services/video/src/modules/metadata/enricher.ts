@@ -88,14 +88,18 @@ export function createEnricher(deps: EnricherDeps) {
   const { registry, store, now, lang } = deps;
   const catalog = () => deps.catalog();
 
-  /** The work an item belongs to (a season or an episode enriches its series), or null for extras. */
+  /**
+   * The work an item belongs to (a season or an episode enriches its series), or null for extras and
+   * provisional items, which stand in for a file still waiting for its identification (doc 02 §3.5).
+   */
   function workOf(itemId: string): CatalogItemRef | null {
     const cat = catalog();
     const ref = cat.getItem(itemId);
-    if (!ref || ref.kind === 'extra') return null;
+    if (!ref || ref.kind === 'extra' || ref.provisional) return null;
     if (ref.kind === 'movie' || ref.kind === 'series') return ref;
     const series = cat.findAncestor(itemId, 'series');
-    return series ? cat.getItem(series) : null;
+    const work = series ? cat.getItem(series) : null;
+    return work && !work.provisional ? work : null;
   }
 
   async function firstMatch(adapter: ProviderAdapter, kind: WorkKind, lookups: [ExternalIdLookup['ns'], string | undefined][], failures: Failures): Promise<string | null> {
@@ -267,7 +271,7 @@ export function createEnricher(deps: EnricherDeps) {
     const { itemId } = EnrichPayload.parse(payload);
     const log = ctx.log;
     const work = workOf(itemId);
-    if (!work) return void log.info({ itemId }, 'enrich skipped: no work to enrich (unknown item or extra)');
+    if (!work) return void log.info({ itemId }, 'enrich skipped: no work to enrich (unknown, extra or provisional item)');
     if (!registry.active('wikidata') && !registry.active('tmdb')) return void log.info({ itemId }, 'enrich skipped: no metadata provider active');
     const failures = new Failures(log);
     const found = await fetchWork(work, failures);

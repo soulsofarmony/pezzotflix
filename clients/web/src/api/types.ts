@@ -179,7 +179,9 @@ interface EventBase {
   at: number;
 }
 export type AppEvent =
-  | (EventBase & { type: 'library.item_added' | 'library.item_updated' | 'library.item_removed'; itemId: string | null })
+  | (EventBase & { type: 'library.item_added' | 'library.item_updated'; itemId: string | null })
+  /** replacedBy: the item that took its place (a provisional item identified), or null. */
+  | (EventBase & { type: 'library.item_removed'; itemId: string | null; replacedBy: string | null })
   | (EventBase & { type: 'ingest.progress' })
   | (EventBase & { type: 'identification.needs_review'; caseId: string | null })
   | (EventBase & { type: 'playback.session_terminated'; sessionId: string; reason: string | null })
@@ -196,8 +198,9 @@ export function toAppEvent(raw: RawEvent): AppEvent {
   switch (raw.type) {
     case 'library.item_added':
     case 'library.item_updated':
-    case 'library.item_removed':
       return { ...base, type: raw.type, itemId: str(p.itemId) };
+    case 'library.item_removed':
+      return { ...base, type: raw.type, itemId: str(p.itemId), replacedBy: str(p.replacedBy) };
     case 'ingest.progress':
       return { ...base, type: 'ingest.progress' };
     case 'identification.needs_review':

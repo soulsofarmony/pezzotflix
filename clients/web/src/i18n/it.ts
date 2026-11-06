@@ -95,6 +95,9 @@ export const it = {
 
   'item.unavailable': 'Non disponibile: il file non è raggiungibile.',
   'item.unavailableShort': 'Non disponibile',
+  'item.provisional': 'In attesa di identificazione: il titolo viene dal nome del file.',
+  'item.provisionalShort': 'In attesa di identificazione',
+  'item.provisionalBadge': 'In attesa',
   'item.play': 'Riproduci',
   'item.resume': 'Riprendi da {time}',
   'item.fromStart': 'Dall’inizio',

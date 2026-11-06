@@ -41,10 +41,12 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `a5d698a` | **Revisione F2, riproduzione:** motivo della chiusura sul `410`, file sparito durante una ripianificazione → `503` con `sessionClosed`, tentativi esauriti → `500`, timeout della sessione a 150 s, il player libera il posto quando rinuncia, token del profilo fisso per sessione, `5xx` definitivo al primo errore (il test della ripianificazione forzata passa da 31 s a 9 s), WebVTT che cresce via `fetch` |
 | `4a6b9c1` | Doc 04 §8 "Precisazioni decise in F2", ADR 0003 e 0005 aggiornati |
 | `910ad92` | **Revisione F2, ingest e dati** (tre giri di revisione): film diversi in una cartella comune non vengono più collegati al primo, anno preso dalla cartella solo per un titolo tradotto, tagli come edizioni e parole di release come versioni, migrazioni con chiavi esterne spente e controllo dopo (prima cancellavano progressi e stato di visione), backup giornaliero verificato con retention 7+4, copia prima di una migrazione solo se serve, job che falliscono solo dopo due interruzioni, `/healthz` con `503` quando il servizio non sta bene. 1731 test video, 509 web |
-| (questo commit) | Standard di libreria, ADR 0002, doc 01 e diario allineati alle correzioni. **Test end-to-end finali** su uno stack ricostruito da volumi vuoti: 74 passati, 20 saltati (sample c4 e c7 mancanti, HEVC assente in Edge e Firefox su questo portatile), 0 falliti, in 5,2 minuti; nel log del gateway nessun token in chiaro |
+| `1afffe2` | Standard di libreria, ADR 0002, doc 01 e diario allineati alle correzioni. **Test end-to-end finali** su uno stack ricostruito da volumi vuoti: 74 passati, 20 saltati (sample c4 e c7 mancanti, HEVC assente in Edge e Firefox su questo portatile), 0 falliti, in 5,2 minuti; nel log del gateway nessun token in chiaro |
+| (questo commit) | **Dopo l'MVP, item provvisori:** un file che aspetta Wikidata o TMDB compare subito col titolo dal nome del file ("In attesa"), si guarda, e quando arriva l'identificazione progressi, "visto", cronologia e watchlist passano al titolo vero (migrazione 0004). Le sessioni aperte seguono il file; il web client va al titolo nuovo. Tre giri di revisione (unione di copie che perdeva i progressi, sessioni chiuse per errore, "visto" sul film sbagliato, adozione incompleta). 1697 test video più 388 sui sample, 528 web |
 
 ## 2. In corso
 
+- **Lacune dopo l'MVP**, una alla volta per la memoria del portatile: item provvisori ✅; poi file spariti (`missing` → `removed` e "Dimentica" nell'admin).
 - **MVP completo (F2 chiuso, 2026-11-06).** Revisione finale con cinque revisori (sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione); i rilievi gravi sono stati riprodotti, corretti e rivisti di nuovo. Quello che non è stato corretto è nelle lacune (§4).
 - **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non risponde all'iPad, probabilmente per l'indirizzo Wi‑Fi privato dell'iPad, che cambia.
 
@@ -79,7 +81,13 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
   - l'HDR 1080p60 con tone-map è misurato solo a 24 fps (85 fps di codifica).
 - **Spegnimento:** ora aspetta gli avvii in corso; uno bloccato su un mount di rete appeso lo ritarda (Docker poi chiude il container).
 - **Ingest (revisione F2):**
-  - un file la cui identificazione aspetta un provider (Wikidata e TMDB irraggiungibili) non compare nel catalogo finché un provider risponde. Lo standard (§7.1) e il doc 02 §3.5 dicono che resta visibile col titolo dal nome del file: servirà un item provvisorio, sostituito poi dall'identificazione;
+  - ~~file in attesa di un provider invisibile~~: risolto con gli item provvisori (doc 01 §3.1). Restano questi limiti accettati:
+    - gli extra di un'opera in attesa non hanno un item provvisorio;
+    - copie in radici diverse mostrano due card provvisorie finché non vengono identificate;
+    - un "visto" unito sul titolo vero può coprire un "non visto" messo apposta (non c'è la data del "non visto");
+    - se cambia il contenuto di un'opera adottata, lo stato del contenuto vecchio passa a quello nuovo;
+    - un episodio in attesa di una serie già adottata crea una seconda serie provvisoria invece di agganciarsi a quella adottata;
+    - le sostituzioni (`replacedBy`) per sessioni e web client stanno in memoria: si perdono al riavvio del servizio o della scheda;
   - un file sparito resta `missing` per sempre: manca il passaggio a `removed` (doc 01 §6.1) e un'azione "dimentica il file" nell'admin.
 - **F2a, browser e codec:**
   - su questo portatile Edge e Firefox non hanno HEVC (manca probabilmente l'estensione HEVC di Windows, a pagamento): il 4K e il flusso principale si provano solo in Chromium e Chrome;

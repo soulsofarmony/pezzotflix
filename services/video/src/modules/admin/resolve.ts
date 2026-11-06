@@ -18,7 +18,6 @@ import type {
   ItemFieldValues,
   JobQueuePort,
   MetadataSearchPort,
-  ProfileStatePort,
   SourcedFieldValues,
   WorkInput,
 } from '../../shared/ports.ts';
@@ -60,8 +59,6 @@ export interface ResolverDeps {
   cases: () => CaseSettlementPort;
   jobs: () => JobQueuePort;
   metadata: () => MetadataSearchPort | null;
-  /** Null while no module provides it: watch state then stays where it was. */
-  profiles: () => ProfileStatePort | null;
   lang: string;
 }
 
@@ -226,16 +223,15 @@ export function createResolver(deps: ResolverDeps) {
   // ---------------------------------------------------------------- writes
 
   /**
-   * The owner's decision replaces every earlier link of the file, auto or manual (doc 01 §5.1). When
-   * the file moves to exactly one item, the watch state recorded on it follows (a multi-episode file
-   * cannot say which of its items it belongs to, so it stays).
+   * The owner's decision replaces every earlier link of the file, auto or manual (doc 01 §5.1). The
+   * watch state recorded on the file follows it (CaseSettlementPort.fileLeft: to exactly one item, or
+   * episode by episode), and a provisional item the file leaves is retired if nothing is left on it
+   * (doc 02 §3.5).
    */
   function linkManually(c: CaseRow, itemIds: readonly string[]): void {
     const settled = deps.cases().settleCase(c.id, 'resolved');
     const { removed } = deps.links().replaceManualLinks(c.fileId, itemIds);
-    const from = [...new Set([...(settled?.removedAutoLinks ?? []), ...removed])].filter((id) => !itemIds.includes(id));
-    const [to] = itemIds;
-    if (from.length && itemIds.length === 1 && to) deps.profiles()?.moveFileState?.(c.fileId, from, to);
+    deps.cases().fileLeft(c.fileId, [...(settled?.removedAutoLinks ?? []), ...removed], itemIds);
   }
 
   /** The case must still be what the owner looked at: a provider lookup may have let it change. */
@@ -301,9 +297,13 @@ export function createResolver(deps: ResolverDeps) {
   function ignore(caseId: string): void {
     tx(() => {
       const c = requireCase(caseId);
-      // An ignored file is not catalogued (doc 01 §5.2): it leaves the items it was linked to.
-      deps.cases().settleCase(c.id, 'ignored');
-      deps.links().removeManualLinks(c.fileId);
+      // An ignored file is not catalogued (doc 01 §5.2): it leaves the items it was linked to, and what
+      // profiles recorded on it stays on them. A provisional item it leaves empty is removed; when another
+      // file of that item went to an item R meanwhile, what is left on it (this file's history included)
+      // moves to R first (fileLeft, moveItemState), else it goes with the item.
+      const settled = deps.cases().settleCase(c.id, 'ignored');
+      const removed = deps.links().removeManualLinks(c.fileId);
+      deps.cases().fileLeft(c.fileId, [...(settled?.removedAutoLinks ?? []), ...removed], []);
     });
   }
 

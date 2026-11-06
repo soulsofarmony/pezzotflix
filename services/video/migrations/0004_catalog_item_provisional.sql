@@ -1,0 +1,2 @@
+-- Provisional catalog items: a file whose identification waits for a provider is shown under its filename title (doc 02 §3.5). Additive, no backfill: pending files get theirs at the next identify attempt.
+ALTER TABLE `catalog_item` ADD `provisional` integer DEFAULT false NOT NULL;

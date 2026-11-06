@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { keys } from '../../api/keys.ts';
 import { problem, renderApp } from '../../test/renderApp.tsx';
@@ -57,6 +57,43 @@ describe('item page: watch state', () => {
     await app.user.click(await screen.findByRole('button', { name: /Segna come visto/ }));
     await waitFor(() => expect(qc.getQueryState(keys.children('season1'))?.isInvalidated).toBe(true));
     expect(qc.getQueryState(keys.nextUp('series1'))?.isInvalidated).toBe(true);
+  });
+});
+
+describe('item page: provisional item', () => {
+  it('an item waiting for its identification says where its title comes from', async () => {
+    renderApp('/item/m1', { 'GET /video/api/v1/items/{itemId}': () => detail('m1', 'movie', 'Dune', { provisional: true }) }, { profile });
+    await screen.findByRole('heading', { level: 1, name: 'Dune' });
+    const notes = screen.getAllByRole('note').map((n) => n.textContent);
+    expect(notes).toContain('In attesa di identificazione: il titolo viene dal nome del file.');
+  });
+
+  it('an identified item shows no such notice', async () => {
+    renderApp('/item/m2', { 'GET /video/api/v1/items/{itemId}': () => detail('m2', 'movie', 'Arrival', { provisional: false }) }, { profile });
+    await screen.findByRole('heading', { level: 1, name: 'Arrival' });
+    expect(screen.queryByText(/In attesa di identificazione/)).toBeNull();
+  });
+});
+
+describe('item page: the item removed from the library while it is on screen', () => {
+  const items = { m1: detail('m1', 'movie', 'Dune', { provisional: true }), m2: detail('m2', 'movie', 'Dune: Part One', { year: 2021 }) };
+  const routes = { 'GET /video/api/v1/items/{itemId}': ({ params }: { params: Record<string, string> }) => items[params.itemId as keyof typeof items] ?? problem(404, 'NOT_FOUND') };
+
+  it('goes to the item that took its place, replacing the page in the history', async () => {
+    const app = renderApp('/item/m1', routes, { profile });
+    await screen.findByRole('heading', { level: 1, name: 'Dune' });
+    act(() => app.services.removals.record('m1', 'm2'));
+    await screen.findByRole('heading', { level: 1, name: 'Dune: Part One' });
+    expect(app.router.state.location.pathname).toBe('/item/m2');
+    expect(app.router.history.length).toBe(1);
+  });
+
+  it('with nothing in its place, shows the usual not-found instead of the cached item', async () => {
+    const app = renderApp('/item/m1', routes, { profile });
+    await screen.findByRole('heading', { level: 1, name: 'Dune' });
+    act(() => app.services.removals.record('m1', null));
+    expect((await screen.findByRole('alert')).textContent).toContain('Non trovato.');
+    expect(screen.queryByRole('heading', { level: 1, name: 'Dune' })).toBeNull();
   });
 });
 

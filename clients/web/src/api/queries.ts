@@ -133,9 +133,9 @@ export function useSearch(q: string, kind: string | undefined) {
   });
 }
 
-export function useItem(id: string) {
+export function useItem(id: string, enabled = true) {
   const c = useVideoClient();
-  return useQuery({ queryKey: keys.item(id), queryFn: ({ signal }) => call(c.GET('/video/api/v1/items/{itemId}', { signal, params: { path: { itemId: id } } })) });
+  return useQuery({ queryKey: keys.item(id), enabled, queryFn: ({ signal }) => call(c.GET('/video/api/v1/items/{itemId}', { signal, params: { path: { itemId: id } } })) });
 }
 
 export function useChildren(id: string, enabled = true) {

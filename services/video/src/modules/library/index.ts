@@ -43,6 +43,8 @@ export function libraryModule(options: LibraryModuleOptions = {}): ModuleFactory
       log,
       jobs: () => ports.jobs,
       events: () => ports.events,
+      // Throws while no module provides it; the scanner treats that as absent.
+      settlement: () => ports.caseSettlement,
       stableAfterMs: options.stableAfterMs ?? STABLE_AFTER_MS,
     });
     return {

@@ -80,6 +80,23 @@ describe('Home rows', () => {
     for (const name of ['Wall-E', 'Solaris', 'Gattaca']) expect(screen.getByRole('link', { name: new RegExp(`^${name}`) }).getAttribute('aria-label')).toMatch(new RegExp(`^${name} · 2020 · `));
   });
 
+  it('an item waiting for its identification says so in its name, after what the card draws', async () => {
+    const items = [
+      { ...item('p', 'Dune'), provisional: true },
+      { ...item('q', 'Arrival'), provisional: true, available: false },
+      { ...item('r', 'Contact'), provisional: false },
+    ];
+    renderApp('/', { 'GET /video/api/v1/home': () => ({ rows: [{ id: 'recently_added', title: 'Aggiunti di recente', items, nextCursor: null }] }) }, { profile });
+    expect(await screen.findByRole('link', { name: 'Dune · 2020 · In attesa di identificazione' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Arrival · 2020 · Non disponibile · In attesa di identificazione' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Contact · 2020' })).toBeTruthy();
+    // The card draws a small "In attesa" badge (CSS, from data-text): the visible lines of the link are the same.
+    const dune = screen.getByRole('link', { name: /^Dune/ });
+    expect(dune.textContent).toBe('Dune 2020');
+    expect(dune.querySelector('[data-text]')?.getAttribute('data-text')).toBe('In attesa');
+    expect(screen.getByRole('link', { name: /^Contact/ }).querySelector('[data-text="In attesa"]')).toBeNull();
+  });
+
   it('"Vedi tutti" reproduces the row query in Browse; images use the w variants', async () => {
     renderApp('/', { 'GET /video/api/v1/home': () => HOME }, { profile });
     const seeAll = await screen.findByRole('link', { name: /Vedi tutti/ });

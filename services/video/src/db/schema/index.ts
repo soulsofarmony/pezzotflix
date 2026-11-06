@@ -142,6 +142,11 @@ export const catalogItem = sqliteTable('catalog_item', {
   durationMs: integer('duration_ms'),
   addedAt: ts('added_at').notNull(),
   updatedAt: ts('updated_at').notNull(),
+  /**
+   * Stand-in for a file whose identification waits for a provider (doc 02 §3.5): filename values only,
+   * no external ids, never enriched; retired once no file and no child is left on it. Children inherit it.
+   */
+  provisional: bool('provisional').notNull().default(false),
 }, (t) => [
   index('catalog_item_parent_ix').on(t.parentId),
   index('catalog_item_kind_sort_ix').on(t.kind, t.sortTitle, t.id),

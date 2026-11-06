@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { invalidateForEvents, keys } from './keys.ts';
 import type { AppEvent } from './types.ts';
@@ -40,5 +40,27 @@ describe('invalidateForEvents', () => {
     const spy = vi.spyOn(qc, 'invalidateQueries');
     invalidateForEvents(qc, [{ seq: 1, at: 0, type: 'playback.session_terminated', sessionId: 's1', reason: 'expired' }]);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('invalidateForEvents: a removed item', () => {
+  it('drops the queries of the removed item no page observes, and leaves the one on screen to its page', () => {
+    const qc = seeded();
+    qc.setQueryData(keys.item('gone'), { id: 'gone' });
+    qc.setQueryData(keys.children('gone'), { pages: [], pageParams: [] });
+    qc.setQueryData(keys.item('open'), { id: 'open' });
+    const observer = new QueryObserver(qc, { queryKey: keys.item('open'), queryFn: () => ({ id: 'open' }), staleTime: Infinity });
+    const unsubscribe = observer.subscribe(() => undefined);
+    invalidateForEvents(qc, [
+      { seq: 1, at: 0, type: 'library.item_removed', itemId: 'gone', replacedBy: 'e9' },
+      { seq: 2, at: 0, type: 'library.item_removed', itemId: 'open', replacedBy: null },
+    ]);
+    expect(qc.getQueryState(keys.item('gone'))).toBeUndefined();
+    expect(qc.getQueryState(keys.children('gone'))).toBeUndefined();
+    expect(qc.getQueryData(keys.item('open'))).toEqual({ id: 'open' });
+    // The rest as for any library event.
+    expect(stale(qc, keys.item('e9'))).toBe(true);
+    expect(stale(qc, keys.home)).toBe(true);
+    unsubscribe();
   });
 });

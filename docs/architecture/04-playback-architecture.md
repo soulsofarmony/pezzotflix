@@ -234,6 +234,7 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
   - un nuovo avvio aspetta al più 3 s lo stop della sessione che sostituisce, poi lo rimanda e parte.
 - **Timeout della sessione: 150 s** (`SESSION_TIMEOUT_S`, prima 60). Chrome ed Edge eseguono i timer circa una volta al minuto in una scheda nascosta da più di 5 minuti, e un film in pausa in background scadeva.
 - **Profilo di una sessione:** ogni chiamata su una sessione usa il token del profilo che l'ha avviata, anche un riavvio automatico. Un cambio di profilo in un'altra scheda non sposta progressi e stato di visione.
+- **Item provvisorio sostituito durante la visione** (dopo l'MVP, 2026-11-06; doc 01 §3.1). La sessione segue il suo file sull'item che lo ha preso: progressi, fine e completamento finiscono lì, e la riproduzione non si interrompe. Si chiude con `item_removed` solo se il file non porta a nessun item, o a più di uno. Il player non cambia pagina a metà film: gli avvii successivi (Riprova, riavvii) usano l'item nuovo.
 
 ---
 

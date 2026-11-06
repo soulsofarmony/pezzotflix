@@ -1,22 +1,33 @@
 // Item detail (doc 03 §3.4): movie, documentary, series → seasons → episodes, season, episode, extra. Never
 // assumes a movie: what is shown follows the kind and what the item has (versions, children, extras).
 import { Link, useNavigate } from '@tanstack/react-router';
-import { type ReactElement, useId, useState } from 'react';
+import { type ReactElement, useEffect, useId, useState } from 'react';
+import { ApiError } from '../../api/problem.ts';
 import { useChildren, useItem, useNextUp, useWatchState } from '../../api/queries.ts';
 import type { ItemDetail, ItemSummary, MediaVersion } from '../../api/types.ts';
+import { useRemoval } from '../../app/services.tsx';
 import { formatBytes, formatClock, formatDuration } from '../../i18n/format.ts';
 import { t } from '../../i18n/t.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { itemSubtitle } from '../../ui/ItemCard.tsx';
 import { pickImage } from '../../ui/images.ts';
 import { errorMessage } from '../../ui/errors.ts';
-import { QueryFallback } from '../../ui/Status.tsx';
+import { ErrorView, Loading, QueryFallback } from '../../ui/Status.tsx';
 import { trackLabel } from '../../ui/tracks.ts';
 import { CardRow } from '../catalog/CardRow.tsx';
 import styles from './item.module.css';
 
 export function ItemPage({ itemId }: { itemId: string }): ReactElement {
-  const item = useItem(itemId);
+  const navigate = useNavigate();
+  // Removed from the library while the app is open: the item that took its place, or the usual not-found.
+  const removal = useRemoval(itemId);
+  const item = useItem(itemId, removal === undefined);
+  useEffect(() => {
+    if (removal) void navigate({ to: '/item/$itemId', params: { itemId: removal }, replace: true });
+  }, [removal, navigate]);
+  if (removal !== undefined) {
+    return <div className="page">{removal === null ? <ErrorView error={new ApiError({ status: 404, code: 'NOT_FOUND' })} /> : <Loading />}</div>;
+  }
   // A cached item stays on screen when a background refetch fails.
   if (!item.data) {
     return (
@@ -77,6 +88,11 @@ function Detail({ item }: { item: ItemDetail }): ReactElement {
             {!item.available && (
               <p className={styles.warning} role="note">
                 <Icon name="warning" size={18} /> {t('item.unavailable')}
+              </p>
+            )}
+            {item.provisional && (
+              <p className="muted" role="note">
+                {t('item.provisional')}
               </p>
             )}
             <Actions item={item} playable={playable} fileId={fileId} />

@@ -184,6 +184,15 @@ export class FakeCatalog implements CatalogReadPort {
   getPlayableItem(itemId: string) {
     return this.items.get(itemId) ?? null;
   }
+  /** Removed item → the item that took its place (library.item_removed replacedBy). */
+  replacedBy = new Map<string, string>();
+  replacementFor(itemId: string, fileId: string) {
+    if (this.items.has(itemId)) return null;
+    const named = this.replacedBy.get(itemId);
+    if (named && this.items.get(named)?.files.some((f) => f.fileId === fileId)) return named;
+    const ids = [...this.items.values()].filter((i) => i.files.some((f) => f.fileId === fileId)).map((i) => i.itemId);
+    return ids.length === 1 ? (ids[0] ?? null) : null;
+  }
   listPlayableDescendants() {
     return [];
   }

@@ -61,6 +61,8 @@ describe('toPlaybackSession', () => {
 describe('toAppEvent', () => {
   it.each([
     ['library.item_updated', { itemId: 'i1', fileId: 'f1', reason: 'metadata' }, { type: 'library.item_updated', itemId: 'i1' }],
+    ['library.item_removed', { itemId: 'i1', kind: 'movie', parentId: null, replacedBy: 'i2' }, { type: 'library.item_removed', itemId: 'i1', replacedBy: 'i2' }],
+    ['library.item_removed', { itemId: 'i1', kind: 'movie', parentId: null }, { type: 'library.item_removed', itemId: 'i1', replacedBy: null }],
     ['identification.needs_review', { caseId: 'c1' }, { type: 'identification.needs_review', caseId: 'c1' }],
     ['ingest.progress', {}, { type: 'ingest.progress' }],
     ['playback.subtitle_ready', { sessionId: 's1', trackId: 't1', availability: 'complete' }, { type: 'playback.subtitle_ready', sessionId: 's1', trackId: 't1', availability: 'complete' }],

@@ -35,7 +35,10 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
   const router = useRouter();
   const [controller] = useState(() => props.controller ?? new PlayerController(browserPlayerDeps(services.playbackApi)));
   const snap = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const item = useItem(props.itemId);
+  // A stale card or link to an item the library replaced meanwhile plays the item that took its place. Read
+  // once: a replacement while playing is the controller's (it keeps the stream and follows the new item).
+  const [itemId] = useState(() => services.removals.resolve(props.itemId) || props.itemId);
+  const item = useItem(itemId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState<Panel>(null);
@@ -45,7 +48,7 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSubtitle = useRef<string | null>(null);
 
-  const { itemId, fileId, startPositionMs, audioTrackId, forceMode } = props;
+  const { fileId, startPositionMs, audioTrackId, forceMode } = props;
   // An audio track from the link without a fileId is valid only on a single-version item: wait for the item.
   const versionCount = item.data?.versions.length;
   const waitForItem = audioTrackId !== undefined && fileId === undefined && item.isPending;
@@ -110,7 +113,7 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
 
   const exit = () => {
     if (router.history.canGoBack()) router.history.back();
-    else void navigate({ to: '/item/$itemId', params: { itemId: props.itemId } });
+    else void navigate({ to: '/item/$itemId', params: { itemId } });
   };
 
   // Shortcuts (ADR 0005 point 5): space/K, ←/→ 10 s, F, M, C. Not while a form control has the focus.
@@ -280,7 +283,7 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
       </div>
 
       {panel === 'tracks' && snap.session && <TrackMenu snap={snap} controller={controller} versions={item.data?.versions ?? []} onClose={() => setPanel(null)} />}
-      {panel === 'why' && snap.session && <WhyPanel snap={snap} itemId={props.itemId} versions={item.data?.versions ?? []} onClose={() => setPanel(null)} />}
+      {panel === 'why' && snap.session && <WhyPanel snap={snap} itemId={itemId} versions={item.data?.versions ?? []} onClose={() => setPanel(null)} />}
       {panel === 'info' && <InfoPanel snap={snap} onClose={() => setPanel(null)} />}
     </div>
   );

@@ -3,7 +3,7 @@
 // resolutions (one transaction, sibling re-identification), SearchProvider, file details.
 /* eslint-disable @typescript-eslint/no-unsafe-call -- response bodies are untyped JSON, checked against the contract by the harness */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { allowedResolutions, searchScore, storedCandidates, toContractCandidate } from '../src/modules/admin/cases.ts';
+import { allowedResolutions, publicParsed, searchScore, storedCandidates, toContractCandidate } from '../src/modules/admin/cases.ts';
 import { enqueueJob } from '../src/modules/jobs/index.ts';
 import type { MetadataSearchPort } from '../src/shared/ports.ts';
 import { harness, type Harness } from './helpers/app-harness.ts';
@@ -51,6 +51,11 @@ describe('pure rules', () => {
     });
     expect(storedCandidates([{ nonsense: true }, BR, 'x'])).toHaveLength(1);
     expect(storedCandidates(null)).toEqual([]);
+  });
+
+  it('the API shows the parser output without the identifier bookkeeping', () => {
+    expect(publicParsed({ kind: 'movie', title: 'Dune', provisionalWorks: ['p1'] })).toEqual({ kind: 'movie', title: 'Dune' });
+    expect(publicParsed({})).toEqual({});
   });
 
   it.each([

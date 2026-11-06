@@ -7,7 +7,7 @@ import type { ModuleFactory, Ports } from '../../app/module.ts';
 import { notFound, ProblemError } from '../../app/problem.ts';
 import type { MetadataCandidate, MetadataProviderName } from '../../shared/metadata.ts';
 import type { ApiSchemas } from '../../shared/ports.ts';
-import { allowedResolutions, type Candidate, type CaseReason, parseCase, searchScore, storedCandidates, toContractCandidate } from './cases.ts';
+import { allowedResolutions, type Candidate, type CaseReason, parseCase, publicParsed, searchScore, storedCandidates, toContractCandidate } from './cases.ts';
 import { createResolver } from './resolve.ts';
 
 type CaseView = ApiSchemas['IdentificationCase'];
@@ -61,7 +61,6 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
     cases: () => ports.caseSettlement,
     jobs: () => ports.jobs,
     metadata: () => optionalPort(ports, 'metadataSearch'),
-    profiles: () => optionalPort(ports, 'profileState'),
     lang: config.METADATA_LANGUAGE,
   });
 
@@ -90,7 +89,7 @@ export const createAdminModule: ModuleFactory = ({ db, now, ports, config }) => 
         state: r.state,
         reason: r.reason,
         allowedResolutions: allowedResolutions(r.reason),
-        parsed: parsedRaw,
+        parsed: publicParsed(parsedRaw),
         warnings: parsed.warnings ?? [],
         candidates: storedCandidates(r.candidates ? JSON.parse(r.candidates) : null).map(toContractCandidate),
         linkedItem: (itemId && summaries.get(itemId)) || null,

@@ -8,6 +8,7 @@ import { invalidateAfterPlayback, invalidateForEvents } from '../api/keys.ts';
 import { createPlaybackApi } from '../api/playback.ts';
 import { createProfileStore, type ProfileStore, type StoredProfile } from '../api/profileStore.ts';
 import { queryRetryDelay, shouldRetryQuery } from '../api/queries.ts';
+import { createRemovalStore, type RemovalStore } from '../api/removals.ts';
 import type { AppEvent } from '../api/types.ts';
 import type { PlaybackApi } from '../player/types.ts';
 
@@ -23,6 +24,7 @@ export interface AppServices {
   queryClient: QueryClient;
   playbackApi: PlaybackApi;
   poller: EventPoller;
+  removals: RemovalStore;
   setActivePlayer(p: ActivePlayer | null): void;
 }
 
@@ -46,12 +48,15 @@ export function createServices(opts: { baseUrl: string; storage: Storage | null;
   });
   const client = createVideoClient({ baseUrl: opts.baseUrl, store, onUnauthorized: opts.onUnauthorized, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
   let player: ActivePlayer | null = null;
+  const removals = createRemovalStore();
   const doc = opts.document ?? document;
   const poller = new EventPoller({
     list: (cursor, limit) => call(client.GET('/video/api/v1/events', { params: { query: { cursor, limit } } })),
     onEvents: (events) => {
+      for (const e of events) if (e.type === 'library.item_removed' && e.itemId) removals.record(e.itemId, e.replacedBy);
       invalidateForEvents(queryClient, events);
-      for (const e of events) if (e.type.startsWith('playback.')) player?.onEvent(e);
+      // A removed item matters to the player too: a later start asks for the item that took its place.
+      for (const e of events) if (e.type.startsWith('playback.') || e.type === 'library.item_removed') player?.onEvent(e);
     },
     onReset: () => void queryClient.invalidateQueries(),
     hasActiveSession: () => player?.hasActiveSession() ?? false,
@@ -74,6 +79,7 @@ export function createServices(opts: { baseUrl: string; storage: Storage | null;
     queryClient,
     playbackApi,
     poller,
+    removals,
     setActivePlayer(p) {
       player = p;
       poller.refresh();
@@ -91,6 +97,16 @@ export function useServices(): AppServices {
   const s = useContext(ServicesContext);
   if (!s) throw new Error('ServicesProvider missing');
   return s;
+}
+
+/**
+ * Whether the library removed this item while the app is open: undefined if not, null if nothing took its place,
+ * else the item to show instead. Re-renders on change.
+ */
+export function useRemoval(itemId: string): string | null | undefined {
+  const { removals } = useServices();
+  const get = () => removals.resolve(itemId);
+  return useSyncExternalStore(removals.subscribe, get, get);
 }
 
 /** The selected profile (null without one), re-rendering on change. */

@@ -250,6 +250,34 @@ describe('start', () => {
   });
 });
 
+describe('the item on screen replaced in the library (a provisional item identified)', () => {
+  const removed = (itemId: string, replacedBy: string | null): AppEvent => ({ seq: 1, at: 0, type: 'library.item_removed', itemId, replacedBy });
+
+  it('playback goes on; "Riprova" and the same start from the page ask for the item that took its place', async () => {
+    const { c, api, video } = setup();
+    await c.start({ itemId: 'item-1', fileId: 'file-1' });
+    c.onEvent(removed('other', 'item-9'));
+    c.onEvent(removed('item-1', 'item-2'));
+    expect(c.getSnapshot().phase).toBe('ready');
+    expect(api.stop).not.toHaveBeenCalled();
+    // The page still says item-1: the same start, not a new one.
+    await c.start({ itemId: 'item-1', fileId: 'file-1' });
+    expect(api.start).toHaveBeenCalledTimes(1);
+    video.advanceTo(12);
+    await c.retry();
+    expect(api.start).toHaveBeenCalledTimes(2);
+    expect(api.start.mock.calls[1]?.[0]).toMatchObject({ itemId: 'item-2', fileId: 'file-1' });
+  });
+
+  it('a removal with nothing in its place changes nothing here: the server ends the session (item_removed)', async () => {
+    const { c, api } = setup();
+    await c.start({ itemId: 'item-1' });
+    c.onEvent(removed('item-1', null));
+    await c.retry();
+    expect(api.start.mock.calls[1]?.[0]).toMatchObject({ itemId: 'item-1' });
+  });
+});
+
 describe('503 STREAM_PREPARING', () => {
   it('shows "in preparazione" and retries after Retry-After', async () => {
     const { c, api } = setup();

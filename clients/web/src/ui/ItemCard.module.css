@@ -72,6 +72,32 @@
   font-weight: 800;
 }
 
+/* The badge of the item page (item.module.css .badges li), on a dark ground to stay readable over a poster. */
+.provisional {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  display: grid;
+  place-items: center;
+  height: 1.5rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 0.7);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.provisional::before {
+  content: attr(data-text);
+}
+
+/* Next to the unavailable marker when both are shown. */
+.unavailable + .provisional {
+  left: calc(var(--space-2) * 2 + 1.5rem);
+}
+
 .progress {
   position: absolute;
   left: 0;

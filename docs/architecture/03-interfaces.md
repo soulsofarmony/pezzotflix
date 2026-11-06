@@ -59,7 +59,7 @@ Il control plane **restituisce locatori** (URL) del data plane. Il client non co
 
 ### 3.3 Item sintetico (liste e righe)
 
-id, kind, category, titolo, anno, URL immagine (poster/backdrop) con varianti, badge tecnici (4K, HDR/DV, Atmos), **stato del profilo** (visto, progress %, in watchlist), disponibilità (file online sì/no).
+id, kind, category, titolo, anno, URL immagine (poster/backdrop) con varianti, badge tecnici (4K, HDR/DV, Atmos), **stato del profilo** (visto, progress %, in watchlist), disponibilità (file online sì/no), `provisional` (item provvisorio in attesa di identificazione, doc 01 §3.1; dopo l'MVP).
 
 ### 3.4 Dettaglio item
 
@@ -201,7 +201,7 @@ Tutte le risorse di sessione sono autorizzate dal **token di sessione nell'URL**
 
 | Evento | Uso |
 |---|---|
-| `library.item_added` / `library.item_updated` / `library.item_removed` | Aggiornare griglie e dettaglio |
+| `library.item_added` / `library.item_updated` / `library.item_removed` | Aggiornare griglie e dettaglio. `item_removed` porta `replacedBy` quando un item provvisorio è sostituito da un solo item (dopo l'MVP) |
 | `ingest.progress` | Stato indicizzazione nella gestione |
 | `identification.needs_review` | Badge "Da verificare" |
 | `playback.session_terminated` | Il server ha chiuso la sessione (timeout, limite, gestione) |

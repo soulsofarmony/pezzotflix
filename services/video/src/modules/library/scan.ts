@@ -22,7 +22,7 @@ import {
 import { newId } from '../../shared/ids.ts';
 import { type AnalyzerProbePayload, type IdentifierIdentifyPayload, JOB_TYPES } from '../../shared/job-types.ts';
 import type { SidecarSubtitleFacts } from '../../shared/media-facts.ts';
-import type { EventPublisher, JobQueuePort } from '../../shared/ports.ts';
+import type { CaseSettlementPort, EventPublisher, JobQueuePort } from '../../shared/ports.ts';
 import { fingerprintFile } from './fingerprint.ts';
 import type { RootRow } from './roots.ts';
 import { type DiscKind, discKindOfPath } from './rules.ts';
@@ -215,9 +215,14 @@ export interface ScannerDeps {
   jobs: () => JobQueuePort;
   events: () => EventPublisher;
   stableAfterMs: number;
+  /**
+   * The identifier's: whether a copy is undecided (shown only under provisional stand-ins counts too) and
+   * what follows a merged copy (doc 02 §3.5); null when absent (an undecided copy is then one with no link).
+   */
+  settlement?: () => CaseSettlementPort | null;
 }
 
-export function createScanner({ db, now, log, jobs, events, stableAfterMs }: ScannerDeps) {
+export function createScanner({ db, now, log, jobs, events, stableAfterMs, settlement }: ScannerDeps) {
   const fileColumns = {
     id: mediaFile.id,
     rootId: mediaFile.rootId,
@@ -277,12 +282,12 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
           inArray(mediaFile.state, UNDECIDED),
           // Same scan counts as "after": either row can then keep the identity.
           gte(mediaFile.createdAt, gone.createdAt),
-          sql`NOT EXISTS (SELECT 1 FROM ${mediaLink} WHERE ${mediaLink.fileId} = ${mediaFile.id})`,
           sql`NOT EXISTS (SELECT 1 FROM ${identificationCase} WHERE ${identificationCase.fileId} = ${mediaFile.id} AND ${identificationCase.state} = 'ignored')`,
         ),
       )
       .orderBy(mediaFile.createdAt, mediaFile.id)
-      .all();
+      .all()
+      .filter((d) => undecidedLinks(d.id));
 
   // ---------------------------------------------------------------- writes (inside an op)
 
@@ -305,6 +310,18 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
 
   const hasLink = (fileId: string): boolean =>
     db.select({ id: mediaLink.id }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).limit(1).get() !== undefined;
+
+  /** The identifier's settlement port, or null without one (tests of the library alone). */
+  const settle = (): CaseSettlementPort | null => {
+    try {
+      return settlement?.() ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** No owner decision in the links: none, or only the stand-ins of a file waiting for its identification. */
+  const undecidedLinks = (fileId: string): boolean => settle()?.undecided(fileId) ?? !hasLink(fileId);
 
   const caseStateOf = (fileId: string) =>
     db.select({ state: identificationCase.state }).from(identificationCase).where(eq(identificationCase.fileId, fileId)).get()?.state;
@@ -344,10 +361,14 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
     if (disc) return ensureDiscCase(fileId, disc, t, summary);
     const caseState = caseStateOf(fileId);
     if (hasLink(fileId)) {
-      // New content still waiting for its identification (the old auto links are kept until then):
-      // back to 'analyzed', where the identifier's pending sweep picks it up again.
-      const relinking = caseState === 'pending' && onlyAutoLinks(fileId) && currentOf(fileId)?.hasFacts === true;
-      return relinking ? 'analyzed' : 'identified';
+      // New content still waiting for its identification (the old auto links are kept until then), or a
+      // file shown under a provisional item meanwhile: back to 'analyzed', where the identifier's pending
+      // sweep picks it up again.
+      const autoOnly = onlyAutoLinks(fileId);
+      if (caseState === 'pending' && autoOnly && currentOf(fileId)?.hasFacts === true) return 'analyzed';
+      // A file in review keeps only its provisional link (doc 02 §3.5): still in review.
+      if (caseState === 'needs_review' && autoOnly) return 'needs_review';
+      return 'identified';
     }
     if (caseState === 'ignored') return 'ignored';
     if (caseState === 'needs_review') return 'needs_review';
@@ -723,13 +744,16 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
           ops.push(() => {
             // Re-check: the copy may have been linked or decided since planning.
             const cur = currentOf(dup.id);
-            const stillUndecided = cur !== undefined && UNDECIDED.includes(cur.state) && !hasLink(dup.id) && caseStateOf(dup.id) !== 'ignored';
+            const stillUndecided = cur !== undefined && UNDECIDED.includes(cur.state) && undecidedLinks(dup.id) && caseStateOf(dup.id) !== 'ignored';
             if (!stillUndecided) {
               db.update(mediaFile).set({ state: 'missing', missingSince: t, updatedAt: t }).where(eq(mediaFile.id, file.id)).run();
               return;
             }
             const sidecarPaths = dup.entry?.sidecars ?? (storedSidecars(eq(mediaFile.id, dup.id)).get(dup.id) ?? []).map((s) => s.relPath);
-            db.delete(mediaFile).where(eq(mediaFile.id, dup.id)).run(); // streams, sidecars, case: cascade
+            // A copy shown under a provisional item meanwhile: its stand-ins and case go to the row that takes
+            // it over, or its state follows that row's items; what was watched on it names that row (doc 02 §3.5).
+            settle()?.copyMerged(dup.id, file.id);
+            db.delete(mediaFile).where(eq(mediaFile.id, dup.id)).run(); // streams, sidecars, links, case: cascade
             const mtimeMs = dup.entry?.mtimeMs ?? dup.mtimeMs;
             db.update(mediaFile)
               .set({

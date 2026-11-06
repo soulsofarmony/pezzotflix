@@ -4,7 +4,13 @@
 import type { Db } from '../../db/index.ts';
 import type { CaseSettlementPort, EventPublisher } from '../../shared/ports.ts';
 
-export function createCaseSettlement(deps: { db: Db; now: () => number; events: () => EventPublisher }): CaseSettlementPort {
+export function createCaseSettlement(deps: {
+  db: Db;
+  now: () => number;
+  events: () => EventPublisher;
+  /** Files leaving items and merged copies: state follows, emptied provisional items retire (provisional.ts). */
+  provisional: Pick<CaseSettlementPort, 'fileLeft' | 'undecided' | 'copyMerged'>;
+}): CaseSettlementPort {
   const { db, now } = deps;
   const tx = <T>(fn: () => T): T => db.$client.transaction(fn)();
   const caseRow = db.$client.prepare(
@@ -34,5 +40,8 @@ export function createCaseSettlement(deps: { db: Db; now: () => number; events: 
         return { fileId: c.fileId, removedAutoLinks: [...new Set(removed)] };
       });
     },
+    fileLeft: (fileId, from, to) => deps.provisional.fileLeft(fileId, from, to),
+    undecided: (fileId) => deps.provisional.undecided(fileId),
+    copyMerged: (copyId, intoId) => deps.provisional.copyMerged(copyId, intoId),
   };
 }

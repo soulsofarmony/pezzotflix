@@ -37,15 +37,18 @@ import type {
   FieldSource,
   ItemFieldValues,
   JobQueuePort,
+  ProvisionalWork,
   SourcedFieldValues,
   SourceRemoval,
   WorkInput,
   WorkRefreshState,
 } from '../../shared/ports.ts';
+import type { Replacements } from './replacements.ts';
 import { type FieldRow, project } from './resolve.ts';
 
 export const ITEM_ADDED = 'library.item_added';
 export const ITEM_UPDATED = 'library.item_updated';
+export const ITEM_REMOVED = 'library.item_removed';
 
 const FIELD_KEYS = ['title', 'originalTitle', 'year', 'category', 'durationMs', 'overview', 'tagline', 'genres'] as const satisfies readonly (keyof ItemFieldValues)[];
 
@@ -66,11 +69,13 @@ export interface CatalogWriterDeps {
   /** Where metadata.enrich is enqueued (a work created or with new ids); absent in unit tests. */
   jobs?: () => JobQueuePort;
   log?: FastifyBaseLogger;
+  /** Where a retirement records the item that took a removed one's place (the read side asks it). */
+  replacements?: Replacements;
 }
 
 export type CatalogWriter = CatalogWritePort;
 
-export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }: CatalogWriterDeps): CatalogWriter {
+export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log, replacements }: CatalogWriterDeps): CatalogWriter {
   const tx = <T>(fn: () => T): T => db.$client.transaction(fn)();
 
   const insertSearch = db.$client.prepare('INSERT INTO catalog_search (item_id, title, original_title) VALUES (?, ?, ?)');
@@ -166,6 +171,7 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
     episodeNumber?: number | null;
     extraType?: ExtraType | null;
     editionLabel?: string | null;
+    provisional?: boolean;
   }): string {
     const id = newId();
     const t = now();
@@ -179,6 +185,7 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
         episodeNumber: row.episodeNumber ?? null,
         extraType: row.extraType ?? null,
         editionLabel: row.editionLabel ?? null,
+        provisional: row.provisional ?? false,
         title: '',
         sortTitle: '',
         addedAt: t,
@@ -200,7 +207,9 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
         .select({ id: catalogItem.id, editionLabel: catalogItem.editionLabel })
         .from(externalId)
         .innerJoin(catalogItem, eq(catalogItem.id, externalId.itemId))
-        .where(and(eq(externalId.provider, provider), eq(externalId.externalId, value), eq(catalogItem.kind, kind), isNull(catalogItem.parentId)))
+        .where(
+          and(eq(externalId.provider, provider), eq(externalId.externalId, value), eq(catalogItem.kind, kind), isNull(catalogItem.parentId), eq(catalogItem.provisional, false)),
+        )
         .orderBy(asc(catalogItem.addedAt), asc(catalogItem.id))
         .all()
         .find((r) => editionKey(r.editionLabel) === edition);
@@ -234,9 +243,55 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
     editionLabel: catalogItem.editionLabel,
     extraType: catalogItem.extraType,
     title: catalogItem.title,
+    provisional: catalogItem.provisional,
   };
 
   const getItem = (itemId: string): CatalogItemRef | null => db.select(refColumns).from(catalogItem).where(eq(catalogItem.id, itemId)).get() ?? null;
+
+  // ---------------------------------------------------------------- provisional items (doc 02 §3.5)
+
+  const provisionalRow = db.$client.prepare('SELECT kind, parent_id AS parentId, provisional FROM catalog_item WHERE id = ?');
+  const hasLink = db.$client.prepare('SELECT 1 FROM media_link WHERE item_id = ? LIMIT 1');
+  const childIds = db.$client.prepare('SELECT id FROM catalog_item WHERE parent_id = ?').pluck();
+  const deleteItem = db.$client.prepare('DELETE FROM catalog_item WHERE id = ?');
+  const orphans = db.$client
+    .prepare(
+      `SELECT i.id FROM catalog_item i WHERE i.provisional = 1
+         AND NOT EXISTS (SELECT 1 FROM media_link l WHERE l.item_id = i.id)
+         AND NOT EXISTS (SELECT 1 FROM catalog_item c WHERE c.parent_id = i.id)
+       ORDER BY i.added_at, i.id`,
+    )
+    .pluck();
+
+  /**
+   * Provisional items of itemIds with no link and no child, then their parents emptied that way, leaves
+   * first. With commit they are deleted: item_field, external ids, artwork rows and the per-profile state
+   * go with them (foreign keys), the search row here.
+   */
+  function retirement(itemIds: readonly string[], commit: boolean, replacedBy: ReadonlyMap<string, string> = new Map()): string[] {
+    const gone = new Set<string>();
+    const queue = [...new Set(itemIds)];
+    const removed: { id: string; kind: CatalogItemKind; parentId: string | null }[] = [];
+    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+      if (gone.has(id)) continue;
+      const row = provisionalRow.get(id) as { kind: CatalogItemKind; parentId: string | null; provisional: number } | undefined;
+      if (row?.provisional !== 1 || hasLink.get(id) !== undefined) continue;
+      if ((childIds.all(id) as string[]).some((c) => !gone.has(c))) continue;
+      gone.add(id);
+      removed.push({ id, kind: row.kind, parentId: row.parentId });
+      if (row.parentId) queue.push(row.parentId);
+    }
+    if (commit) {
+      for (const r of removed) {
+        deleteSearch.run(r.id);
+        deleteItem.run(r.id);
+        const by = replacedBy.get(r.id);
+        if (by) replacements?.record(r.id, by);
+        events().publish(ITEM_REMOVED, { itemId: r.id, kind: r.kind, parentId: r.parentId, ...(by ? { replacedBy: by } : {}) });
+      }
+    }
+    return removed.map((r) => r.id);
+  }
 
   // ---------------------------------------------------------------- credits and artwork
 
@@ -334,15 +389,18 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
 
     upsertWork(input: WorkInput): CatalogWriteResult {
       return tx(() => {
-        let itemId = findWork(input.kind, input.externalIds, input.editionLabel);
+        // A provisional work is a stand-in with no identity: never looked up, never merged, never enriched.
+        const provisional = input.provisional === true;
+        if (provisional && Object.values(input.externalIds).some(Boolean)) throw new Error('a provisional work takes no external ids');
+        let itemId = provisional ? null : findWork(input.kind, input.externalIds, input.editionLabel);
         const created = itemId === null;
-        itemId ??= insertItem({ kind: input.kind, parentId: null, editionLabel: input.editionLabel?.trim() || null });
+        itemId ??= insertItem({ kind: input.kind, parentId: null, editionLabel: input.editionLabel?.trim() || null, provisional });
         const newIds = addIds(itemId, input.externalIds);
         writeFieldRows(itemId, input.fields);
         refresh(itemId);
         if (created) added(itemId, input.kind, null);
         else updated(itemId, input.kind);
-        if (created || newIds) enqueueEnrich(itemId);
+        if (!provisional && (created || newIds)) enqueueEnrich(itemId);
         return { itemId, created };
       });
     },
@@ -352,11 +410,12 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
         requireKind(seriesId, 'series');
         const existing = child(seriesId, 'season', 'seasonNumber', seasonNumber);
         if (existing) return { itemId: existing, created: false };
-        const itemId = insertItem({ kind: 'season', parentId: seriesId, seasonNumber });
+        const provisional = getItem(seriesId)?.provisional === true;
+        const itemId = insertItem({ kind: 'season', parentId: seriesId, seasonNumber, provisional });
         refresh(itemId);
         added(itemId, 'season', seriesId);
         // The series enrichment covers its seasons and episodes.
-        enqueueEnrich(seriesId, EPISODE_ENRICH_DELAY_MS);
+        if (!provisional) enqueueEnrich(seriesId, EPISODE_ENRICH_DELAY_MS);
         return { itemId, created: true };
       });
     },
@@ -367,10 +426,11 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
         if (season?.kind !== 'season') throw new Error(`catalog item ${seasonId} is not a season`);
         const existing = child(seasonId, 'episode', 'episodeNumber', episodeNumber);
         if (existing) return { itemId: existing, created: false };
-        const itemId = insertItem({ kind: 'episode', parentId: seasonId, seasonNumber: season.seasonNumber, episodeNumber });
+        const provisional = season.provisional === true;
+        const itemId = insertItem({ kind: 'episode', parentId: seasonId, seasonNumber: season.seasonNumber, episodeNumber, provisional });
         refresh(itemId);
         added(itemId, 'episode', seasonId);
-        if (season.parentId) enqueueEnrich(season.parentId, EPISODE_ENRICH_DELAY_MS);
+        if (season.parentId && !provisional) enqueueEnrich(season.parentId, EPISODE_ENRICH_DELAY_MS);
         return { itemId, created: true };
       });
     },
@@ -389,7 +449,8 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
           );
           for (let n = 2; taken.has(shown); n++) shown = `${title.trim()} ${n}`;
         }
-        const itemId = insertItem({ kind: 'extra', parentId, extraType });
+        const provisional = parentId !== null && getItem(parentId)?.provisional === true;
+        const itemId = insertItem({ kind: 'extra', parentId, extraType, provisional });
         writeFieldRows(itemId, [{ source: 'filename', fetchedAt, values: { title: shown } }]);
         refresh(itemId);
         added(itemId, 'extra', parentId);
@@ -410,6 +471,8 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
     addExternalIds(itemId, ids) {
       tx(() => {
         const item = getItem(itemId);
+        // A stand-in has no identity: ids would make the Enricher and findWork treat it as the real work.
+        if (item?.provisional && Object.values(ids).some(Boolean)) throw new Error(`catalog item ${itemId} is provisional: it takes no external ids`);
         if (addIds(itemId, ids) && item && item.parentId === null && (item.kind === 'movie' || item.kind === 'series')) enqueueEnrich(itemId);
       });
     },
@@ -424,6 +487,19 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
       }
       return null;
     },
+
+    listProvisionalWorks(kind: WorkKind): ProvisionalWork[] {
+      return db
+        .select({ id: catalogItem.id, title: catalogItem.title, year: catalogItem.year, editionLabel: catalogItem.editionLabel })
+        .from(catalogItem)
+        .where(and(eq(catalogItem.kind, kind), isNull(catalogItem.parentId), eq(catalogItem.provisional, true)))
+        .orderBy(asc(catalogItem.addedAt), asc(catalogItem.id))
+        .all();
+    },
+
+    provisionalToRetire: (itemIds) => retirement(itemIds, false),
+    retireProvisional: (itemIds, replacedBy) => tx(() => retirement(itemIds, true, replacedBy)),
+    provisionalOrphans: () => orphans.all() as string[],
 
     getExternalIds(itemId) {
       const ids: ExternalIds = {};
@@ -510,7 +586,7 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
              (SELECT max(f.fetched_at) FROM item_field f WHERE f.item_id = i.id AND f.source = 'tmdb') AS tmdbValues,
              (SELECT min(a.fetched_at) FROM artwork a WHERE a.item_id = i.id AND a.source = 'tmdb') AS tmdbArtwork,
              (SELECT max(f.fetched_at) FROM item_field f WHERE f.item_id = i.id AND f.source = 'wikidata') AS wikidataFetchedAt
-           FROM catalog_item i WHERE i.parent_id IS NULL AND i.kind IN ('movie', 'series') ORDER BY i.added_at, i.id`,
+           FROM catalog_item i WHERE i.parent_id IS NULL AND i.kind IN ('movie', 'series') AND i.provisional = 0 ORDER BY i.added_at, i.id`,
         )
         .all() as { itemId: string; kind: WorkKind; tmdbValues: number | null; tmdbArtwork: number | null; wikidataFetchedAt: number | null }[];
       return rows.map((r) => ({

@@ -566,7 +566,8 @@ describe('retries (provider down, rate limited, missing)', () => {
     expect((err as RetryLaterError).retryAfterMs).toBeNull();
     expect(caseOf(f)).toMatchObject({ state: 'pending', reason: null, candidates: [] });
     expect(stateOf(f)).toBe('analyzed');
-    expect(events).toEqual([]);
+    // Meanwhile the file is shown under a provisional item (identifier-provisional.test.ts).
+    expect(events.map((e) => e.type)).toEqual(['library.item_added']);
   });
 
   it('Wikidata down and no TMDB match: retried, and accepted as a review only on the last attempt', async () => {

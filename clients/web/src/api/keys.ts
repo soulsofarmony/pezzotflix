@@ -70,8 +70,13 @@ export function staleKeysForEvent(e: AppEvent): QueryKey[] {
   }
 }
 
-/** Invalidates what a page of events makes stale, each family once: a scan sends many events at a time. */
+/**
+ * Invalidates what a page of events makes stale, each family once: a scan sends many events at a time. A removed
+ * item's own queries (detail, children, next up) are dropped, not kept as stale data; only those no page observes,
+ * because the page on screen answers the removal itself (api/removals.ts) and the player keeps its title.
+ */
 export function invalidateForEvents(qc: QueryClient, events: readonly AppEvent[]): void {
+  for (const e of events) if (e.type === 'library.item_removed' && e.itemId) qc.removeQueries({ queryKey: keys.item(e.itemId), type: 'inactive' });
   const stale = new Map<string, QueryKey>();
   for (const e of events) for (const k of staleKeysForEvent(e)) stale.set(JSON.stringify(k), k);
   for (const queryKey of stale.values()) void qc.invalidateQueries({ queryKey });

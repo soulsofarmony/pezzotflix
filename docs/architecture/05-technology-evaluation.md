@@ -1582,6 +1582,8 @@ clients/web/
     | `ingest.progress` | `['admin', 'ingest']` |
     | `identification.needs_review` | `['admin', 'cases']` (badge "Da verificare") |
     | `playback.session_terminated` | ferma il player se la sessione è la sua e mostra il motivo |
+
+    Dopo l'MVP (2026-11-06): con `library.item_removed` il client toglie dalla cache le query non attive dell'item. Una pagina aperta sull'item va all'item che lo sostituisce (`replacedBy`) oppure mostra "non trovato"; il player continua e usa l'item nuovo per gli avvii successivi. Le sostituzioni restano in memoria per scheda: se il cursore degli eventi scade, una pagina aperta tiene i suoi dati finché non viene ricaricata.
     | `playback.subtitle_ready` `{sessionId, trackId, availability}` | se la sessione è quella del player: aggiorna `availability` della traccia e, se è scelta, la ricarica (§7.8.6) |
     | tipo sconosciuto | ignorato (enum aperti, ADR 0004) |
 

@@ -18,6 +18,7 @@ import type {
 } from '../../shared/ports.ts';
 import { type AudioSignal, badgesOf, type Signals, versionLabel, type VideoSignal } from './badges.ts';
 import { compareKeys, decodeCursor, encodeCursor, type KeyValue } from './cursor.ts';
+import type { Replacements } from './replacements.ts';
 import { resolveField, type FieldRow } from './resolve.ts';
 import { foldForContains, ftsQuery, needsSubstringSearch } from './search.ts';
 
@@ -48,11 +49,13 @@ export interface ItemRow {
   year: number | null;
   durationMs: number | null;
   addedAt: number;
+  /** 0/1: a stand-in for a file waiting for its identification (doc 02 §3.5). */
+  provisional: number;
 }
 
 const COLS = `i.id, i.kind, i.category, i.parent_id AS parentId, i.season_number AS seasonNumber, i.episode_number AS episodeNumber,
   i.extra_type AS extraType, i.edition_label AS editionLabel, i.title, i.original_title AS originalTitle, i.sort_title AS sortTitle,
-  i.year, i.duration_ms AS durationMs, i.added_at AS addedAt`;
+  i.year, i.duration_ms AS durationMs, i.added_at AS addedAt, i.provisional`;
 
 /** The item, or for a container one of its episodes, has a linked file. Items left without files are hidden. */
 const HAS_MEDIA = `(EXISTS (SELECT 1 FROM media_link l WHERE l.item_id = i.id)
@@ -203,6 +206,8 @@ export interface CatalogReaderDeps {
   tmdbMaxAgeMs: number;
   /** Null while no module provides the port. */
   profileState: () => ProfileStatePort | null;
+  /** The items that took the place of removed ones, recorded by the write side (replacementFor). */
+  replacements?: Replacements;
 }
 
 const KEY_SQL: Readonly<Record<Exclude<NonNullable<ListQuery['sort']>, 'last_played'>, string>> = {
@@ -215,7 +220,7 @@ const KEY_SQL: Readonly<Record<Exclude<NonNullable<ListQuery['sort']>, 'last_pla
 const STATE_CHUNK = 500;
 const CONTINUE_WATCHING_MAX = 10_000;
 
-export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: CatalogReaderDeps) {
+export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState, replacements }: CatalogReaderDeps) {
   const prep = db.$client.prepare.bind(db.$client);
   const itemById = prep(`SELECT ${COLS} FROM catalog_item i WHERE i.id = ?`);
   // One statement per chunk of ids (a JSON array), whatever the chunk size.
@@ -386,6 +391,7 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
         images: images.get(r.id) ?? [],
         badges: badgesOf(signals.has(r.id) ? [signals.get(r.id)!] : []),
         available: avail.get(r.id) ?? false,
+        provisional: r.provisional === 1,
         ...(state ? { state } : {}),
       };
     });
@@ -639,7 +645,21 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
 
   // ---------------------------------------------------------------- port for playback
 
+  const linkOf = prep('SELECT 1 FROM media_link WHERE file_id = ? AND item_id = ?');
+  const playableOfFile = prep(
+    `SELECT DISTINCT l.item_id FROM media_link l JOIN catalog_item i ON i.id = l.item_id
+     WHERE l.file_id = ? AND i.kind IN ('movie', 'episode', 'extra') LIMIT 2`,
+  ).pluck();
+
   const port: CatalogReadPort = {
+    replacementFor(itemId: string, fileId: string): string | null {
+      const exists = (id: string) => itemById.get(id) !== undefined;
+      if (exists(itemId)) return null;
+      const named = replacements?.follow(itemId, exists) ?? null;
+      if (named && linkOf.get(fileId, named) !== undefined) return named;
+      const ids = playableOfFile.all(fileId) as string[];
+      return ids.length === 1 ? (ids[0] ?? null) : null;
+    },
     getPlayableItem(itemId: string): PlayableItem | null {
       const item = itemById.get(itemId) as ItemRow | undefined;
       if (!item) return null;

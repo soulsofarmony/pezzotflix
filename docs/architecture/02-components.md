@@ -95,6 +95,15 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
 ### 3.5 Metadata Enricher
 - **Fa:** applica i metadata ottenuti ai CatalogItem **rispettando provenienza e campi locked**. Crea Season/Episode mancanti, scarica l'artwork tramite l'Artwork Store, pianifica i refresh.
 - **Degrado:** se il provider non risponde, l'item resta nel catalogo con i metadata disponibili (anche solo il titolo dal filename) e il refresh viene riprovato. La libreria non si blocca (§12).
+- **File nuovo con il provider giù** (dopo l'MVP, 2026-11-06). L'Identifier lo collega a un **item provvisorio** (doc 01 §3.1) e riprova più tardi. Il caso ricorda quali item provvisori sostituisce; l'API non lo mostra. L'Enricher salta gli item provvisori. All'uscita:
+  - **abbinato:** il file passa all'item vero, lo stato per profilo lo segue, l'item provvisorio vuoto viene cancellato (`library.item_removed`);
+  - **in "Da verificare":** l'item provvisorio resta visibile finché il proprietario decide; la risoluzione sposta lo stato e lo cancella;
+  - **ignorato:** l'item provvisorio viene cancellato con il suo stato;
+  - **rinominato** mentre aspetta: passa all'item provvisorio del nome nuovo, con il suo stato;
+  - **mancante:** nessun caso speciale, l'item risulta non disponibile;
+  - **copia unita all'originale** dalla scansione: una copia che ha solo collegamenti provvisori conta come non ancora decisa, e si unisce come una copia senza collegamenti.
+
+  Tutte le uscite passano da un solo punto (`fileLeft`), che sposta lo stato e cancella gli item rimasti vuoti. L'evento `library.item_removed` porta `replacedBy`, l'item che prende il posto, quando ce n'è uno solo.
 - **Dipende da:** Metadata Provider Adapter, Catalog, Artwork Store.
 
 ### 3.6 Catalog

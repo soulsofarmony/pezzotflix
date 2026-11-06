@@ -325,7 +325,34 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
 
   const clampToDuration = (ms: number, durationMs: number | null): number => Math.max(0, durationMs === null ? ms : Math.min(ms, durationMs));
 
+  /**
+   * The session's item left the catalog while its file stayed: a provisional item replaced by the identified
+   * one (doc 02 §3.5). The session follows its file to the item that took its place (CatalogReadPort
+   * replacementFor: the one its removal named, else the one playable item the file is linked to now), with
+   * that item's title and duration; null when there is none.
+   */
+  function followFile(s: Session): PlayableItem | null {
+    const next = ports.catalogRead.replacementFor(s.itemId, s.plan.file.fileId);
+    const item = next && next !== s.itemId ? ports.catalogRead.getPlayableItem(next) : null;
+    if (!item || !isPlayable(item)) return null;
+    log.info({ sessionId: s.sessionId, from: s.itemId, to: item.itemId }, 'session follows its file to the item that replaced its own');
+    s.itemId = item.itemId;
+    s.itemTitle = item.title;
+    s.itemDurationMs = item.durationMs;
+    return item;
+  }
+
+  /** Before a progress sample or a close: a session whose item is gone follows its file (followFile). */
+  function followIfGone(s: Session): void {
+    try {
+      if (!ports.catalogRead.itemExists(s.itemId)) followFile(s);
+    } catch (err) {
+      log.warn({ err, sessionId: s.sessionId }, 'session item not checked');
+    }
+  }
+
   function record(s: Session, positionMs: number, at = now()): void {
+    followIfGone(s);
     const durationMs = s.plan.file.durationMs ?? s.itemDurationMs;
     const sub = recordedSubtitle(s);
     try {
@@ -392,6 +419,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     sessions.delete(s.sessionId);
     const at = now();
     const reason: EndReason = o.reason ?? kind;
+    if (reason !== 'item_removed') followIfGone(s);
     tombstones.set(s.sessionId, { profileId: s.profileId, itemId: s.itemId, fileId: s.plan.file.fileId, durationMs: s.plan.file.durationMs, kind, reason, at, detail: o.detail ?? null });
     const handle = s.handle;
     s.handle = null;
@@ -414,10 +442,15 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     return item;
   }
 
-  /** The session's item, or the session ends with 410 when it left the catalog (m11). */
+  /**
+   * The session's item, or the item that replaced it (followFile); the session ends with 410 when the item
+   * left the catalog and its file is linked to no single other item (m11).
+   */
   async function sessionItem(s: Session, positionMs: number): Promise<PlayableItem> {
     const item = ports.catalogRead.getPlayableItem(s.itemId);
     if (item && isPlayable(item)) return item;
+    const followed = followFile(s);
+    if (followed) return followed;
     await end(s, 'failed', { positionMs, detail: 'The item was removed from the library', reason: 'item_removed' });
     throw gone(s.sessionId);
   }
@@ -835,9 +868,11 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     const t = tombstones.get(sessionId);
     if (t && t.profileId === profileId) {
       try {
+        // The item may have been replaced since the close (followFile).
+        const itemId = ports.catalogRead.replacementFor(t.itemId, t.fileId) ?? t.itemId;
         ports.profilePlayback.recordProgress({
           profileId,
-          itemId: t.itemId,
+          itemId,
           fileId: t.fileId,
           positionMs: clampToDuration(body.positionMs, t.durationMs),
           durationMs: t.durationMs,

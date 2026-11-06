@@ -81,6 +81,18 @@ Attributi comuni (metadata descrittivi, §12): titolo, titolo originale, titolo 
 
 Identità interna: ID stabile generato dal sistema, **mai** derivato da path o da ID di provider esterni.
 
+**Item provvisorio** (`provisional`, dopo l'MVP, 2026-11-06). Sta al posto di un file la cui identificazione aspetta un provider (caso `pending`), così il file si vede e si riproduce subito:
+- i valori vengono dal nome del file (fonte `filename`). Non ha ID esterni, non viene arricchito e non ha artwork;
+- un film in attesa ha un film provvisorio; un episodio ha serie, stagione ed episodio provvisori. Gli episodi della stessa serie (titolo normalizzato e anno) e le versioni nella stessa cartella dell'item condividono lo stesso item provvisorio. Stagioni ed episodi ereditano il segno dal genitore;
+- nasce solo per un file **senza nessun collegamento**. Extra, dischi, file in più parti e file senza titolo non ne hanno;
+- un collegamento a un item provvisorio **non conta come identificazione**: il file continua a essere identificato;
+- quando il file viene identificato, risolto a mano, ignorato o unito a una sua copia, l'item provvisorio rimasto senza file e senza figli viene **cancellato**. Prima, lo stato per profilo passa all'item che lo sostituisce (§7.2):
+  - quello registrato col file (progressi, cronologia, "visto" da una visione completa) segue il file; un file con più episodi abbina gli episodi per numero, se combaciano uno a uno;
+  - quello sull'item (watchlist, "visto" messo a mano) passa all'item che prende il posto: "visto" se lo era uno dei due, la data più recente, le visioni sommate;
+  - un progresso che arriva per un item già cancellato segue il suo file;
+- se il proprietario collega a mano un file a un item provvisorio, **tutta l'opera** (film, o serie con stagioni ed episodi) viene **adottata**: perde il segno e resta. Gli altri file in attesa della stessa opera vengono identificati di nuovo e la seguono;
+- una pulizia periodica cancella gli item provvisori rimasti senza file e senza figli (per esempio dopo la rimozione di una radice).
+
 ### 3.2 Documentari — proposta
 
 I documentari possono essere film singoli **o serie** (docuserie). Se `documentary` fosse un `kind`, una docuserie non avrebbe una struttura Season/Episode.

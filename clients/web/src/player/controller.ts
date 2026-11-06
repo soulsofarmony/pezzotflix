@@ -228,6 +228,8 @@ export class PlayerController {
   private destroyed = false;
 
   private request: StartOptions | null = null;
+  /** Items the library removed while this player was open, and the item that took each one's place. */
+  private readonly replacedItems = new Map<string, string>();
   private probed: ProbeResult | null = null;
   /** A session this client stopped itself (restart, new start, giving up): no more reports, changes or events. */
   private closedSessionId: string | null = null;
@@ -378,7 +380,8 @@ export class PlayerController {
   }
 
   /** asSession: the start replaces that session (back from the back/forward cache), under its profile. */
-  private async begin(opts: StartOptions, asSession: string | undefined): Promise<void> {
+  private async begin(given: StartOptions, asSession: string | undefined): Promise<void> {
+    const opts = { ...given, itemId: this.currentItem(given.itemId) };
     const r = this.request;
     const same =
       r !== null &&
@@ -919,6 +922,15 @@ export class PlayerController {
   // ------------------------------------------------------------ events from the poller
 
   onEvent(e: AppEvent): void {
+    if (e.type === 'library.item_removed') {
+      // The item left the library and another took its file (a provisional item identified). The server session
+      // already follows the file (doc 04); a later StartPlayback ("Riprova", a restart) asks for the new item.
+      if (e.itemId && e.replacedBy && e.replacedBy !== e.itemId) {
+        this.replacedItems.set(e.itemId, e.replacedBy);
+        if (this.request) this.request = { ...this.request, itemId: this.currentItem(this.request.itemId) };
+      }
+      return;
+    }
     const s = this.snapshot.session;
     if (!s) return;
     if (e.type === 'playback.subtitle_ready') {
@@ -939,6 +951,17 @@ export class PlayerController {
       this.destroyEngine();
       this.set({ phase: 'terminated', terminatedReason: e.reason, positionMs, busy: false, playing: false });
     }
+  }
+
+  /** The item that now stands for itemId, following the replacements this player heard of. */
+  private currentItem(itemId: string): string {
+    let current = itemId;
+    for (let hops = 0; hops < this.replacedItems.size; hops++) {
+      const next = this.replacedItems.get(current);
+      if (next === undefined) break;
+      current = next;
+    }
+    return current;
   }
 
   // ------------------------------------------------------------ transport

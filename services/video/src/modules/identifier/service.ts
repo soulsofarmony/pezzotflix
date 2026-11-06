@@ -3,6 +3,7 @@
 // and the catalog items through CatalogWritePort. Owns media_link (auto) and identification_case.
 // Idempotent: a linked file, an owner decision (ignored/resolved) and a manual link are never
 // touched; a renamed file in review is identified again and its case updated, not duplicated.
+// While no provider answers, an unlinked file is shown under a provisional item (provisional.ts).
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { z } from 'zod';
@@ -20,12 +21,14 @@ import type {
   ItemFieldValues,
   JobQueuePort,
   MetadataSearchPort,
+  ProfileStatePort,
   SourcedFieldValues,
   WorkInput,
 } from '../../shared/ports.ts';
 import type { KindMode, ScoredCandidate } from './matcher.ts';
 import { normalizeTitle } from './normalize.ts';
 import { type ParsedPath, parsePath, type RootHint } from './parser.ts';
+import { createProvisional, PROVISIONAL_WORKS, recordedWorks } from './provisional.ts';
 import { type CaseReason, DEFAULT_RESOLVERS, type Evidence, NO_PROVIDER_RETRY_MS, type Resolver, runChain, type WorkQuery } from './resolvers.ts';
 
 export const IdentifyPayload: z.ZodType<IdentifierIdentifyPayload> = z.object({ fileId: z.string().min(1) });
@@ -131,6 +134,8 @@ export interface IdentifierDeps {
   resolvers?: readonly Resolver[];
   /** The job's maxAttempts: the last attempt accepts a review decided while a provider was down. */
   maxAttempts?: number;
+  /** Profile state that follows a file leaving a provisional item; absent: it goes with the item. */
+  profiles?: () => ProfileStatePort | null;
 }
 
 /** The kind filter of the standard §2: structure first, then the hint; mixed roots score kinds softly. */
@@ -160,6 +165,7 @@ export function createIdentifier(deps: IdentifierDeps) {
   const resolvers = deps.resolvers ?? DEFAULT_RESOLVERS;
   const maxAttempts = deps.maxAttempts ?? IDENTIFY_MAX_ATTEMPTS;
   const tx = <T>(fn: () => T): T => db.$client.transaction(fn)();
+  const provisional = createProvisional({ db, now, catalog, profiles: deps.profiles ?? (() => null), log: deps.log });
 
   const loadFile = (fileId: string): FileRow | undefined =>
     db
@@ -178,15 +184,31 @@ export function createIdentifier(deps: IdentifierDeps) {
       .where(eq(mediaFile.id, fileId))
       .get();
 
-  const hasLink = (fileId: string): boolean => db.select({ id: mediaLink.id }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).limit(1).get() !== undefined;
   const caseOf = (fileId: string) =>
-    db.select({ id: identificationCase.id, state: identificationCase.state, reason: identificationCase.reason }).from(identificationCase).where(eq(identificationCase.fileId, fileId)).get();
+    db
+      .select({ id: identificationCase.id, state: identificationCase.state, reason: identificationCase.reason, parsed: identificationCase.parsed })
+      .from(identificationCase)
+      .where(eq(identificationCase.fileId, fileId))
+      .get();
   const setState = (fileId: string, state: FileState) =>
     db.update(mediaFile).set({ state, updatedAt: now() }).where(and(eq(mediaFile.id, fileId), ne(mediaFile.state, state))).run();
 
-  function upsertCase(fileId: string, state: CaseState, reason: StoredReason | null, parsed: unknown, candidates: unknown[]): { caseId: string; changed: boolean } {
+  /**
+   * Writes the case. The provisional works the file stood in for stay recorded across rewrites, plus
+   * `provisionalWork`: retirement reads them to tell where the files of a provisional work went.
+   */
+  function upsertCase(
+    fileId: string,
+    state: CaseState,
+    reason: StoredReason | null,
+    parsedValue: Record<string, unknown>,
+    candidates: unknown[],
+    provisionalWork: string | null = null,
+  ): { caseId: string; changed: boolean } {
     const prev = caseOf(fileId);
     const t = now();
+    const works = recordedWorks(prev?.parsed, provisionalWork);
+    const parsed = works.length ? { ...parsedValue, [PROVISIONAL_WORKS]: works } : parsedValue;
     db.insert(identificationCase)
       .values({ id: newId(), fileId, state, reason, parsed, candidates, createdAt: t, updatedAt: t })
       .onConflictDoUpdate({ target: identificationCase.fileId, set: { state, reason, parsed, candidates, updatedAt: t } })
@@ -207,7 +229,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       .where(eq(mediaFile.id, file.id))
       .get();
     if (!cur || cur.state === 'removed' || cur.state === 'ignored') return 'settled';
-    if (hasLink(file.id) && !relinkable(file.id)) return 'settled';
+    if (hasFirmLink(file.id) && !relinkable(file.id)) return 'settled';
     const c = caseOf(file.id);
     if (c?.state === 'ignored' || c?.state === 'resolved') return 'settled';
     if (cur.relPath !== file.relPath || cur.analyzedAt !== file.analyzedAt) return 'changed';
@@ -215,46 +237,82 @@ export function createIdentifier(deps: IdentifierDeps) {
     return 'ok';
   }
 
-  function insertLinks(fileId: string, itemIds: readonly string[], confidence: number): void {
+  // An auto link already there takes the confidence of the latest result (a stand-in confirmed by a match);
+  // a manual link to the same item is left alone.
+  const upsertAutoLink = db.$client.prepare(
+    `INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES (?, ?, ?, 'auto', ?, ?)
+     ON CONFLICT (file_id, item_id) DO UPDATE SET confidence = excluded.confidence WHERE media_link.origin = 'auto'`,
+  );
+
+  /** confidence null: a provisional link, not a scored match (the library tells stand-in links by it). */
+  function insertLinks(fileId: string, itemIds: readonly string[], confidence: number | null): void {
     const t = now();
-    for (const itemId of new Set(itemIds)) {
-      db.insert(mediaLink).values({ id: newId(), fileId, itemId, origin: 'auto', confidence, createdAt: t }).onConflictDoNothing().run();
-    }
+    for (const itemId of new Set(itemIds)) upsertAutoLink.run(newId(), fileId, itemId, confidence, t);
   }
 
   const linksOfFile = (fileId: string) => db.select({ itemId: mediaLink.itemId, origin: mediaLink.origin }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).all();
   const stateNow = (fileId: string) => db.select({ state: mediaFile.state }).from(mediaFile).where(eq(mediaFile.id, fileId)).get()?.state;
 
+  /** An auto link to a provisional item stands in for a pending identification: it never settles the file. */
+  const isStandIn = (l: { itemId: string; origin: string }): boolean => l.origin === 'auto' && provisional.isProvisional(l.itemId);
+  const hasFirmLink = (fileId: string): boolean => linksOfFile(fileId).some((l) => !isStandIn(l));
+  const standIns = (fileId: string): string[] => [...new Set(linksOfFile(fileId).filter(isStandIn).map((l) => l.itemId))];
+
   /**
-   * New content at the same path. A linked file is 'identified', except when the library saw its
-   * content change: it put the file back to 'discovered' and the analyzer moved it to 'analyzed'. Its
-   * auto links describe the old content: without a manual link, the file is identified again. The
-   * links are replaced when the new result is written (replaceAutoLinks), not before: while the
+   * A file with only auto links that still waits for its identification, identified again:
+   * - new content at the same path. A linked file is 'identified', except when the library saw its
+   *   content change: it put the file back to 'discovered' and the analyzer moved it to 'analyzed'. Its
+   *   auto links describe the old content: without a manual link, the file is identified again;
+   * - a case still pending or in review: the file was shown under a provisional item that the owner
+   *   adopted through another file (doc 02 §3.5). Its case is written again, not left in the queue.
+   * The links are replaced when the new result is written (replaceAutoLinks), not before: while the
    * providers are down the file stays where it was.
    */
   function relinkable(fileId: string): boolean {
     const links = linksOfFile(fileId);
-    return links.length > 0 && links.every((l) => l.origin === 'auto') && stateNow(fileId) === 'analyzed';
+    if (!links.length || !links.every((l) => l.origin === 'auto')) return false;
+    const c = caseOf(fileId)?.state;
+    return stateNow(fileId) === 'analyzed' || c === 'pending' || c === 'needs_review';
   }
 
   /** Links the file to itemIds; its other auto links go, in the caller's transaction (manual links stay, doc 01 §5.1). */
-  function replaceAutoLinks(fileId: string, itemIds: readonly string[], confidence: number, log: FastifyBaseLogger): void {
+  function replaceAutoLinks(fileId: string, itemIds: readonly string[], confidence: number | null, log: FastifyBaseLogger): void {
     const keep = new Set(itemIds);
     const stale = [...new Set(linksOfFile(fileId).filter((l) => l.origin === 'auto' && !keep.has(l.itemId)).map((l) => l.itemId))];
     if (stale.length) {
       db.delete(mediaLink).where(and(eq(mediaLink.fileId, fileId), eq(mediaLink.origin, 'auto'), inArray(mediaLink.itemId, stale))).run();
       for (const itemId of stale) events().publish('library.item_updated', { itemId, fileId, reason: 'media_unlinked' });
-      log.info({ fileId, items: stale }, 'content changed: the auto links of the old content replaced');
+      log.info({ fileId, items: stale }, 'the previous auto links of the file replaced');
     }
     insertLinks(fileId, itemIds, confidence);
+  }
+
+  /**
+   * The items a relink takes the file's state from: its provisional items, and the items of a provisional
+   * work it stood in for that the owner adopted meanwhile (the state recorded there is still this file's).
+   * Other auto links, made for old content, keep what was recorded on them.
+   */
+  function standInsOrAdopted(fileId: string): string[] {
+    const works = new Set(recordedWorks(caseOf(fileId)?.parsed, null));
+    const workOf = (itemId: string) => catalog().findAncestor(itemId, 'movie') ?? catalog().findAncestor(itemId, 'series');
+    const adopted = (l: { itemId: string; origin: string }) => l.origin === 'auto' && works.has(workOf(l.itemId) ?? '');
+    return [...new Set(linksOfFile(fileId).filter((l) => isStandIn(l) || adopted(l)).map((l) => l.itemId))];
+  }
+
+  /** replaceAutoLinks, then the provisional items the file leaves: its state follows it, the empty ones retire. */
+  function relink(fileId: string, itemIds: readonly string[], confidence: number | null, log: FastifyBaseLogger): void {
+    const left = standInsOrAdopted(fileId).filter((id) => !itemIds.includes(id));
+    replaceAutoLinks(fileId, itemIds, confidence, log);
+    const retired = provisional.fileLeft(fileId, left, itemIds);
+    if (retired.length) log.info({ fileId, retired }, 'provisional items retired');
   }
 
   /** Decisions that need no parsing nor provider. Returns true when the job is done. */
   function precheck(file: FileRow, log: FastifyBaseLogger): boolean {
     return tx(() => {
-      if (hasLink(file.id) && !relinkable(file.id)) {
+      if (hasFirmLink(file.id) && !relinkable(file.id)) {
         // New content under a manual link: the owner's link stays, the auto ones go.
-        if (stateNow(file.id) === 'analyzed') replaceAutoLinks(file.id, [], 1, log);
+        if (stateNow(file.id) === 'analyzed') relink(file.id, [], 1, log);
         // Otherwise an existing link (auto or manual) is never replaced automatically (doc 01 §5.1).
         setState(file.id, 'identified');
         return true;
@@ -273,17 +331,19 @@ export function createIdentifier(deps: IdentifierDeps) {
       if (!file.fingerprint) return false;
       // Copies of the same content share an identity: no provider call.
       // Owner decisions first, then the most recent link: deterministic when twins disagree.
+      // A twin shown under a provisional item has no identity yet to share.
       const twins = db
-        .select({ itemId: mediaLink.itemId, fileId: mediaLink.fileId })
+        .select({ itemId: mediaLink.itemId, fileId: mediaLink.fileId, origin: mediaLink.origin })
         .from(mediaLink)
         .innerJoin(mediaFile, eq(mediaFile.id, mediaLink.fileId))
         .where(and(eq(mediaFile.fingerprint, file.fingerprint), ne(mediaFile.id, file.id)))
         .orderBy(desc(sql`${mediaLink.origin} = 'manual'`), desc(mediaLink.createdAt), asc(mediaLink.fileId))
-        .all();
+        .all()
+        .filter((tw) => !isStandIn(tw));
       const first = twins[0];
       if (!first) return false;
       const itemIds = twins.filter((tw) => tw.fileId === first.fileId).map((tw) => tw.itemId);
-      replaceAutoLinks(file.id, itemIds, 1, log);
+      relink(file.id, itemIds, 1, log);
       upsertCase(file.id, 'auto_matched', null, { ...parsePath(file.relPath, file.hint), copyOf: first.fileId }, []);
       setState(file.id, 'identified');
       for (const itemId of new Set(itemIds)) events().publish('library.item_updated', { itemId, fileId: file.id, reason: 'media_linked' });
@@ -298,8 +358,9 @@ export function createIdentifier(deps: IdentifierDeps) {
    * One work of this item folder, from the links of the files already identified there. Only files
    * that name the same item folder count (parser workFolder / extraOf.folder): two movies in one
    * collection folder, or a movie with no year next to a remake, never become versions of each other.
+   * Provisional works count only when asked for (a version shown while it waits shares its sibling's).
    */
-  function siblingWork(file: FileRow, parsed: ParsedPath, folder: string, kind: WorkKind, directOnly: boolean): string | null {
+  function siblingWork(file: FileRow, parsed: ParsedPath, folder: string, kind: WorkKind, directOnly: boolean, wantProvisional = false): string | null {
     if (!folder) return null;
     const rows = db.$client
       .prepare(
@@ -312,7 +373,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       rows
         .filter((r) => sameItemFolder(parsePath(r.relPath, file.hint), parsed, folder))
         .map((r) => catalog().findAncestor(r.itemId, kind))
-        .filter((x): x is string => x !== null),
+        .filter((x): x is string => x !== null && provisional.isProvisional(x) === wantProvisional),
     );
     return works.size === 1 ? ([...works][0] ?? null) : null;
   }
@@ -360,12 +421,74 @@ export function createIdentifier(deps: IdentifierDeps) {
   }
 
   /** The movie the other versions in this item folder are linked to, if they agree on one of the same edition. */
-  function siblingMovie(file: FileRow, parsed: ParsedPath): string | null {
+  function siblingMovie(file: FileRow, parsed: ParsedPath, wantProvisional = false): string | null {
     if (!parsed.workFolder) return null;
-    const itemId = siblingWork(file, parsed, parsed.workFolder, 'movie', true);
+    const itemId = siblingWork(file, parsed, parsed.workFolder, 'movie', true, wantProvisional);
     if (!itemId) return null;
     const edition = (label: string | null | undefined) => (label ?? '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
     return edition(catalog().getItem(itemId)?.editionLabel) === edition(parsed.edition) ? itemId : null;
+  }
+
+  // ---------------------------------------------------------------- provisional items (doc 02 §3.5)
+
+  /**
+   * Where a file waiting for a provider is shown: a provisional movie (shared by the versions of its item
+   * folder), or the episodes of a provisional series shared by normalised title and year. Filename values
+   * only, resolved like any item (ADR 0007). Extras and parses without a title get none.
+   */
+  function provisionalTarget(file: FileRow, parsed: ParsedPath, facts: MediaFacts | null): Target | null {
+    if (parsed.reason || !parsed.title) return null;
+    const t = now();
+    const input = (kind: WorkKind): WorkInput => ({
+      kind,
+      editionLabel: kind === 'movie' ? parsed.edition : null,
+      externalIds: {},
+      provisional: true,
+      fields: [
+        { source: 'filename', fetchedAt: t, values: present({ title: parsed.title, year: parsed.year }) },
+        ...(kind === 'movie' && facts?.durationMs ? [{ source: 'container' as const, fetchedAt: t, values: { durationMs: facts.durationMs } }] : []),
+      ],
+    });
+    if (parsed.kind === 'movie') {
+      const sibling = siblingMovie(file, parsed, true);
+      return { type: 'movie', work: sibling ? { itemId: sibling } : { input: input('movie') } };
+    }
+    if (parsed.kind !== 'episode' || !parsed.episodes?.length) return null;
+    const title = normalizeTitle(parsed.title);
+    const series = catalog()
+      .listProvisionalWorks('series')
+      .find((w) => normalizeTitle(w.title) === title && w.year === parsed.year);
+    return { type: 'episodes', series: series ? { itemId: series.id } : { input: input('series') }, season: parsed.season ?? 1, episodes: parsed.episodes, episodeTitle: parsed.episodeTitle };
+  }
+
+  /** What a provisional placement depends on: the same parse keeps the same items (no churn at every retry). */
+  const PLACEMENT_KEYS = ['kind', 'title', 'year', 'edition', 'season', 'episodes', 'episodeTitle', 'workFolder'] as const;
+  const samePlacement = (prev: unknown, parsed: ParsedPath): boolean =>
+    prev !== null &&
+    typeof prev === 'object' &&
+    PLACEMENT_KEYS.every((k) => JSON.stringify((prev as Record<string, unknown>)[k] ?? null) === JSON.stringify(parsed[k] ?? null));
+
+  /**
+   * Shows a file that waits for a provider under its provisional item. A file with a firm link keeps it
+   * (new content at the same path keeps its old links meanwhile); one already shown keeps its items while
+   * its name says the same; a renamed one moves to the items of its new name, its state with it, or keeps
+   * them when the new name gives none (an extra, no title): its state is never dropped on a rename.
+   * Returns the provisional work, or null.
+   */
+  function linkProvisional(file: FileRow, parsed: ParsedPath, facts: MediaFacts | null, prevParsed: unknown, log: FastifyBaseLogger): string | null {
+    const links = linksOfFile(file.id);
+    if (links.some((l) => !isStandIn(l))) return null;
+    const current = [...new Set(links.map((l) => l.itemId))];
+    const [shown] = current;
+    const workOf = (itemId: string) => catalog().findAncestor(itemId, 'movie') ?? catalog().findAncestor(itemId, 'series');
+    if (shown && samePlacement(prevParsed, parsed)) return workOf(shown);
+    const target = provisionalTarget(file, parsed, facts);
+    if (!target) return shown ? workOf(shown) : null;
+    const items = materialize(file.id, target, facts);
+    relink(file.id, items.map((i) => i.itemId), null, log);
+    for (const i of items) if (!i.announced && !current.includes(i.itemId)) events().publish('library.item_updated', { itemId: i.itemId, fileId: file.id, reason: 'media_linked' });
+    const [first] = items;
+    return first ? workOf(first.itemId) : null;
   }
 
   async function plan(file: FileRow, parsed: ParsedPath, facts: MediaFacts | null, finalAttempt: boolean): Promise<Plan> {
@@ -465,7 +588,8 @@ export function createIdentifier(deps: IdentifierDeps) {
       const e = eligible(file);
       if (e !== 'ok') return e;
       const items = materialize(file.id, p.target, facts);
-      replaceAutoLinks(file.id, items.map((i) => i.itemId), p.confidence, log);
+      // A provisional item the file leaves passes its state on, then retires if nothing is left on it.
+      relink(file.id, items.map((i) => i.itemId), p.confidence, log);
       upsertCase(file.id, 'auto_matched', null, { ...parsed, evidence: p.evidence }, p.candidates);
       setState(file.id, 'identified');
       // A new file on an existing item (another copy, a sibling episode) is still news for clients.
@@ -474,13 +598,16 @@ export function createIdentifier(deps: IdentifierDeps) {
     });
   }
 
-  function writeReview(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'review' }>, log: FastifyBaseLogger): Eligibility {
+  function writeReview(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'review' }>, facts: MediaFacts | null, log: FastifyBaseLogger): Eligibility {
     return tx(() => {
       const e = eligible(file);
       if (e !== 'ok') return e;
-      // New content that matches nothing sure: the old content's auto links go with the review.
-      replaceAutoLinks(file.id, [], 0, log);
-      const { caseId, changed } = upsertCase(file.id, 'needs_review', p.reason, { ...parsed, evidence: p.evidence }, p.candidates);
+      // A file already shown under a provisional item (or one the owner adopted) stays visible while it
+      // waits for the owner (doc 02 §3.5), under the items of its current name. New content that matches
+      // nothing sure: the old content's auto links go with the review.
+      const work = standIns(file.id).length ? linkProvisional(file, parsed, facts, caseOf(file.id)?.parsed, log) : null;
+      replaceAutoLinks(file.id, standInsOrAdopted(file.id), null, log);
+      const { caseId, changed } = upsertCase(file.id, 'needs_review', p.reason, { ...parsed, evidence: p.evidence }, p.candidates, work);
       setState(file.id, 'needs_review');
       if (changed) events().publish('identification.needs_review', { caseId, fileId: file.id, reason: p.reason });
       return 'ok';
@@ -489,13 +616,15 @@ export function createIdentifier(deps: IdentifierDeps) {
 
   /**
    * A provider failed: the case stays pending (never needs_review, ADR 0007 point 4). A file whose
-   * content changed keeps its old links meanwhile.
+   * content changed keeps its old links meanwhile; a file with no link is shown under a provisional
+   * item, with the title of its name, until the identification arrives (doc 02 §3.5).
    */
-  function writePending(file: FileRow, parsed: ParsedPath, detail: string): Eligibility {
+  function writePending(file: FileRow, parsed: ParsedPath, detail: string, facts: MediaFacts | null, log: FastifyBaseLogger): Eligibility {
     return tx(() => {
       const e = eligible(file);
       if (e !== 'ok') return e;
-      upsertCase(file.id, 'pending', null, { ...parsed, pendingReason: detail }, []);
+      const work = linkProvisional(file, parsed, facts, caseOf(file.id)?.parsed, log);
+      upsertCase(file.id, 'pending', null, { ...parsed, pendingReason: detail }, [], work);
       setState(file.id, 'analyzed');
       return 'ok';
     });
@@ -518,13 +647,17 @@ export function createIdentifier(deps: IdentifierDeps) {
       log.info({ fileId }, 'identify result dropped: the file changed meanwhile, identifying again');
       return new RetryLaterError('file changed meanwhile', CHANGED_RETRY_MS);
     };
+    const settledMeanwhile = () => log.info({ fileId }, 'identify result dropped: the file was linked, ignored or removed meanwhile');
     if (p.type === 'retry') {
-      if (writePending(file, parsed, p.detail) === 'changed') throw changedMeanwhile();
+      const pending = writePending(file, parsed, p.detail, facts, log);
+      if (pending === 'changed') throw changedMeanwhile();
+      // An owner decision taken while the providers were asked: nothing left to retry.
+      if (pending === 'settled') return void settledMeanwhile();
       throw new RetryLaterError(p.detail, p.retryAfterMs);
     }
-    const written = p.type === 'link' ? writeLinked(file, parsed, p, facts, log) : writeReview(file, parsed, p, log);
+    const written = p.type === 'link' ? writeLinked(file, parsed, p, facts, log) : writeReview(file, parsed, p, facts, log);
     if (written === 'changed') throw changedMeanwhile();
-    if (written === 'settled') return void log.info({ fileId }, 'identify result dropped: the file was linked, ignored or removed meanwhile');
+    if (written === 'settled') return void settledMeanwhile();
     log.info({ fileId, outcome: p.type === 'link' ? 'auto_matched' : 'needs_review', reason: p.type === 'review' ? p.reason : undefined, resolver: p.evidence.resolver }, 'file identified');
   }
 
