@@ -62,6 +62,24 @@ describe('Home rows', () => {
     expect(link.querySelector('[data-text]')?.getAttribute('data-text')).toBe('Nosferatu');
   });
 
+  it('after the visible lines, the name says what the card only draws: watched, progress, unavailable', async () => {
+    const state = (watched: boolean, progressPercent: number) => ({ watched, progressPercent, inWatchlist: false });
+    const items = [
+      { ...item('w', 'Wall-E'), state: state(true, 0) },
+      { ...item('s', 'Solaris'), state: state(false, 42.4) },
+      { ...item('g', 'Gattaca'), available: false },
+      { ...item('f', 'Fargo'), state: state(true, 100) },
+    ];
+    renderApp('/', { 'GET /video/api/v1/home': () => ({ rows: [{ id: 'movies', title: 'Film', items, nextCursor: null }] }) }, { profile });
+    expect(await screen.findByRole('link', { name: 'Wall-E · 2020 · Visto' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Solaris · 2020 · Visto al 42%' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Gattaca · 2020 · Non disponibile' })).toBeTruthy();
+    // A finished item shows no progress bar, so its name has no percentage either.
+    expect(screen.getByRole('link', { name: 'Fargo · 2020 · Visto' })).toBeTruthy();
+    // Label in name: the visible lines still lead the name.
+    for (const name of ['Wall-E', 'Solaris', 'Gattaca']) expect(screen.getByRole('link', { name: new RegExp(`^${name}`) }).getAttribute('aria-label')).toMatch(new RegExp(`^${name} · 2020 · `));
+  });
+
   it('"Vedi tutti" reproduces the row query in Browse; images use the w variants', async () => {
     renderApp('/', { 'GET /video/api/v1/home': () => HOME }, { profile });
     const seeAll = await screen.findByRole('link', { name: /Vedi tutti/ });

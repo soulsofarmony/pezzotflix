@@ -5,7 +5,7 @@ import { type CaseState, useCases } from '../../api/queries.ts';
 import type { IdentificationCase } from '../../api/types.ts';
 import { formatRelative } from '../../i18n/format.ts';
 import { t, tMaybe } from '../../i18n/t.ts';
-import { Empty, ErrorView, Loading } from '../../ui/Status.tsx';
+import { Empty, QueryFallback } from '../../ui/Status.tsx';
 import styles from './admin.module.css';
 
 const STATES: readonly CaseState[] = ['needs_review', 'pending', 'auto_matched', 'resolved', 'ignored'];
@@ -37,9 +37,8 @@ export function CasesPage(): ReactElement {
           </select>
         </label>
       </div>
-      {cases.isPending && <Loading />}
-      {cases.isError && <ErrorView error={cases.error} onRetry={() => void cases.refetch()} />}
-      {cases.isSuccess && list.length === 0 && <Empty>{t('cases.empty')}</Empty>}
+      {!cases.data && <QueryFallback query={cases} />}
+      {cases.data && list.length === 0 && <Empty>{t('cases.empty')}</Empty>}
       <ul className={styles.cards}>
         {list.map((c) => {
           const meta = [c.rootName, reasonLabel(c.reason), c.linkedItem ? t('cases.linked', { title: c.linkedItem.title }) : null, t('cases.updated', { when: formatRelative(c.updatedAt) })]

@@ -1,13 +1,16 @@
 // One identification case: file facts, candidates with score, and the resolutions the contract allows
-// (allowedResolutions): pick a candidate, search the provider again, create the item by hand, or ignore.
+// (allowedResolutions): pick a candidate, search the provider again, create the item by hand, or ignore. A
+// resolved or ignored case shows what it is now, and the same resolutions behind "Correggi".
 import { Link } from '@tanstack/react-router';
 import { type FormEvent, type ReactElement, useId, useState } from 'react';
+import { ApiError } from '../../api/problem.ts';
 import { useCase, useIgnoreCase, useProviderSearch, useResolveCase } from '../../api/queries.ts';
-import type { Candidate, IdentificationCase, ItemKind } from '../../api/types.ts';
+import type { Candidate, IdentificationCase, ItemKind, ResolveCaseRequest } from '../../api/types.ts';
 import { formatRelative } from '../../i18n/format.ts';
 import { t } from '../../i18n/t.ts';
-import { errorMessage } from '../../ui/errors.ts';
-import { ErrorView, Loading } from '../../ui/Status.tsx';
+import { errorMessage, problemDetails } from '../../ui/errors.ts';
+import { cardLabel } from '../../ui/ItemCard.tsx';
+import { ErrorView, Loading, QueryFallback } from '../../ui/Status.tsx';
 import styles from './admin.module.css';
 import { reasonLabel } from './CasesPage.tsx';
 
@@ -24,23 +27,92 @@ function meaningful(v: unknown): boolean {
 
 export function CaseDetailPage({ caseId }: { caseId: string }): ReactElement {
   const q = useCase(caseId);
-  if (q.isPending) return <Loading />;
-  if (q.isError) return <ErrorView error={q.error} onRetry={() => void q.refetch()} />;
+  if (!q.data) return <QueryFallback query={q} />;
   return <CaseView c={q.data} />;
+}
+
+/** The file name has episode numbers: without them the file cannot be linked under a series. */
+function hasEpisodes(parsed: IdentificationCase['parsed']): boolean {
+  return Array.isArray(parsed?.episodes) && parsed.episodes.length > 0;
+}
+
+/**
+ * The message of a failed resolution. A 400 on a series target is the file name without an episode number (the
+ * server says so in errors[]); any other error gets the generic message by code. Validation details follow.
+ */
+function ResolveError({ error, target, c }: { error: unknown; target: ItemKind | null; c: IdentificationCase }): ReactElement {
+  const details = problemDetails(error);
+  const paths = error instanceof ApiError && Array.isArray(error.problem?.errors) ? error.problem.errors.map((x) => x.path) : [];
+  const noEpisode = error instanceof ApiError && error.status === 400 && (paths.some((x) => /episode/i.test(x)) || (target === 'series' && !hasEpisodes(c.parsed)));
+  return (
+    <div role="alert" className={styles.error}>
+      <p>{noEpisode ? t('cases.noEpisodeNumber') : errorMessage(error)}</p>
+      {details.length > 0 && (
+        <ul className="mono" aria-label={t('error.details')}>
+          {details.map((d) => (
+            <li key={d}>{d}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function CaseView({ c }: { c: IdentificationCase }): ReactElement {
   const resolve = useResolveCase(c.id);
   const ignore = useIgnoreCase(c.id);
   const allowed = new Set<Resolution>(c.allowedResolutions ?? ALL);
-  const open = c.state !== 'resolved' && c.state !== 'ignored';
-  const canLink = open && allowed.has('link_candidate');
+  // A resolved or ignored case can be resolved again (the server checks only the reason): a wrong pick or an
+  // accidental Ignore is corrected here, behind "Correggi".
+  const settled = c.state === 'resolved' || c.state === 'ignored';
+  const [correcting, setCorrecting] = useState(false);
+  const controlsId = useId();
+  const canLink = allowed.has('link_candidate');
+  const canIgnore = allowed.has('ignore') && c.state !== 'ignored';
+  const canCorrect = canLink || allowed.has('create_manual') || canIgnore;
   const busy = resolve.isPending || ignore.isPending;
   const error = resolve.error ?? ignore.error;
+  // Kind of the item the last resolution links to (the candidate's or the manual one): it explains a 400.
+  const [target, setTarget] = useState<ItemKind | null>(null);
 
   const parsedFacts = Object.entries(c.parsed ?? {}).filter(([, v]) => meaningful(v));
 
-  const pick = (cand: Candidate) => resolve.mutate({ action: 'link_candidate', candidate: { provider: cand.ref.provider, id: cand.ref.id } });
+  const resolveWith = (body: ResolveCaseRequest, kind: ItemKind) => {
+    ignore.reset();
+    setTarget(kind);
+    resolve.mutate(body);
+  };
+  const pick = (cand: Candidate) => resolveWith({ action: 'link_candidate', candidate: { provider: cand.ref.provider, id: cand.ref.id } }, cand.kind);
+
+  const controls = (
+    <>
+      <section>
+        <h3>{t('cases.candidates')}</h3>
+        {c.candidates.length === 0 ? <p className="muted">{t('cases.noCandidates')}</p> : <CandidateList candidates={c.candidates} onPick={canLink && !busy ? pick : null} />}
+      </section>
+
+      {canLink && <ProviderSearch initial={typeof c.parsed?.title === 'string' ? c.parsed.title : ''} initialYear={typeof c.parsed?.year === 'number' ? c.parsed.year : undefined} onPick={busy ? null : pick} />}
+
+      {allowed.has('create_manual') && <ManualForm busy={busy} onSubmit={(manual) => resolveWith({ action: 'create_manual', manual }, manual.kind)} />}
+
+      {canIgnore && (
+        <section>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm(t('cases.ignoreConfirm'))) return;
+              resolve.reset();
+              ignore.mutate();
+            }}
+          >
+            {t('cases.ignore')}
+          </button>
+        </section>
+      )}
+    </>
+  );
 
   return (
     <article className={styles.case}>
@@ -51,13 +123,16 @@ function CaseView({ c }: { c: IdentificationCase }): ReactElement {
       <p className="muted">
         {[c.rootName, t(`cases.state.${c.state}`), reasonLabel(c.reason), t('cases.updated', { when: formatRelative(c.updatedAt) })].filter(Boolean).join(' · ')}
       </p>
-      {c.linkedItem && (
-        <p>
+      {c.state === 'ignored' ? (
+        <p className={styles.current}>{t('cases.currentIgnored')}</p>
+      ) : c.linkedItem ? (
+        <p className={styles.current}>
+          {t('cases.currentLink')}{' '}
           <Link to="/item/$itemId" params={{ itemId: c.linkedItem.id }}>
-            {t('cases.linked', { title: c.linkedItem.title })}
+            {cardLabel(c.linkedItem)}
           </Link>
         </p>
-      )}
+      ) : null}
       {parsedFacts.length > 0 && (
         <section>
           <h3>{t('cases.parsed')}</h3>
@@ -82,37 +157,25 @@ function CaseView({ c }: { c: IdentificationCase }): ReactElement {
         </section>
       )}
 
-      {error && (
-        <p role="alert" className={styles.error}>
-          {errorMessage(error)}
-        </p>
-      )}
+      {error && <ResolveError error={error} target={resolve.error ? target : null} c={c} />}
       {resolve.isSuccess && <p role="status">{t('cases.resolved')}</p>}
-      {open && allowed.size === 1 && allowed.has('ignore') && <p className="muted">{t('cases.onlyIgnore')}</p>}
+      {!settled && allowed.size === 1 && allowed.has('ignore') && <p className="muted">{t('cases.onlyIgnore')}</p>}
 
-      <section>
-        <h3>{t('cases.candidates')}</h3>
-        {c.candidates.length === 0 ? <p className="muted">{t('cases.noCandidates')}</p> : <CandidateList candidates={c.candidates} onPick={canLink && !busy ? pick : null} />}
-      </section>
-
-      {canLink && <ProviderSearch initial={typeof c.parsed?.title === 'string' ? c.parsed.title : ''} initialYear={typeof c.parsed?.year === 'number' ? c.parsed.year : undefined} onPick={busy ? null : pick} />}
-
-      {open && allowed.has('create_manual') && <ManualForm busy={busy} onSubmit={(manual) => resolve.mutate({ action: 'create_manual', manual })} />}
-
-      {open && allowed.has('ignore') && (
-        <section>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => {
-              if (window.confirm(t('cases.ignoreConfirm'))) ignore.mutate();
-            }}
-          >
-            {t('cases.ignore')}
-          </button>
-        </section>
-      )}
+      {!settled
+        ? controls
+        : canCorrect && (
+            <>
+              <div>
+                <button type="button" className="btn" aria-expanded={correcting} aria-controls={controlsId} onClick={() => setCorrecting((v) => !v)}>
+                  {t('cases.correct')}
+                </button>
+              </div>
+              <div id={controlsId} className={styles.case} hidden={!correcting}>
+                <p className="muted">{c.state === 'ignored' ? t('cases.correctIgnored') : t('cases.correctResolved')}</p>
+                {controls}
+              </div>
+            </>
+          )}
     </article>
   );
 }
@@ -190,10 +253,16 @@ function ProviderSearch({ initial, initialYear, onPick }: { initial: string; ini
   );
 }
 
-function ManualForm({ busy, onSubmit }: { busy: boolean; onSubmit: (m: { kind: ItemKind; title: string; year: number | null }) => void }): ReactElement {
+/**
+ * Only a film or a series: the server refuses a manual episode (it needs its series), and a manual extra would
+ * belong to no item, reachable only through search.
+ */
+type ManualKind = 'movie' | 'series';
+
+function ManualForm({ busy, onSubmit }: { busy: boolean; onSubmit: (m: { kind: ManualKind; title: string; year: number | null }) => void }): ReactElement {
   const [title, setTitle] = useState('');
   const [year, setYear] = useState('');
-  const [kind, setKind] = useState<ItemKind>('movie');
+  const [kind, setKind] = useState<ManualKind>('movie');
   const ids = { title: useId(), year: useId(), kind: useId() };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -214,11 +283,9 @@ function ManualForm({ busy, onSubmit }: { busy: boolean; onSubmit: (m: { kind: I
         </label>
         <label className="field" htmlFor={ids.kind}>
           {t('cases.manualKind')}
-          <select id={ids.kind} className="select" value={kind} onChange={(e) => setKind(e.target.value as ItemKind)}>
+          <select id={ids.kind} className="select" value={kind} onChange={(e) => setKind(e.target.value as ManualKind)}>
             <option value="movie">{t('kind.movie')}</option>
             <option value="series">{t('kind.series')}</option>
-            <option value="episode">{t('kind.episode')}</option>
-            <option value="extra">{t('kind.extra')}</option>
           </select>
         </label>
         <button type="submit" className="btn btn-primary" disabled={busy || title.trim().length === 0}>

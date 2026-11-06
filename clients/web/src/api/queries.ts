@@ -5,6 +5,7 @@ import { createContext, useContext } from 'react';
 import { call, type VideoClient } from './client.ts';
 import { type ItemFilters, keys } from './keys.ts';
 import { ApiError } from './problem.ts';
+import type { ProfileStore } from './profileStore.ts';
 import type { ExplainRequest, ProfileInput, ResolveCaseRequest } from './types.ts';
 
 const ClientContext = createContext<VideoClient | null>(null);
@@ -16,10 +17,30 @@ export function useVideoClient(): VideoClient {
   return c;
 }
 
-/** Query retries: never on 4xx (the answer will not change), twice on network errors and 5xx. */
+/**
+ * Query retries:
+ * - transient errors (no answer, 502/503/504, e.g. the gateway while the Video Service is down): for as long as
+ *   the page shows the query, so the page recovers by itself once the service is back. TanStack stops retrying
+ *   when the last observer unmounts and pauses while the document is hidden;
+ * - 4xx: never, the answer will not change;
+ * - any other error: twice.
+ */
 export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
-  if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+  if (error instanceof ApiError) {
+    if (error.transient) return true;
+    if (error.status >= 400 && error.status < 500) return false;
+  }
   return failureCount < 2;
+}
+
+export const MIN_RETRY_DELAY_MS = 1_000;
+export const MAX_RETRY_DELAY_MS = 30_000;
+
+/** Delay before a query retry: the server's Retry-After when it sent one, else TanStack's exponential backoff. */
+export function queryRetryDelay(failureCount: number, error: unknown): number {
+  const asked = error instanceof ApiError ? error.retryAfterMs : null;
+  const ms = asked ?? MIN_RETRY_DELAY_MS * 2 ** failureCount;
+  return Math.min(Math.max(ms, MIN_RETRY_DELAY_MS), MAX_RETRY_DELAY_MS);
 }
 
 const PAGE = 40;
@@ -45,12 +66,17 @@ export function useCreateProfile() {
   });
 }
 
-export function useUpdateProfile() {
+/** store: the selected profile keeps its token, and takes the new name when it is the one renamed (the header shows it). */
+export function useUpdateProfile(store: Pick<ProfileStore, 'get' | 'set'>) {
   const c = useVideoClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ProfileInput }) => call(c.PATCH('/video/api/v1/profiles/{profileId}', { params: { path: { profileId: id } }, body })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.profiles }),
+    onSuccess: (updated) => {
+      const current = store.get();
+      if (current && current.id === updated.id && current.name !== updated.name) store.set({ ...current, name: updated.name });
+      return qc.invalidateQueries({ queryKey: keys.profiles });
+    },
   });
 }
 
@@ -133,10 +159,13 @@ export function useNextUp(seriesId: string, enabled: boolean) {
   });
 }
 
-/** After a watch-state change: the item, its lists and the home rows may show it differently. */
-function invalidateWatchState(qc: QueryClient, itemId: string): Promise<unknown> {
+/**
+ * After a watch-state change: the item, the lists it is in (its season's episodes, its series' next up) and the
+ * home rows may show it differently.
+ */
+function invalidateWatchState(qc: QueryClient): Promise<unknown> {
   return Promise.all([
-    qc.invalidateQueries({ queryKey: keys.item(itemId) }),
+    qc.invalidateQueries({ queryKey: keys.itemAll }),
     qc.invalidateQueries({ queryKey: keys.home }),
     qc.invalidateQueries({ queryKey: keys.itemsAll }),
     qc.invalidateQueries({ queryKey: keys.searchAll }),
@@ -147,7 +176,7 @@ export function useWatchState(itemId: string) {
   const c = useVideoClient();
   const qc = useQueryClient();
   const path = { params: { path: { itemId } } };
-  const opts = { onSuccess: () => invalidateWatchState(qc, itemId) };
+  const opts = { onSuccess: () => invalidateWatchState(qc) };
   return {
     markWatched: useMutation({ mutationFn: () => call(c.PUT('/video/api/v1/items/{itemId}/watched', path)), ...opts }),
     markUnwatched: useMutation({ mutationFn: () => call(c.DELETE('/video/api/v1/items/{itemId}/watched', path)), ...opts }),

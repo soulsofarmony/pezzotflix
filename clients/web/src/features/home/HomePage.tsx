@@ -6,7 +6,7 @@ import type { HomeRow } from '../../api/types.ts';
 import type { BrowseSearch } from '../../app/search.ts';
 import { browseSearch } from '../../app/search.ts';
 import { t } from '../../i18n/t.ts';
-import { ErrorView, Loading } from '../../ui/Status.tsx';
+import { QueryFallback } from '../../ui/Status.tsx';
 import { CardRow } from '../catalog/CardRow.tsx';
 import styles from '../catalog/catalog.module.css';
 
@@ -22,17 +22,11 @@ const WIDE_ROWS: ReadonlySet<string> = new Set(['continue_watching', 'next_up'])
 
 export function HomePage(): ReactElement {
   const home = useHome();
-  if (home.isPending) {
+  // Cached rows stay on screen when a background refetch fails.
+  if (!home.data) {
     return (
       <div className="page">
-        <Loading />
-      </div>
-    );
-  }
-  if (home.isError) {
-    return (
-      <div className="page">
-        <ErrorView error={home.error} onRetry={() => void home.refetch()} />
+        <QueryFallback query={home} />
       </div>
     );
   }

@@ -9,24 +9,19 @@ import { t } from '../../i18n/t.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { itemSubtitle } from '../../ui/ItemCard.tsx';
 import { pickImage } from '../../ui/images.ts';
-import { ErrorView, Loading } from '../../ui/Status.tsx';
+import { errorMessage } from '../../ui/errors.ts';
+import { QueryFallback } from '../../ui/Status.tsx';
 import { trackLabel } from '../../ui/tracks.ts';
 import { CardRow } from '../catalog/CardRow.tsx';
 import styles from './item.module.css';
 
 export function ItemPage({ itemId }: { itemId: string }): ReactElement {
   const item = useItem(itemId);
-  if (item.isPending) {
+  // A cached item stays on screen when a background refetch fails.
+  if (!item.data) {
     return (
       <div className="page">
-        <Loading />
-      </div>
-    );
-  }
-  if (item.isError) {
-    return (
-      <div className="page">
-        <ErrorView error={item.error} onRetry={() => void item.refetch()} />
+        <QueryFallback query={item} />
       </div>
     );
   }
@@ -140,7 +135,16 @@ function Actions({ item, playable, fileId }: { item: ItemDetail; playable: boole
   const play = (target: string, from: number | undefined, file: string | null) =>
     void navigate({ to: '/watch/$itemId', params: { itemId: target }, search: { ...(file ? { fileId: file } : {}), ...(from !== undefined ? { t: from } : {}) } });
   const next = nextUp.data?.item ?? null;
-  const busy = Object.values(watch).some((m) => m.isPending);
+  const mutations = Object.values(watch);
+  const busy = mutations.some((m) => m.isPending);
+  const failed = mutations.find((m) => m.isError)?.error ?? null;
+  // One error at a time: the alert is about the last action.
+  const run = (m: (typeof mutations)[number]) => {
+    for (const other of mutations) if (other !== m) other.reset();
+    m.mutate();
+  };
+  // Doc 01: the watchlist holds films, series and extras; a season or an episode is reached through its series.
+  const listable = item.kind !== 'season' && item.kind !== 'episode';
 
   return (
     <div className={styles.actions}>
@@ -164,24 +168,31 @@ function Actions({ item, playable, fileId }: { item: ItemDetail; playable: boole
           {next.seasonNumber != null && next.episodeNumber != null ? t('item.playEpisode', { season: next.seasonNumber, episode: next.episodeNumber }) : t('item.nextUp')}
         </button>
       )}
-      <button
-        type="button"
-        className="btn"
-        aria-pressed={state?.inWatchlist ?? false}
-        disabled={busy}
-        onClick={() => (state?.inWatchlist ? watch.removeFromWatchlist.mutate() : watch.addToWatchlist.mutate())}
-      >
-        <Icon name={state?.inWatchlist ? 'check' : 'plus'} size={20} />
-        {state?.inWatchlist ? t('item.watchlistRemove') : t('item.watchlistAdd')}
-      </button>
-      <button type="button" className="btn" aria-pressed={state?.watched ?? false} disabled={busy} onClick={() => (state?.watched ? watch.markUnwatched.mutate() : watch.markWatched.mutate())}>
+      {listable && (
+        <button
+          type="button"
+          className="btn"
+          aria-pressed={state?.inWatchlist ?? false}
+          disabled={busy}
+          onClick={() => run(state?.inWatchlist ? watch.removeFromWatchlist : watch.addToWatchlist)}
+        >
+          <Icon name={state?.inWatchlist ? 'check' : 'plus'} size={20} />
+          {state?.inWatchlist ? t('item.watchlistRemove') : t('item.watchlistAdd')}
+        </button>
+      )}
+      <button type="button" className="btn" aria-pressed={state?.watched ?? false} disabled={busy} onClick={() => run(state?.watched ? watch.markUnwatched : watch.markWatched)}>
         <Icon name="check" size={20} />
         {state?.watched ? t('item.markUnwatched') : t('item.markWatched')}
       </button>
       {resume !== null && resume > 0 && (
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => watch.clearProgress.mutate()}>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(watch.clearProgress)}>
           {t('item.clearProgress')}
         </button>
+      )}
+      {failed && (
+        <p role="alert" className={styles.actionError}>
+          {errorMessage(failed)}
+        </p>
       )}
     </div>
   );
@@ -197,8 +208,7 @@ function Children({ item }: { item: ItemDetail }): ReactElement {
       <h2 id={headingId} className={styles.sectionTitle}>
         {isSeries ? t('item.seasons') : t('item.episodes')}
       </h2>
-      {children.isPending && list.length === 0 && <Loading />}
-      {children.isError && <ErrorView error={children.error} onRetry={() => void children.refetch()} />}
+      {!children.data && list.length === 0 && <QueryFallback query={children} />}
       <ol className={isSeries ? styles.seasons : styles.episodes}>
         {list.map((c) => (
           <li key={c.id}>

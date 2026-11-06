@@ -41,20 +41,36 @@ function cardLines(item: ItemSummary): { heading: string; sub: string | null } {
   return { heading, sub };
 }
 
+/** Progress shown on a card: started and not finished, else null. */
+function cardProgress(item: ItemSummary): number | null {
+  const p = item.state?.progressPercent ?? 0;
+  return p > 0 && p < 100 ? Math.round(p) : null;
+}
+
 /**
  * Accessible name of a card link: its visible lines, in order ("Blade Runner 2049 · 2017"), so that the name
- * contains the visible label (WCAG 2.5.3, axe label-content-name-mismatch).
+ * contains the visible label (WCAG 2.5.3, axe label-content-name-mismatch); then what the card only draws (the
+ * watched mark, the progress bar, the unavailable marker), which the name would otherwise hide.
  */
 export function cardLabel(item: ItemSummary): string {
   const { heading, sub } = cardLines(item);
-  return sub ? `${heading} · ${sub}` : heading;
+  const progress = cardProgress(item);
+  return [
+    heading,
+    sub,
+    item.state?.watched ? t('item.watched') : null,
+    progress !== null ? t('item.progress', { percent: progress }) : null,
+    item.available ? null : t('item.unavailableShort'),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** The visual part of a card; the caller wraps it in its link element. */
 export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElement {
   const img = pickImage(item.images, wide ? ['backdrop', 'still', 'thumbnail', 'poster'] : ['poster', 'thumbnail', 'still'], wide ? 640 : 320);
   const { heading, sub } = cardLines(item);
-  const progress = item.state?.progressPercent ?? 0;
+  const progress = cardProgress(item);
   return (
     <div className={`${styles.card} ${wide ? styles.wide : ''}`}>
       <div className={styles.media} style={img ? undefined : { ['--hue' as string]: placeholderHue(item.title) }}>
@@ -71,12 +87,16 @@ export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElemen
             <span className="visually-hidden">{t('item.watched')}</span>
           </span>
         )}
-        {progress > 0 && progress < 100 && (
+        {progress !== null && (
           <span className={styles.progress} aria-hidden="true">
             <span style={{ width: `${progress}%` }} />
           </span>
         )}
-        {!item.available && <span className={styles.unavailable}>!</span>}
+        {!item.available && (
+          <span className={styles.unavailable} title={t('item.unavailableShort')} aria-hidden="true">
+            !
+          </span>
+        )}
       </div>
       <span className={styles.title}>{heading}</span>
       {/* The space keeps the lines apart in the visible text ("Titolo 2017", not "Titolo2017"); the flex layout
@@ -87,7 +107,7 @@ export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElemen
           <span className={styles.sub}>{sub}</span>
         </>
       )}
-      {progress > 0 && progress < 100 && <span className="visually-hidden">{t('item.progress', { percent: Math.round(progress) })}</span>}
+      {progress !== null && <span className="visually-hidden">{t('item.progress', { percent: progress })}</span>}
     </div>
   );
 }

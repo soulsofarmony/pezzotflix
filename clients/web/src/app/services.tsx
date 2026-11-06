@@ -4,10 +4,10 @@ import { QueryClient } from '@tanstack/react-query';
 import { createContext, type ReactElement, type ReactNode, useContext, useSyncExternalStore } from 'react';
 import { createVideoClient, call, type VideoClient } from '../api/client.ts';
 import { documentVisibility, EventPoller } from '../api/events.ts';
-import { invalidateAfterPlayback, invalidateForEvent } from '../api/keys.ts';
+import { invalidateAfterPlayback, invalidateForEvents } from '../api/keys.ts';
 import { createPlaybackApi } from '../api/playback.ts';
 import { createProfileStore, type ProfileStore, type StoredProfile } from '../api/profileStore.ts';
-import { shouldRetryQuery } from '../api/queries.ts';
+import { queryRetryDelay, shouldRetryQuery } from '../api/queries.ts';
 import type { AppEvent } from '../api/types.ts';
 import type { PlaybackApi } from '../player/types.ts';
 
@@ -29,25 +29,29 @@ export interface AppServices {
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: shouldRetryQuery, staleTime: 15_000, refetchOnWindowFocus: false },
+      queries: { retry: shouldRetryQuery, retryDelay: queryRetryDelay, staleTime: 15_000, refetchOnWindowFocus: false },
       mutations: { retry: false },
     },
   });
 }
 
 export function createServices(opts: { baseUrl: string; storage: Storage | null; onUnauthorized: () => void; fetch?: typeof fetch; document?: Document }): AppServices {
-  const store = createProfileStore(opts.storage, typeof window !== 'undefined' ? window : null);
-  const client = createVideoClient({ baseUrl: opts.baseUrl, store, onUnauthorized: opts.onUnauthorized, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
   const queryClient = createQueryClient();
+  const store = createProfileStore(opts.storage, typeof window !== 'undefined' ? window : null, {
+    onExternalChange: (prev, next) => {
+      // Another tab switched profile: everything cached is the previous profile's view, as when picking one here.
+      // reset, not clear: the queries on screen keep their observers, and only reset tells them to refetch.
+      if (prev?.id !== next?.id || prev?.token !== next?.token) void queryClient.resetQueries();
+    },
+  });
+  const client = createVideoClient({ baseUrl: opts.baseUrl, store, onUnauthorized: opts.onUnauthorized, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
   let player: ActivePlayer | null = null;
   const doc = opts.document ?? document;
   const poller = new EventPoller({
     list: (cursor, limit) => call(client.GET('/video/api/v1/events', { params: { query: { cursor, limit } } })),
     onEvents: (events) => {
-      for (const e of events) {
-        invalidateForEvent(queryClient, e);
-        if (e.type.startsWith('playback.')) player?.onEvent(e);
-      }
+      invalidateForEvents(queryClient, events);
+      for (const e of events) if (e.type.startsWith('playback.')) player?.onEvent(e);
     },
     onReset: () => void queryClient.invalidateQueries(),
     hasActiveSession: () => player?.hasActiveSession() ?? false,

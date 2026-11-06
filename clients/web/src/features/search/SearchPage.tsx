@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { type ReactElement, useEffect, useId, useState } from 'react';
 import { useSearch as useSearchQuery } from '../../api/queries.ts';
 import { t } from '../../i18n/t.ts';
-import { Empty, ErrorView, Loading } from '../../ui/Status.tsx';
+import { Empty, QueryFallback } from '../../ui/Status.tsx';
 import { CardGrid } from '../catalog/CardRow.tsx';
 import styles from '../catalog/catalog.module.css';
 
@@ -18,6 +18,8 @@ export function SearchPage(): ReactElement {
   const kindId = useId();
   const q = search.q ?? '';
   const results = useSearchQuery(q, search.kind);
+  // What is searched: the query skips a blank text (useSearch), so the page does too.
+  const query = q.trim();
 
   // Debounce: the URL (and the query) follow the text after a short pause.
   useEffect(() => {
@@ -26,7 +28,8 @@ export function SearchPage(): ReactElement {
     return () => clearTimeout(h);
   }, [text, q, navigate]);
 
-  const items = results.data?.items ?? [];
+  // A cleared field shows the hint, not the previous results that placeholderData keeps.
+  const items = query ? (results.data?.items ?? []) : [];
 
   return (
     <div className="page">
@@ -64,15 +67,14 @@ export function SearchPage(): ReactElement {
           </select>
         </label>
       </form>
-      {!q && <p className="muted">{t('search.hint')}</p>}
-      {q && results.isPending && <Loading />}
-      {results.isError && <ErrorView error={results.error} onRetry={() => void results.refetch()} />}
-      {q && results.isSuccess && (
+      {!query && <p className="muted">{t('search.hint')}</p>}
+      {query && !results.data && <QueryFallback query={results} />}
+      {query && results.isSuccess && (
         <p className="visually-hidden" role="status">
           {t('search.results', { count: items.length })}
         </p>
       )}
-      {q && results.isSuccess && items.length === 0 && <Empty>{t('search.empty', { q })}</Empty>}
+      {query && results.isSuccess && items.length === 0 && <Empty>{t('search.empty', { q: query })}</Empty>}
       {items.length > 0 && <CardGrid items={items} label={t('search.title')} />}
     </div>
   );

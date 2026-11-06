@@ -6,7 +6,7 @@ import { formatNumber, formatRelative } from '../../i18n/format.ts';
 import { t, tMaybe } from '../../i18n/t.ts';
 import { errorMessage } from '../../ui/errors.ts';
 import { Icon } from '../../ui/Icon.tsx';
-import { Empty, ErrorView, Loading } from '../../ui/Status.tsx';
+import { Empty, QueryFallback } from '../../ui/Status.tsx';
 import styles from './admin.module.css';
 
 export function RootsPage(): ReactElement {
@@ -21,9 +21,8 @@ export function RootsPage(): ReactElement {
         {scan.isSuccess && <span role="status">{t('roots.scanQueued')}</span>}
         {scan.isError && <span role="alert">{errorMessage(scan.error)}</span>}
       </div>
-      {roots.isPending && <Loading />}
-      {roots.isError && <ErrorView error={roots.error} onRetry={() => void roots.refetch()} />}
-      {roots.isSuccess && roots.data.roots.length === 0 && <Empty>{t('roots.empty')}</Empty>}
+      {!roots.data && <QueryFallback query={roots} />}
+      {roots.data && roots.data.roots.length === 0 && <Empty>{t('roots.empty')}</Empty>}
       <ul className={styles.cards}>
         {roots.data?.roots.map((r) => (
           <li key={r.id}>

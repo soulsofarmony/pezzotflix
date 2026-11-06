@@ -2,14 +2,13 @@
 import type { ReactElement } from 'react';
 import { useServerInfo } from '../../api/queries.ts';
 import { t, tMaybe } from '../../i18n/t.ts';
-import { ErrorView, Loading } from '../../ui/Status.tsx';
+import { QueryFallback } from '../../ui/Status.tsx';
 import { Attribution } from '../about/Attribution.tsx';
 import styles from './admin.module.css';
 
 export function ProvidersPage(): ReactElement {
   const server = useServerInfo();
-  if (server.isPending) return <Loading />;
-  if (server.isError) return <ErrorView error={server.error} onRetry={() => void server.refetch()} />;
+  if (!server.data) return <QueryFallback query={server} />;
   return (
     <section aria-label={t('providers.title')} className={styles.stack}>
       <ul className={styles.cards}>

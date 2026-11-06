@@ -2,7 +2,7 @@
 import type { ReactElement } from 'react';
 import { useServerInfo } from '../../api/queries.ts';
 import { t } from '../../i18n/t.ts';
-import { ErrorView, Loading } from '../../ui/Status.tsx';
+import { QueryFallback } from '../../ui/Status.tsx';
 import { Attribution } from './Attribution.tsx';
 
 export function AboutPage(): ReactElement {
@@ -10,8 +10,7 @@ export function AboutPage(): ReactElement {
   return (
     <div className="page">
       <h1 className="page-title">{t('about.title')}</h1>
-      {server.isPending && <Loading />}
-      {server.isError && <ErrorView error={server.error} onRetry={() => void server.refetch()} />}
+      {!server.data && <QueryFallback query={server} />}
       {server.data && (
         <>
           <p>{t('about.version', { version: server.data.version, client: __APP_VERSION__ })}</p>

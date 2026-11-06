@@ -88,6 +88,15 @@ h2.path {
   margin: 0;
 }
 
+/* What the case is now (linked item or ignored), above the facts. */
+.current {
+  font-weight: 600;
+}
+
+.case [hidden] {
+  display: none;
+}
+
 .candidate {
   display: flex;
   flex-wrap: wrap;

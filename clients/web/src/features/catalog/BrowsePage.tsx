@@ -4,7 +4,7 @@ import { type ReactElement, useId } from 'react';
 import { useItems } from '../../api/queries.ts';
 import type { BrowseSearch } from '../../app/search.ts';
 import { t } from '../../i18n/t.ts';
-import { Empty, ErrorView, Loading } from '../../ui/Status.tsx';
+import { Empty, QueryFallback } from '../../ui/Status.tsx';
 import { CardGrid } from './CardRow.tsx';
 import styles from './catalog.module.css';
 
@@ -65,9 +65,8 @@ export function BrowsePage(): ReactElement {
           </select>
         </label>
       </div>
-      {items.isPending && <Loading />}
-      {items.isError && <ErrorView error={items.error} onRetry={() => void items.refetch()} />}
-      {items.isSuccess && all.length === 0 && <Empty>{t('browse.empty')}</Empty>}
+      {!items.data && <QueryFallback query={items} />}
+      {items.data && all.length === 0 && <Empty>{t('browse.empty')}</Empty>}
       {all.length > 0 && <CardGrid items={all} label={title} />}
       {items.hasNextPage && (
         <div className={styles.more}>
