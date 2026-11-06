@@ -133,7 +133,9 @@ export async function skipUnlessDecodes(test: { skip: (cond: boolean, reason: st
       return info?.supported ?? true;
     };
     const no = new Set<string>();
-    const until = performance.now() + (navigator.userAgent.includes('Firefox/') ? 2_000 : 0);
+    // Firefox without a platform HEVC decoder answers "supported" until its decoder check settles: about 0.5 s on
+    // an idle host, more than 2 s under the load of a full run (2026-11-06), so a "no" in this window wins.
+    const until = performance.now() + (navigator.userAgent.includes('Firefox/') ? 5_000 : 0);
     for (;;) {
       for (const c of codecs) if (!(await decodes(c))) no.add(c);
       if (no.size === codecs.length || performance.now() >= until) return [...no];
