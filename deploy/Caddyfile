@@ -5,18 +5,19 @@
 }
 
 :8080 {
+	# Control plane compressed; the data plane (/video/media/*) never is.
 	@api path /video/api/*
 	encode @api zstd gzip
 
-	# Data plane: no buffering, Range passed through (G1).
-	handle /video/media/* {
+	# Control plane, data plane and /video/healthz, path passed as is. One proxy, so one active health check
+	# (ADR 0006 point 2). No buffering and Range passed through, for the data plane (G1).
+	handle /video/* {
 		reverse_proxy video:8096 {
 			flush_interval -1
+			health_uri /video/healthz
+			health_interval 10s
+			health_timeout 5s
 		}
-	}
-
-	handle /video/* {
-		reverse_proxy video:8096
 	}
 
 	# Web client (SPA): static assets, index.html fallback.
@@ -31,5 +32,17 @@
 		header @shell Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
+	}
+
+	# Video Service down or unreachable (dial error, failed health check): a Problem JSON instead of an empty 502,
+	# with Retry-After so clients treat it as transient (ADR 0006 point 1). Answers of the service itself pass as is.
+	handle_errors 502 503 504 {
+		@video path /video/*
+		handle @video {
+			header Content-Type application/problem+json
+			header Cache-Control no-store
+			header Retry-After 5
+			respond `{"type":"https://pezzotflix.local/problems/media-unavailable","title":"Media unavailable","status":503,"code":"MEDIA_UNAVAILABLE","detail":"The Video Service is not reachable"}` 503
+		}
 	}
 }

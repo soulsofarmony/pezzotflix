@@ -41,6 +41,10 @@
   overflow-wrap: anywhere;
 }
 
+.placeholder::before {
+  content: attr(data-text);
+}
+
 .watched {
   position: absolute;
   top: var(--space-2);

@@ -7,3 +7,6 @@ docs
 **/*.db
 .env
 clients/web/dist
+.claude
+**/test-results
+**/playwright-report

@@ -66,8 +66,13 @@ describe('cases list', () => {
     const app = renderApp('/admin/cases', {
       'GET /video/api/v1/admin/cases': ({ url }) => ({ cases: url.searchParams.get('state') === 'needs_review' ? [CASE] : [], nextCursor: null }),
     });
-    const link = await screen.findByRole('link', { name: `Apri il caso di ${CASE.relPath}` });
+    const link = await screen.findByRole('link', { name: /^Apri il caso di Film\/Arrival \(2016\)\/Arrival \(2016\)\.mkv · Film · / });
     expect(link.getAttribute('href')).toBe('/admin/cases/c1');
+    // Label in name (WCAG 2.5.3): every visible line of the link is in its name, in order, and the lines are apart in
+    // the visible text.
+    const visible = [...link.children].map((c) => c.textContent ?? '');
+    expect(link.getAttribute('aria-label')).toContain(visible.join(' · '));
+    expect(link.textContent).toBe(visible.join(' '));
     expect(app.requests.find((r) => r.path === '/video/api/v1/admin/cases')?.search).toContain('state=needs_review');
   });
 });

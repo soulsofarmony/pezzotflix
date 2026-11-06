@@ -1,3 +1,5 @@
 # Playwright outputs (npm run e2e)
 test-results/
 playwright-report/
+# The e2e samples of this machine's test library (copy of test/e2e/samples.example.json)
+test/e2e/samples.json

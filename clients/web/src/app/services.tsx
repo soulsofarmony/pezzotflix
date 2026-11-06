@@ -4,7 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createContext, type ReactElement, type ReactNode, useContext, useSyncExternalStore } from 'react';
 import { createVideoClient, call, type VideoClient } from '../api/client.ts';
 import { documentVisibility, EventPoller } from '../api/events.ts';
-import { invalidateForEvent } from '../api/keys.ts';
+import { invalidateAfterPlayback, invalidateForEvent } from '../api/keys.ts';
 import { createPlaybackApi } from '../api/playback.ts';
 import { createProfileStore, type ProfileStore, type StoredProfile } from '../api/profileStore.ts';
 import { shouldRetryQuery } from '../api/queries.ts';
@@ -54,11 +54,21 @@ export function createServices(opts: { baseUrl: string; storage: Storage | null;
     visibility: documentVisibility(doc),
     log: (msg, data) => console.debug(`[events] ${msg}`, data),
   });
+  const api = createPlaybackApi(client);
+  // The player stops its session as it unmounts, after the page it goes back to has mounted and fetched: refetch
+  // once the stop is saved, or the item page offers no "Riprendi da" for the position just left.
+  const playbackApi: PlaybackApi = {
+    ...api,
+    stop: async (sessionId, positionMs, stopOpts) => {
+      await api.stop(sessionId, positionMs, stopOpts);
+      void invalidateAfterPlayback(queryClient);
+    },
+  };
   return {
     store,
     client,
     queryClient,
-    playbackApi: createPlaybackApi(client),
+    playbackApi,
     poller,
     setActivePlayer(p) {
       player = p;

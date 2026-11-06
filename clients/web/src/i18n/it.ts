@@ -98,7 +98,6 @@ export const it = {
   'item.episodeCode': 'S{season}E{episode}',
   'item.episodeOf': '{series} · {code}',
   'item.episodeLine': '{code} · {title}',
-  'item.episodeLabel': '{series} · {code} · {title}',
   'item.nextUp': 'Prossimo episodio',
   'item.watched': 'Visto',
   'item.markWatched': 'Segna come visto',

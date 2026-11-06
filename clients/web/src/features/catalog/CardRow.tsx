@@ -2,13 +2,13 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactElement, ReactNode } from 'react';
 import type { ItemSummary } from '../../api/types.ts';
-import { ItemCardBody, itemLabel } from '../../ui/ItemCard.tsx';
+import { cardLabel, ItemCardBody } from '../../ui/ItemCard.tsx';
 import { useRovingFocus } from '../../ui/useRovingFocus.ts';
 import styles from './catalog.module.css';
 
 export function ItemLink({ item, wide, tabIndex, onFocus }: { item: ItemSummary; wide?: boolean; tabIndex?: number; onFocus?: () => void }): ReactElement {
   return (
-    <Link to="/item/$itemId" params={{ itemId: item.id }} className={styles.cardLink} tabIndex={tabIndex} onFocus={onFocus} data-roving-item="" aria-label={itemLabel(item)}>
+    <Link to="/item/$itemId" params={{ itemId: item.id }} className={styles.cardLink} tabIndex={tabIndex} onFocus={onFocus} data-roving-item="" aria-label={cardLabel(item)}>
       <ItemCardBody item={item} wide={wide ?? false} />
     </Link>
   );

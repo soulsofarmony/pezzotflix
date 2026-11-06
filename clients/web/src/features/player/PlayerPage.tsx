@@ -62,6 +62,12 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
     };
   }, [controller, services, itemId, fileId, startPositionMs, audioTrackId, forceMode, versionCount, waitForItem]);
 
+  // The player surface takes the focus when it opens: the keyboard shortcuts are handled on it, and after the
+  // "Riproduci" click the focus would otherwise stay on the body, where no shortcut reaches the player.
+  useEffect(() => {
+    rootRef.current?.focus({ preventScroll: true });
+  }, []);
+
   // The poller polls a hidden page at 15 s only while a session is active.
   useEffect(() => services.poller.refresh(), [services, snap.phase]);
 
@@ -160,6 +166,8 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
     <div
       ref={rootRef}
       className={`${styles.player} ${showControls ? '' : styles.idle}`}
+      // Focusable by script only: it takes the focus on open, so the shortcuts work before any control has it.
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       onMouseMove={poke}
       onPointerDown={poke}

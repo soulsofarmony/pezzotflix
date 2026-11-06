@@ -1,13 +1,18 @@
 {
-  "main": { "title": "Il Buono, il Brutto, il Cattivo" },
-  "directStream": { "title": "Blade Runner 2049", "mode": "direct_stream" },
-  "farSeek": { "title": "Long Test", "mode": "direct_stream", "subtitleLanguage": "ita", "cueAtMs": 3600000 },
-  "replan": { "title": "Oppenheimer" },
-  "h1": { "title": "S2 h1 AVC AAC", "codecs": ["avc1", "mp4a.40.2"] },
-  "h2": { "title": "S2 h2 HEVC HDR10 AAC", "codecs": ["hvc1", "mp4a.40.2"] },
-  "h6": { "title": "S2 h6 DV P8.1", "codecs": ["hvc1"] },
-  "c1": { "title": "S2 c1 FLAC 5.1", "codecs": ["avc1", "flac"] },
+  "manualMatches": [{ "relPath": "Long Test (2024)/Long Test (2024) - 2160p.mkv", "kind": "movie", "title": "Long Test", "year": 2024 }],
+  "main": { "title": "Long Test", "requires": ["hvc1.2.4.H153.90"] },
+  "directStream": { "title": "Il buono, il brutto, il cattivo", "mode": "direct_stream", "codecs": ["avc1", "flac"] },
+  "farSeek": { "title": "Long Test", "mode": "direct_stream", "cueAtMs": 240000, "requires": ["hvc1.2.4.H153.90"] },
+  "replan": { "title": "Il buono, il brutto, il cattivo" },
+  "directPlay": { "title": "Trailer" },
+  "pgsSubtitle": { "title": "Il buono, il brutto, il cattivo", "subtitleLanguage": "eng" },
+  "textSubtitle": { "title": "Blade Runner 2049", "subtitleLanguage": "ita" },
+  "transcode": { "title": "Segreti" },
+  "h1": { "title": "Trailer", "codecs": ["avc1", "mp4a.40.2"] },
+  "h2": { "title": "Blade Runner 2049", "codecs": ["hvc1"], "requires": ["hvc1.2.4.L183.B0"] },
+  "h6": { "title": "Dune", "codecs": ["hvc1"], "requires": ["hvc1.2.4.H153.B0"] },
+  "c1": { "title": "Il buono, il brutto, il cattivo", "codecs": ["avc1", "flac"] },
   "c4": { "title": "S2 c4 Opus 5.1", "codecs": ["avc1", "opus"] },
   "c7": { "title": "S2 c7 AAC 5.1", "codecs": ["avc1", "mp4a.40.2"] },
-  "s3": { "title": "S2 s3 PGS 4K HDR10", "subtitleLanguage": "ita", "cueAtMs": 5000 }
+  "s3": { "title": "Blade Runner 2049", "subtitleLanguage": "ita", "cueAtMs": 5000, "requires": ["hvc1.2.4.L183.B0"] }
 }

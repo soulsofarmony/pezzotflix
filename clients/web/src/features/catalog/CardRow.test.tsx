@@ -52,6 +52,16 @@ describe('Home rows', () => {
     expect(within(row).queryByRole('link', { name: /Vedi tutti/ })).toBeNull();
   });
 
+  it('a card link is named by its visible lines (label in name); a placeholder draws its title with CSS', async () => {
+    const noImage = { ...item('n', 'Nosferatu'), images: [] };
+    renderApp('/', { 'GET /video/api/v1/home': () => ({ rows: [{ id: 'movies', title: 'Film', items: [noImage], nextCursor: null }] }) }, { profile });
+    const link = await screen.findByRole('link', { name: 'Nosferatu · 2020' });
+    // The title is text once (the placeholder holds it in an attribute), and the lines are apart: the visible label
+    // is "Nosferatu 2020", inside the name.
+    expect(link.textContent).toBe('Nosferatu 2020');
+    expect(link.querySelector('[data-text]')?.getAttribute('data-text')).toBe('Nosferatu');
+  });
+
   it('"Vedi tutti" reproduces the row query in Browse; images use the w variants', async () => {
     renderApp('/', { 'GET /video/api/v1/home': () => HOME }, { profile });
     const seeAll = await screen.findByRole('link', { name: /Vedi tutti/ });

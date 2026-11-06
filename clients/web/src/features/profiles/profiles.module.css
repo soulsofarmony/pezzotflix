@@ -57,6 +57,11 @@
   font-weight: 800;
 }
 
+/* Only on a profile's avatar: the "add" tile holds an icon and has no initial. */
+.avatar[data-initial]::before {
+  content: attr(data-initial);
+}
+
 .add {
   background: var(--color-bg-raised);
   color: var(--color-text-muted);

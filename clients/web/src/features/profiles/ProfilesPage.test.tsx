@@ -34,6 +34,13 @@ describe('profile choice', () => {
     expect(app.requests.find((r) => r.path === '/video/api/v1/profiles')?.auth).toBeNull();
   });
 
+  it('the visible label of a profile button is its name alone (label in name): the initial is drawn by CSS', async () => {
+    renderApp('/profiles', { 'GET /video/api/v1/profiles': () => ({ profiles: [simone] }) });
+    const button = await screen.findByRole('button', { name: 'Guarda come Simone' });
+    expect(button.textContent).toBe('Simone');
+    expect(button.querySelector('[data-initial]')?.getAttribute('data-initial')).toBe('S');
+  });
+
   it('creates a profile; a taken name is explained', async () => {
     let calls = 0;
     const app = renderApp('/profiles', {

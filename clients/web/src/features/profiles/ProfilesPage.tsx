@@ -82,12 +82,12 @@ export function ProfilesPage(): ReactElement {
   );
 }
 
+/**
+ * The initial is drawn by CSS (attr): as text it would be part of the button's visible label ("S Simone"), which
+ * then no longer matches the accessible name "Guarda come Simone" (WCAG 2.5.3, axe label-content-name-mismatch).
+ */
 function Avatar({ name }: { name: string }): ReactElement {
-  return (
-    <span className={styles.avatar} style={{ ['--hue' as string]: placeholderHue(name) }} aria-hidden="true">
-      {name.trim().charAt(0).toLocaleUpperCase('it-IT')}
-    </span>
-  );
+  return <span className={styles.avatar} style={{ ['--hue' as string]: placeholderHue(name) }} data-initial={name.trim().charAt(0).toLocaleUpperCase('it-IT')} aria-hidden="true" />;
 }
 
 function ProfileDialog({ editing, onClose }: { editing: NonNullable<Editing>; onClose: () => void }): ReactElement {

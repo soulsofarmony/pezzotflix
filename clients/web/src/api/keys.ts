@@ -37,6 +37,19 @@ export const keys = {
   },
 };
 
+/**
+ * After a StopPlayback: the last position and the watched state are saved now, while the page the viewer goes
+ * back to (item detail, Home) may already have refetched before it. Every item page and list is stale.
+ */
+export function invalidateAfterPlayback(qc: QueryClient): Promise<unknown> {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ['item'] }),
+    qc.invalidateQueries({ queryKey: keys.home }),
+    qc.invalidateQueries({ queryKey: keys.itemsAll }),
+    qc.invalidateQueries({ queryKey: keys.searchAll }),
+  ]);
+}
+
 /** Invalidates the queries an event makes stale. Playback events are for the player, not for the cache. */
 export function invalidateForEvent(qc: QueryClient, e: AppEvent): void {
   switch (e.type) {

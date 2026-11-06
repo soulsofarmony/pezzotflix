@@ -1,30 +1,40 @@
-# Pezzotflix — Docker Compose (ADR 0006). Run from the repo root:
+# Pezzotflix — Docker Compose (ADR 0006). Run from the repo root (see deploy/README.md):
 #   docker compose -f deploy/compose.yaml --env-file .env up -d --build
+# Optional overrides from the shell: COMPOSE_PROJECT_NAME (another stack next to this one), PZF_IMAGE_TAG
+# (image tag, default dev), PZF_ENV_FILE (the app's .env, default the repo-root one).
 name: pezzotflix
+
+# Docker's json-file logs grow without bound otherwise (the health check alone logs a line every 10 s).
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "3" }
 
 services:
   gateway:
-    image: caddy:2.11.8
+    build:
+      context: ..
+      dockerfile: deploy/gateway.Dockerfile
+    image: pezzotflix/gateway:${PZF_IMAGE_TAG:-dev}
     restart: unless-stopped
+    logging: *logging
     ports:
       - "${HTTP_PORT:-8080}:8080"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ../clients/web/dist:/srv/web:ro
       - gateway-data:/data
-    networks: [edge, internal]
+    networks: [platform]
 
   video:
     build:
       context: ..
       dockerfile: deploy/video.Dockerfile
-    image: pezzotflix/video:dev
+    image: pezzotflix/video:${PZF_IMAGE_TAG:-dev}
     restart: unless-stopped
+    logging: *logging
     init: true
     user: "${PUID:-1000}:${PGID:-1000}"
     # App settings come from the repo-root .env (see .env.example); unset keys use the defaults in config.ts.
     env_file:
-      - path: ../.env
+      - path: ${PZF_ENV_FILE:-../.env}
         required: false
     volumes:
       # Media library: read-only, always (architectural invariant).
@@ -35,7 +45,9 @@ services:
       - video-thumbnails:/data/thumbnails
       - video-scratch:/data/scratch
       - video-backup:/data/backup
-    networks: [internal]
+    # Not published: only the gateway reaches it. The network is not internal, because Wikidata and TMDB are
+    # reached from here (ADR 0007).
+    networks: [platform]
     develop:
       watch:
         - action: sync+restart
@@ -48,9 +60,8 @@ services:
           path: ../services/video/package.json
 
 networks:
-  edge: {}
-  internal:
-    internal: true
+  # Shared by the services of the platform; the future Music Service joins it too (ADR 0006 point 2).
+  platform: {}
 
 volumes:
   gateway-data: {}

@@ -41,18 +41,19 @@ export function CasesPage(): ReactElement {
       {cases.isError && <ErrorView error={cases.error} onRetry={() => void cases.refetch()} />}
       {cases.isSuccess && list.length === 0 && <Empty>{t('cases.empty')}</Empty>}
       <ul className={styles.cards}>
-        {list.map((c) => (
-          <li key={c.id}>
-            <Link to="/admin/cases/$caseId" params={{ caseId: c.id }} className={styles.caseLink} aria-label={t('cases.open', { path: c.relPath })}>
-              <span className={styles.path}>{c.relPath}</span>
-              <span className="muted">
-                {[c.rootName, reasonLabel(c.reason), c.linkedItem ? t('cases.linked', { title: c.linkedItem.title }) : null, t('cases.updated', { when: formatRelative(c.updatedAt) })]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </Link>
-          </li>
-        ))}
+        {list.map((c) => {
+          const meta = [c.rootName, reasonLabel(c.reason), c.linkedItem ? t('cases.linked', { title: c.linkedItem.title }) : null, t('cases.updated', { when: formatRelative(c.updatedAt) })]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <li key={c.id}>
+              {/* The name holds every visible line after "Apri il caso di", so it contains the visible label (WCAG 2.5.3). */}
+              <Link to="/admin/cases/$caseId" params={{ caseId: c.id }} className={styles.caseLink} aria-label={`${t('cases.open', { path: c.relPath })} · ${meta}`}>
+                <span className={styles.path}>{c.relPath}</span> <span className="muted">{meta}</span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
       {cases.hasNextPage && (
         <button type="button" className="btn" onClick={() => void cases.fetchNextPage()} disabled={cases.isFetchingNextPage}>

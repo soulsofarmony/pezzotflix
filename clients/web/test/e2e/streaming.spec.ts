@@ -1,11 +1,12 @@
 // Direct Stream over HLS, a far seek that restarts the pipeline (timeline + PGS, doc 05 §7.8.7), and the automatic
 // re-plan after a forced failure (doc 04 §8).
 import { expect, test } from '@playwright/test';
-import { findItemId, mediaFacts, openAs, pgsCanvasHasPixels, player, positionMs, sampleOrSkip, waitForPlayback } from './support.ts';
+import { findItemId, mediaFacts, openAs, pgsCanvasHasPixels, player, positionMs, sampleOrSkip, skipUnlessDecodes, waitForPlayback } from './support.ts';
 
 test('Direct Stream: hls-fmp4 plays with the mode the server chose', async ({ page, request }) => {
   const sample = sampleOrSkip(test, 'directStream');
   const { token } = await openAs(page, request, '/');
+  await skipUnlessDecodes(test, page, sample);
   const itemId = await findItemId(request, token, sample.title);
   test.skip(!itemId, `"${sample.title}" is not in the catalog`);
   await page.goto(`/watch/${itemId}?t=0`);
@@ -24,6 +25,7 @@ test('Direct Stream: hls-fmp4 plays with the mode the server chose', async ({ pa
 test('far seek: the pipeline restarts and positions stay on the original timeline', async ({ page, request }) => {
   const sample = sampleOrSkip(test, 'farSeek');
   const { token } = await openAs(page, request, '/');
+  await skipUnlessDecodes(test, page, sample);
   const itemId = await findItemId(request, token, sample.title);
   test.skip(!itemId, `"${sample.title}" is not in the catalog`);
   await page.goto(`/watch/${itemId}?t=0`);
@@ -59,15 +61,28 @@ test('far seek: the pipeline restarts and positions stay on the original timelin
 test('forced failure: the client re-plans on its own, without asking', async ({ page, request }) => {
   const sample = sampleOrSkip(test, 'replan');
   const { token } = await openAs(page, request, '/');
+  await skipUnlessDecodes(test, page, sample);
   const itemId = await findItemId(request, token, sample.title);
   test.skip(!itemId, `"${sample.title}" is not in the catalog`);
-  // forceMode=direct_play on a source the browser cannot decode (e.g. TrueHD in MKV): the pre-start check or the
-  // media error must lead to reportPlaybackFailure and a playable plan.
+  // The first stream's media answers 500 STREAM_FAILED, a fatal data-plane error: the client must call
+  // reportPlaybackFailure and play the plan it gets back. (forceMode cannot force a failure: the server refuses,
+  // with 422, a forced mode that the declared capabilities rule out.)
+  let failedToken: string | null = null;
+  await page.route(/\/video\/media\/s\/[^/]+\/(file|hls\/(init|seg)-[^/]+)$/, async (route) => {
+    const streamToken = /\/video\/media\/s\/([^/]+)\//.exec(route.request().url())?.[1] ?? null;
+    failedToken ??= streamToken;
+    if (streamToken !== failedToken) return route.continue();
+    return route.fulfill({
+      status: 500,
+      contentType: 'application/problem+json',
+      body: JSON.stringify({ type: 'https://pezzotflix.local/problems/stream-failed', title: 'Stream could not be produced', status: 500, code: 'STREAM_FAILED' }),
+    });
+  });
   const failures: string[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST' && /\/failure$/.test(r.url())) failures.push(r.postData() ?? '');
   });
-  await page.goto(`/watch/${itemId}?t=0&force=direct_play`);
+  await page.goto(`/watch/${itemId}?t=0`);
   await waitForPlayback(page, 2);
   expect(failures.length).toBeGreaterThanOrEqual(1);
   expect(Number(await player(page).getAttribute('data-attempts'))).toBeLessThanOrEqual(3);

@@ -1,9 +1,29 @@
-// Milestone e2e on the Compose stack (ADR 0005 point 6): Edge and Chrome as installed on the host (`channel`),
-// one worker because the MVP allows one streaming session and the browser is a shared resource. Not part of
-// `verify`: run `npm run e2e -w @pezzotflix/web` with the stack up and the S2 samples ingested.
-import { defineConfig } from '@playwright/test';
+// Milestone e2e on the Compose stack (ADR 0005 point 6, doc 06 §4). One worker: the MVP allows one streaming
+// session and the browser is a shared resource. Not part of `verify`: with the stack up, run
+// `npm run e2e:smoke` (API only) or `npm run e2e` (smoke and the browsers), see deploy/README.md.
+// Projects: `stack` (setup: health, scan, manual matches) runs first; `smoke` and every browser depend on it.
+import { defineConfig, type Project } from '@playwright/test';
 
 const baseURL = process.env.PZF_E2E_BASE_URL ?? 'http://localhost:8080';
+
+// Real playback: autoplay with sound must not be blocked.
+const chromiumArgs = ['--autoplay-policy=no-user-gesture-required'];
+const BROWSER_ONLY = /\.spec\.ts$/;
+const NOT_BROWSER = /(smoke\.spec|stack\.setup)\.ts$/;
+
+const browsers: Project[] = [
+  // Chrome for Testing as bundled by Playwright, in the full build (`channel: 'chromium'`): the default headless
+  // shell has no HEVC decoder. Then the browsers installed on the host (`channel`).
+  { name: 'chromium', use: { browserName: 'chromium', channel: 'chromium', launchOptions: { args: chromiumArgs } } },
+  { name: 'edge', use: { channel: 'msedge', launchOptions: { args: chromiumArgs } } },
+  { name: 'chrome', use: { channel: 'chrome', launchOptions: { args: chromiumArgs } } },
+  // Firefox with a window, as S2 measured it: headless it drops most frames, and it says yes to HEVC without a
+  // decoder (measured on Firefox 157, Windows 11).
+  {
+    name: 'firefox',
+    use: { browserName: 'firefox', headless: false, launchOptions: { firefoxUserPrefs: { 'media.autoplay.default': 0, 'media.autoplay.blocking_policy': 0 } } },
+  },
+];
 
 export default defineConfig({
   testDir: './test/e2e',
@@ -20,11 +40,10 @@ export default defineConfig({
     viewport: { width: 1600, height: 900 },
     trace: 'retain-on-failure',
     video: 'off',
-    // Real playback: autoplay with sound must not be blocked, and the GPU decodes HEVC.
-    launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
   },
   projects: [
-    { name: 'edge', use: { channel: 'msedge' } },
-    { name: 'chrome', use: { channel: 'chrome' } },
+    { name: 'stack', testMatch: /stack\.setup\.ts$/ },
+    { name: 'smoke', testMatch: /smoke\.spec\.ts$/, dependencies: ['stack'] },
+    ...browsers.map((b) => ({ ...b, testMatch: BROWSER_ONLY, testIgnore: NOT_BROWSER, dependencies: ['stack'] })),
   ],
 });

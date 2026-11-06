@@ -14,14 +14,6 @@ export function episodeCode(item: ItemSummary): string | null {
 
 const seriesOf = (item: ItemSummary): string | null => (item.kind === 'episode' && item.seriesTitle ? item.seriesTitle : null);
 
-/** Full name of an item: "Serie · S1E3 · Titolo episodio" for an episode, the title otherwise. */
-export function itemLabel(item: ItemSummary): string {
-  const series = seriesOf(item);
-  const code = episodeCode(item);
-  if (!series) return code && item.kind === 'episode' ? t('item.episodeLine', { code, title: item.title }) : item.title;
-  return code ? t('item.episodeLabel', { series, code, title: item.title }) : `${series} · ${item.title}`;
-}
-
 /** Second line of a card or of the item page: "Serie · S1E3" for an episode, the year for a work. */
 export function itemSubtitle(item: ItemSummary): string | null {
   if (item.kind === 'episode') {
@@ -40,14 +32,28 @@ export interface ItemCardProps {
   wide?: boolean;
 }
 
-/** The visual part of a card; the caller wraps it in its link element. */
-export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElement {
-  const img = pickImage(item.images, wide ? ['backdrop', 'still', 'thumbnail', 'poster'] : ['poster', 'thumbnail', 'still'], wide ? 640 : 320);
-  // An episode card leads with its series: "Serie" over "S1E3 · Titolo episodio".
+/** The two text lines of a card. An episode card leads with its series: "Serie" over "S1E3 · Titolo episodio". */
+function cardLines(item: ItemSummary): { heading: string; sub: string | null } {
   const series = seriesOf(item);
   const code = episodeCode(item);
   const heading = series ?? item.title;
   const sub = series ? (code ? t('item.episodeLine', { code, title: item.title }) : item.title) : itemSubtitle(item);
+  return { heading, sub };
+}
+
+/**
+ * Accessible name of a card link: its visible lines, in order ("Blade Runner 2049 · 2017"), so that the name
+ * contains the visible label (WCAG 2.5.3, axe label-content-name-mismatch).
+ */
+export function cardLabel(item: ItemSummary): string {
+  const { heading, sub } = cardLines(item);
+  return sub ? `${heading} · ${sub}` : heading;
+}
+
+/** The visual part of a card; the caller wraps it in its link element. */
+export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElement {
+  const img = pickImage(item.images, wide ? ['backdrop', 'still', 'thumbnail', 'poster'] : ['poster', 'thumbnail', 'still'], wide ? 640 : 320);
+  const { heading, sub } = cardLines(item);
   const progress = item.state?.progressPercent ?? 0;
   return (
     <div className={`${styles.card} ${wide ? styles.wide : ''}`}>
@@ -55,9 +61,9 @@ export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElemen
         {img ? (
           <img src={img.src} srcSet={img.srcSet} sizes={wide ? '(min-width: 1200px) 22vw, 45vw' : '(min-width: 1200px) 12rem, 30vw'} alt="" loading="lazy" decoding="async" />
         ) : (
-          <span className={styles.placeholder} aria-hidden="true">
-            {heading}
-          </span>
+          // The title on the placeholder is drawn by CSS (attr): text here would repeat the title in the visible
+          // label of the link and break label-in-name.
+          <span className={styles.placeholder} data-text={heading} aria-hidden="true" />
         )}
         {item.state?.watched && (
           <span className={styles.watched} title={t('item.watched')}>
@@ -73,7 +79,14 @@ export function ItemCardBody({ item, wide = false }: ItemCardProps): ReactElemen
         {!item.available && <span className={styles.unavailable}>!</span>}
       </div>
       <span className={styles.title}>{heading}</span>
-      {sub && <span className={styles.sub}>{sub}</span>}
+      {/* The space keeps the lines apart in the visible text ("Titolo 2017", not "Titolo2017"); the flex layout
+          does not render it. */}
+      {sub && (
+        <>
+          {' '}
+          <span className={styles.sub}>{sub}</span>
+        </>
+      )}
       {progress > 0 && progress < 100 && <span className="visually-hidden">{t('item.progress', { percent: Math.round(progress) })}</span>}
     </div>
   );

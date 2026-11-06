@@ -6,6 +6,11 @@
   overflow: hidden;
 }
 
+/* The surface takes the focus by script only (tabIndex -1) for the shortcuts; it is not a control to outline. */
+.player:focus {
+  outline: none;
+}
+
 .idle {
   cursor: none;
 }
