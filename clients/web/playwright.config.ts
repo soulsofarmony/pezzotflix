@@ -4,7 +4,15 @@
 // Projects: `stack` (setup: health, scan, manual matches) runs first; `smoke` and every browser depend on it.
 import { defineConfig, type Project } from '@playwright/test';
 
-const baseURL = process.env.PZF_E2E_BASE_URL ?? 'http://localhost:8080';
+// No default: the suite creates an "E2E" profile and resolves "Da verificare" cases on the stack it runs against,
+// so it must never land on the owner's stack by accident.
+const baseURL = process.env.PZF_E2E_BASE_URL;
+if (!baseURL) {
+  throw new Error(
+    'PZF_E2E_BASE_URL is not set: point it at a test stack, e.g. PZF_E2E_BASE_URL=http://localhost:18280 (deploy/README.md, "Test end-to-end"). ' +
+      'There is no default, because the suite writes to the stack it runs against (an "E2E" profile, resolved cases).',
+  );
+}
 
 // Real playback: autoplay with sound must not be blocked.
 const chromiumArgs = ['--autoplay-policy=no-user-gesture-required'];

@@ -1,16 +1,15 @@
 // Main flow (ADR 0005 point 6): profile → Home → detail → play → first frame → seek → progress → resume.
 import { expect, test } from '@playwright/test';
-import { API, bearer, clearProgress, ensureProfile, findItemId, openAs, PROFILE_NAME, player, positionMs, sampleOrSkip, skipUnlessDecodes, waitForPlayback } from './support.ts';
+import { API, bearer, clearProgress, ensureProfile, openAs, PROFILE_NAME, player, positionMs, requireItem, requireSample, skipUnlessDecodes, videoTime, waitForPlayback } from './support.ts';
 
 /** The "main" sample must be longer than this plus a margin (e.g. 2 minutes). */
 const RESUME_PAST_MS = 35_000;
 
 test('profile, Home, detail, play, seek, progress and resume', async ({ page, request }) => {
-  const sample = sampleOrSkip(test, 'main');
+  const sample = requireSample(test, 'main');
   const { token } = await ensureProfile(request);
-  const itemId = await findItemId(request, token, sample.title);
-  test.skip(!itemId, `"${sample.title}" is not in the catalog`);
-  await clearProgress(request, token, itemId ?? '');
+  const itemId = await requireItem(test, request, token, 'main', sample);
+  await clearProgress(request, token, itemId);
 
   // Profile choice through the UI.
   await page.goto('/profiles');
@@ -33,7 +32,8 @@ test('profile, Home, detail, play, seek, progress and resume', async ({ page, re
     await page.keyboard.press('ArrowRight');
     await expect.poll(() => positionMs(page), { timeout: 5_000 }).toBeGreaterThanOrEqual(before + 9_000);
   }
-  await waitForPlayback(page, 1);
+  // It plays on from the last seek (counted from there, not from the playback before it).
+  await waitForPlayback(page, 1, await videoTime(page));
 
   // Pause: reportProgress goes at once; leave the player (stopPlayback).
   await page.keyboard.press('k');
@@ -51,16 +51,15 @@ test('profile, Home, detail, play, seek, progress and resume', async ({ page, re
 
 // Any sample that plays will do: the Direct Stream one, the one most browsers decode.
 test('pagehide stops the session (keepalive)', async ({ page, request }) => {
-  const sample = sampleOrSkip(test, 'directStream');
+  const sample = requireSample(test, 'directStream');
   const { token } = await openAs(page, request, '/');
   await skipUnlessDecodes(test, page, sample);
-  const itemId = await findItemId(request, token, sample.title);
-  test.skip(!itemId, `"${sample.title}" is not in the catalog`);
+  const itemId = await requireItem(test, request, token, 'directStream', sample);
   await page.goto(`/watch/${itemId}?t=0`);
   await waitForPlayback(page, 1);
   await page.goto('about:blank');
   // The keepalive StopPlayback leaves with the page, so Playwright does not always see it as the page's request:
-  // the server is asked instead. Without the stop the session would live until its timeout (SESSION_TIMEOUT_S, 60 s).
+  // the server is asked instead. Without the stop the session would live until its timeout (SESSION_TIMEOUT_S, 150 s by default).
   const open = async () => {
     const res = await request.get(`${API}/playback/sessions`, { headers: bearer(token) });
     return ((await res.json()) as { sessions: unknown[] }).sessions.length;

@@ -27,11 +27,14 @@ COPY services/video/package.json services/video/
 COPY clients/web/package.json clients/web/
 RUN npm ci --omit=dev --workspace services/video --no-audit --no-fund && npm cache clean --force
 
-COPY services/video/ services/video/
+# Owned by the runtime user, so `docker compose watch` can sync into src and contract/dist (its tar runs as node).
+COPY --chown=node:node services/video/ services/video/
 
-# Mount points owned by the runtime user, so named volumes are initialised writable (m2).
-RUN mkdir -p /data/db /data/cache /data/artwork /data/thumbnails /data/scratch /data/backup /media \
- && chown -R node:node /data
+# Mount points owned by the runtime user (uid 1000, as compose.yaml runs it), so named volumes are initialised
+# writable (m2). /data/secrets holds the profile-token signing key: owner only.
+RUN mkdir -p /data/db /data/cache /data/artwork /data/thumbnails /data/scratch /data/backup /data/secrets /media \
+ && chown -R node:node /data \
+ && chmod 700 /data/secrets
 
 USER node
 WORKDIR /app/services/video

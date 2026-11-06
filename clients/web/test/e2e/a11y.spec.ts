@@ -2,7 +2,7 @@
 // violations fail the test; the others are attached to the report.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { findItemId, openAs, samples, skipUnlessDecodes } from './support.ts';
+import { openAs, requireItem, requireSample, skipUnlessDecodes } from './support.ts';
 
 const PAGES = ['/', '/browse?kind=movie', '/search?q=a', '/admin/cases', '/admin/roots', '/admin/ingest', '/admin/providers', '/about'];
 
@@ -29,13 +29,10 @@ for (const path of PAGES) {
 }
 
 test('item detail and player', async ({ page, request }) => {
-  const sample = samples.main;
-  const title = sample?.title;
-  test.skip(!title, 'sample "main" not configured (PZF_E2E_SAMPLES)');
+  const sample = requireSample(test, 'main');
   const { token } = await openAs(page, request, '/');
-  if (sample) await skipUnlessDecodes(test, page, sample);
-  const itemId = await findItemId(request, token, title ?? '');
-  test.skip(!itemId, `"${title}" is not in the catalog`);
+  await skipUnlessDecodes(test, page, sample);
+  const itemId = await requireItem(test, request, token, 'main', sample);
   await page.goto(`/item/${itemId}`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await check(page, 'item');

@@ -15,10 +15,18 @@ services:
       context: ..
       dockerfile: deploy/gateway.Dockerfile
     image: pezzotflix/gateway:${PZF_IMAGE_TAG:-dev}
+    # Built here, never pulled: neither `docker compose pull` nor an `up` with the image missing may fetch someone
+    # else's pezzotflix/* from Docker Hub. A missing image is built. Not `build`: that rebuilds on every `up -d` and,
+    # since the rebuilt image gets a new id, recreates the containers (measured on Compose 2.35), so a plain
+    # `up -d` would restart the Video Service in the middle of a film.
+    pull_policy: never
     restart: unless-stopped
     logging: *logging
     ports:
       - "${HTTP_PORT:-8080}:8080"
+    environment:
+      # Host names accepted besides IP literals and localhost (DNS rebinding guard in the Caddyfile).
+      PZF_HOSTS: ${PZF_HOSTS:-}
     volumes:
       - gateway-data:/data
     networks: [platform]
@@ -28,23 +36,35 @@ services:
       context: ..
       dockerfile: deploy/video.Dockerfile
     image: pezzotflix/video:${PZF_IMAGE_TAG:-dev}
+    pull_policy: never
     restart: unless-stopped
     logging: *logging
     init: true
-    user: "${PUID:-1000}:${PGID:-1000}"
+    # Fixed: the named volumes are created owned by uid 1000 from the image. Reading the media takes a group
+    # instead: MEDIA_GID, the group that can read MEDIA_DIR on a Linux or NAS host.
+    user: "1000:1000"
+    group_add: ["${MEDIA_GID:-1000}"]
     # App settings come from the repo-root .env (see .env.example); unset keys use the defaults in config.ts.
     env_file:
       - path: ${PZF_ENV_FILE:-../.env}
         required: false
     volumes:
-      # Media library: read-only, always (architectural invariant).
-      - ${MEDIA_DIR:-../media-samples/library}:/media:ro
+      # Media library: read-only, always (architectural invariant). A wrong MEDIA_DIR fails at `up` instead of
+      # mounting an empty folder.
+      - type: bind
+        source: ${MEDIA_DIR:-../media-samples/library}
+        target: /media
+        read_only: true
+        bind:
+          create_host_path: false
       - video-db:/data/db
       - video-cache:/data/cache
       - video-artwork:/data/artwork
       - video-thumbnails:/data/thumbnails
       - video-scratch:/data/scratch
       - video-backup:/data/backup
+      # Signing key of the profile tokens: without a volume every rebuild would log every profile out.
+      - video-secrets:/data/secrets
     # Not published: only the gateway reaches it. The network is not internal, because Wikidata and TMDB are
     # reached from here (ADR 0007).
     networks: [platform]
@@ -71,3 +91,4 @@ volumes:
   video-thumbnails: {}
   video-scratch: {}
   video-backup: {}
+  video-secrets: {}

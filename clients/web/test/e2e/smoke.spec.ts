@@ -3,7 +3,7 @@
 // embedded subtitles, and the progress saved by ReportProgress and StopPlayback. Runs after stack.setup.ts.
 import { type APIRequestContext, type APIResponse, expect, test } from '@playwright/test';
 import type { components } from '../../src/api/schema.d.ts';
-import { API, bearer, clearProgress, ensureProfile, findItemId, type SampleCase, sampleOrSkip } from './support.ts';
+import { API, bearer, clearProgress, ensureProfile, requireItem, requireSample, type SampleCase, type SampleId } from './support.ts';
 
 type Caps = components['schemas']['ClientCapabilities'];
 type Session = components['schemas']['PlaybackSession'];
@@ -81,12 +81,6 @@ class Smoke {
     this.request = request;
     this.token = token;
     this.baseURL = baseURL;
-  }
-
-  async item(title: string): Promise<string> {
-    const id = await findItemId(this.request, this.token, title);
-    expect(id, `"${title}" is not in the catalog`).not.toBeNull();
-    return id ?? '';
   }
 
   async detail(itemId: string): Promise<ItemDetail> {
@@ -171,21 +165,24 @@ class Smoke {
   }
 }
 
-/** An embedded subtitle track of the item's first version, of one kind, preferably in a language. */
+/** An embedded subtitle track of the item's first version, of one kind, in the sample's language when it has one. */
 async function embeddedSubtitle(smoke: Smoke, itemId: string, kind: 'image' | 'text', language?: string): Promise<{ fileId: string; trackId: string }> {
   const version = (await smoke.detail(itemId)).versions[0];
   expect(version, 'the item has no version').toBeTruthy();
   const subs = (version?.tracks ?? []).filter((t) => t.type === 'subtitle' && !t.external && t.subtitleKind === kind);
-  const track = subs.find((t) => !language || t.language === language) ?? subs[0];
-  expect(track, `no embedded ${kind} subtitle track`).toBeTruthy();
+  const track = subs.find((t) => !language || t.language === language);
+  const seen = JSON.stringify(subs.map((t) => ({ id: t.id, language: t.language })));
+  expect(track, `no embedded ${kind} subtitle track${language ? ` in "${language}"` : ''}: ${seen}`).toBeTruthy();
   return { fileId: version?.fileId ?? '', trackId: track?.id ?? '' };
 }
 
-async function setupSmoke(request: APIRequestContext, sample: SampleCase): Promise<{ smoke: Smoke; itemId: string }> {
+async function setupSmoke(request: APIRequestContext, id: SampleId, sample: SampleCase): Promise<{ smoke: Smoke; itemId: string }> {
   // ensureProfile also closes the sessions an earlier run left open.
   const { token } = await ensureProfile(request);
-  const smoke = new Smoke(request, token, test.info().project.use.baseURL ?? 'http://localhost:8080');
-  const itemId = await smoke.item(sample.title);
+  const baseURL = test.info().project.use.baseURL;
+  if (!baseURL) throw new Error('no baseURL (PZF_E2E_BASE_URL, playwright.config.ts)');
+  const smoke = new Smoke(request, token, baseURL);
+  const itemId = await requireItem(test, request, token, id, sample);
   await clearProgress(request, token, itemId);
   return { smoke, itemId };
 }
@@ -195,8 +192,8 @@ const note = (type: string, description: string) => test.info().annotations.push
 test.describe.configure({ mode: 'serial' });
 
 test('Direct Play: 206 Range on the original file', async ({ request }) => {
-  const sample = sampleOrSkip(test, 'directPlay');
-  const { smoke, itemId } = await setupSmoke(request, sample);
+  const sample = requireSample(test, 'directPlay');
+  const { smoke, itemId } = await setupSmoke(request, 'directPlay', sample);
   const { session, ms } = await smoke.start({ itemId, capabilities: BROWSER_MKV });
   try {
     expect(session.mode).toBe('direct_play');
@@ -211,8 +208,8 @@ test('Direct Play: 206 Range on the original file', async ({ request }) => {
 test('Direct Stream: first HLS segment, progress saved and resumed', async ({ request }) => {
   // The long sample of the main flow: the smoke has no browser, so its codecs do not matter, and it is long enough
   // for a resume.
-  const sample = sampleOrSkip(test, 'main');
-  const { smoke, itemId } = await setupSmoke(request, sample);
+  const sample = requireSample(test, 'main');
+  const { smoke, itemId } = await setupSmoke(request, 'main', sample);
   const { session, ms } = await smoke.start({ itemId, capabilities: BROWSER });
   // Past RESUME_MIN_POSITION_MS (30 s) when the file is long enough, so that the resume position is checked too.
   const position = Math.floor(Math.min(RESUME_AT_MS, session.durationMs / 2));
@@ -245,8 +242,8 @@ test('Direct Stream: first HLS segment, progress saved and resumed', async ({ re
 });
 
 test('embedded PGS extracted as .sup for the client renderer', async ({ request }) => {
-  const sample = sampleOrSkip(test, 'pgsSubtitle');
-  const { smoke, itemId } = await setupSmoke(request, sample);
+  const sample = requireSample(test, 'pgsSubtitle');
+  const { smoke, itemId } = await setupSmoke(request, 'pgsSubtitle', sample);
   const pgs = await embeddedSubtitle(smoke, itemId, 'image', sample.subtitleLanguage);
   const { session } = await smoke.start({ itemId, capabilities: BROWSER, fileId: pgs.fileId, subtitleTrackId: pgs.trackId });
   try {
@@ -264,8 +261,8 @@ test('embedded PGS extracted as .sup for the client renderer', async ({ request 
 });
 
 test('embedded text subtitle extracted as WebVTT', async ({ request }) => {
-  const sample = sampleOrSkip(test, 'textSubtitle');
-  const { smoke, itemId } = await setupSmoke(request, sample);
+  const sample = requireSample(test, 'textSubtitle');
+  const { smoke, itemId } = await setupSmoke(request, 'textSubtitle', sample);
   const text = await embeddedSubtitle(smoke, itemId, 'text', sample.subtitleLanguage);
   const { session } = await smoke.start({ itemId, capabilities: BROWSER, fileId: text.fileId, subtitleTrackId: text.trackId });
   try {
@@ -283,8 +280,8 @@ test('embedded text subtitle extracted as WebVTT', async ({ request }) => {
 });
 
 test('Transcode (source up to 1080p): first HLS segment in H.264', async ({ request }) => {
-  const sample = sampleOrSkip(test, 'transcode');
-  const { smoke, itemId } = await setupSmoke(request, sample);
+  const sample = requireSample(test, 'transcode');
+  const { smoke, itemId } = await setupSmoke(request, 'transcode', sample);
   const { session, ms } = await smoke.start({ itemId, capabilities: SMALL_SCREEN });
   try {
     expect(session.mode).toBe('transcode');

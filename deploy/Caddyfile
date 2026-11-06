@@ -2,36 +2,73 @@
 {
 	admin off
 	auto_https off
+
+	# Media URLs carry the session token in the path (/video/media/s/<token>/...), and Caddy's own messages
+	# (a proxied response cut short, a backend that cannot be reached) log the request. The token is masked, and
+	# the credential headers are dropped even though Caddy already redacts them.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			request>uri regexp "/media/s/[^/?#]+" "/media/s/***"
+			request>headers>Referer regexp "/media/s/[^/?#]+" "/media/s/***"
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+		}
+	}
 }
 
 :8080 {
-	# Control plane compressed; the data plane (/video/media/*) never is.
-	@api path /video/api/*
-	encode @api zstd gzip
-
-	# Control plane, data plane and /video/healthz, path passed as is. One proxy, so one active health check
-	# (ADR 0006 point 2). No buffering and Range passed through, for the data plane (G1).
-	handle /video/* {
-		reverse_proxy video:8096 {
-			flush_interval -1
-			health_uri /video/healthz
-			health_interval 10s
-			health_timeout 5s
-		}
+	# DNS rebinding: with no auth in the MVP, a page on the LAN must not reach the API under a name of its own.
+	# Accepted: an IP literal (v4, or v6 in brackets), localhost, and the names in PZF_HOSTS (space-separated),
+	# each with any port. Anything else gets 421.
+	@foreign_host {
+		not host localhost {$PZF_HOSTS}
+		not header_regexp Host `^(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3}|\[[0-9A-Fa-f:.]+(?:%25[0-9A-Za-z._~-]+)?\])(?::[0-9]{1,5})?$`
+	}
+	# Top-level handles: one with a matcher sorts before the catch-all, so the check runs first.
+	handle @foreign_host {
+		header Cache-Control no-store
+		respond "Host not allowed: open the app by IP address or add the name to PZF_HOSTS (deploy/README.md)." 421
 	}
 
-	# Web client (SPA): static assets, index.html fallback.
 	handle {
-		root * /srv/web
-		# Text assets (JS, CSS, HTML, JSON) compressed on the fly; images and fonts are left as they are.
-		encode zstd gzip
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		# index.html and SPA routes: always revalidate, so a new build is picked up.
-		@shell not path /assets/*
-		header @shell Cache-Control "no-cache"
-		try_files {path} /index.html
-		file_server
+		# Control plane compressed; the data plane (/video/media/*) never is.
+		@api path /video/api/*
+		encode @api zstd gzip
+
+		# Control plane, data plane and /video/healthz, path passed as is. One proxy, so one active health check
+		# (ADR 0006 point 2). No buffering and Range passed through, for the data plane (G1). Three failed probes
+		# in a row (30 s) mark the service down: one slow probe alone would take all of /video/* down for 10 s.
+		handle /video/* {
+			reverse_proxy video:8096 {
+				flush_interval -1
+				health_uri /video/healthz
+				health_interval 10s
+				health_timeout 5s
+				health_fails 3
+			}
+		}
+
+		# Hashed build assets: cached for a year. A missing one is a 404, never index.html: a stale tab that
+		# lazy-loads a chunk of an older build would otherwise cache HTML under that URL for a year.
+		handle /assets/* {
+			root * /srv/web
+			encode zstd gzip
+			header Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+
+		# Web client (SPA): index.html and the other static files, index.html fallback for the routes. Always
+		# revalidated, so a new build is picked up. Text assets (JS, CSS, HTML, JSON) compressed on the fly; images
+		# and fonts are left as they are.
+		handle {
+			root * /srv/web
+			encode zstd gzip
+			header Cache-Control "no-cache"
+			try_files {path} /index.html
+			file_server
+		}
 	}
 
 	# Video Service down or unreachable (dial error, failed health check): a Problem JSON instead of an empty 502,
@@ -44,5 +81,11 @@
 			header Retry-After 5
 			respond `{"type":"https://pezzotflix.local/problems/media-unavailable","title":"Media unavailable","status":503,"code":"MEDIA_UNAVAILABLE","detail":"The Video Service is not reachable"}` 503
 		}
+	}
+
+	# Any other error of the gateway itself (a missing asset): the status alone, never cached.
+	handle_errors {
+		header Cache-Control no-store
+		respond "{err.status_code} {err.status_text}" {err.status_code}
 	}
 }

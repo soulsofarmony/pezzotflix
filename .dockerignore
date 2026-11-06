@@ -5,7 +5,10 @@ docs
 .git
 **/out
 **/*.db
-.env
+# Secrets (the TMDB token lives in .env): never in a build context. The template stays.
+**/.env
+**/.env.*
+!.env.example
 clients/web/dist
 .claude
 **/test-results
