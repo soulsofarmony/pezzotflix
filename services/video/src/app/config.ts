@@ -64,6 +64,8 @@ const Env = z.object({
   DELIVERY_TOMBSTONE_TTL_S: z.coerce.number().int().min(1).default(3600),
   SUBTITLE_EXTRACT_MAX_MBPS: z.coerce.number().positive().default(15),
   SUBTITLE_PREROLL_S: z.coerce.number().min(0).default(60),
+  /** A subtitle extraction pass whose clock and outputs stop moving this long (not held by the pacing) is killed. */
+  SUBTITLE_EXTRACT_STALL_S: z.coerce.number().positive().default(60),
   SUBTITLE_PREEXTRACT: z.enum(['off', 'on']).default('off'),
   SUBTITLE_CACHE_MAX_BYTES: byteSize.default(20 * 1000 ** 3),
   TMDB_READ_TOKEN: z.string().optional(),

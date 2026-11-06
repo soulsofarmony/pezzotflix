@@ -173,6 +173,11 @@ function checkTranscode(v: VideoStreamFacts, file: PlayableFile, input: DecideIn
   if (!isUpTo1080p(v)) {
     blockers.push(reason('transcode_limited', 'video', `Source ${v.width}×${v.height} above 1080p: a Transcode would be needed and is not available for it (P2)`));
   }
+  // The software Transcode tone-maps the base layer as HDR10/HLG/SDR; a DV base layer of no known format
+  // (profile 5: IPTPQc2) would come out with wrong colours.
+  if (v.hdr === 'DV' && dvBase(v) === null) {
+    blockers.push(reason('transcode_limited', 'video', `Dolby Vision profile ${v.dolbyVision?.profile ?? '?'} has no HDR10, HLG or SDR base layer: the software Transcode cannot convert it`));
+  }
   if (constraints.transcode === 'disabled') blockers.push(reason('transcode_disabled', 'video', 'A Transcode would be needed and is disabled (MAX_TRANSCODES = 0)'));
   if (constraints.transcode === 'busy') blockers.push(reason('transcode_disabled', 'video', 'A Transcode would be needed and every transcode slot is taken (P4)'));
   if (!hasProtocol(caps, 'hls-fmp4')) blockers.push(reason('container_unsupported', 'container', 'The client does not play HLS fMP4'));
@@ -287,7 +292,10 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
   const burnBlock = choice ? burnExcluded(choice.track, subEx) : undefined;
   let burnDrop: string | null = null;
   if (choice && !selectedServed) {
+    const src = choice.track.source;
     if (burnBlock) burnDrop = exclusionMessage(burnBlock);
+    // sub2video needs the image track in the video's input: a sidecar .sup cannot be burned (delivery refuses it).
+    else if (src.kind === 'sidecar' && src.format === 'sup') burnDrop = 'A sidecar image track (.sup) cannot be burned in';
     else if (tc.blockers.length > 0) burnDrop = tc.blockers.map((b) => b.message).join('; ');
   }
   const treatment = (mode: DeliveryMode): SubtitleTreatment => {

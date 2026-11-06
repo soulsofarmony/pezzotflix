@@ -859,6 +859,34 @@ describe('track memory across versions (E-1, E-2, E-3)', () => {
     expect(shownSub((await start({ itemId: ITEM })).body)).toBe('s3');
   });
 
+  it('F1b.4 m3: delivery refusing the selected track (its extraction failed) re-plans the start at once without it, from the prefs or asked for', async () => {
+    const extractionFailed = () =>
+      h.delivery.next.push({
+        ok: false,
+        code: 'STREAM_FAILED',
+        failure: failure({ kind: 'no_output', class: 'format', suspect: 'subtitle', exclusion: { dimension: 'subtitle', trackId: 's3', delivery: 'client_render', fileId: F1, cause: 'server', error: 'no_output' } }),
+      });
+    h.profiles.prefs.set(P1, ALWAYS_ITA);
+    h.profiles.last.set(`${P1}/${ITEM}`, { fileId: F1, audioTrackId: 's2' });
+    extractionFailed();
+    const r = await start({ itemId: ITEM });
+    expect(r.status).toBe(201);
+    expect(shownSub(r.body)).not.toBe('s3');
+    expect(h.delivery.starts()).toHaveLength(2);
+    expect(h.delivery.starts()[0]?.subtitles.selected?.trackId).toBe('s3');
+    expect(h.delivery.starts()[1]?.subtitles.served.map((s) => s.trackId)).not.toContain('s3');
+    expect(h.delivery.starts()[1]?.exclusions).toEqual([{ dimension: 'subtitle', trackId: 's3', delivery: 'client_render', fileId: F1, cause: 'server', error: 'no_output' }]);
+    await stop(r.body.sessionId, 0);
+    // A start asked for the track: it plays without it too (a start never requires its subtitle, unlike changeTracks).
+    extractionFailed();
+    const asked = await start({ itemId: ITEM, subtitleTrackId: 's3' });
+    expect(asked.status).toBe(201);
+    expect(shownSub(asked.body)).not.toBe('s3');
+    expect(h.delivery.starts()).toHaveLength(4);
+    expect(h.delivery.starts()[2]?.subtitles.selected?.trackId).toBe('s3');
+    expect(h.delivery.starts()[3]?.subtitles.served.map((s) => s.trackId)).not.toContain('s3');
+  });
+
   it('E-1: off shows the forced track in the audio language, is recorded as off and remembered as off', async () => {
     useRealWatch(ITEM_HD);
     h.catalog.items.set(ITEM_HD, withForced());

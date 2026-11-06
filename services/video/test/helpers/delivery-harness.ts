@@ -9,6 +9,7 @@ import { deliveryHandlers } from '../../src/modules/delivery/handlers.ts';
 import { createDeliveryProbe } from '../../src/modules/delivery/probe.ts';
 import { execaSpawn } from '../../src/modules/delivery/process.ts';
 import { createDelivery, type Delivery, type DeliveryDeps } from '../../src/modules/delivery/service.ts';
+import { fakeExtractor } from './delivery-fake-extract.ts';
 import { FFMPEG, FFPROBE, tempDir } from './delivery-media.ts';
 
 export interface Harness {
@@ -16,14 +17,24 @@ export interface Harness {
   delivery: Delivery;
   app: FastifyInstance;
   enqueued: { type: string; payload: unknown; priority?: number; idempotencyKey?: string }[];
+  /** Domain events published by delivery (playback.subtitle_ready). */
+  events: { type: string; payload: Record<string, unknown> }[];
   dataDir: string;
   close(): Promise<void>;
 }
 
-export async function harness(
-  roots: { name: string; path: string }[],
-  opts: { env?: Record<string, string>; timings?: DeliveryDeps['timings']; spawn?: DeliveryDeps['spawn']; probe?: DeliveryDeps['probe'] } = {},
-): Promise<Harness> {
+export interface HarnessOptions {
+  env?: Record<string, string>;
+  timings?: DeliveryDeps['timings'];
+  spawn?: DeliveryDeps['spawn'];
+  /** Subtitle extraction; with a fake spawn and no extractSpawn, an extraction that never ends (tracks stay growing). */
+  extractSpawn?: DeliveryDeps['spawn'];
+  extractTimings?: DeliveryDeps['extractTimings'];
+  probe?: DeliveryDeps['probe'];
+  convertSidecar?: DeliveryDeps['convertSidecar'];
+}
+
+export async function harness(roots: { name: string; path: string }[], opts: HarnessOptions = {}): Promise<Harness> {
   const dataDir = tempDir('pzf-delivery-');
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -34,6 +45,8 @@ export async function harness(
     ...opts.env,
   });
   const enqueued: Harness['enqueued'] = [];
+  const events: Harness['events'] = [];
+  const extractSpawn = opts.extractSpawn ?? (opts.spawn ? fakeExtractor().spawn : undefined);
   const delivery = createDelivery({
     config,
     log: pino({ level: process.env.PZF_TEST_LOG ?? 'silent' }),
@@ -44,10 +57,15 @@ export async function harness(
         return 'job';
       },
     }),
+    events: () => ({ publish: (type, payload) => void events.push({ type, payload }) }),
     spawn: opts.spawn ?? execaSpawn(FFMPEG),
+    ...(extractSpawn ? { extractSpawn } : {}),
     probe: opts.probe ?? createDeliveryProbe(FFPROBE),
     ...(opts.timings ? { timings: opts.timings } : {}),
+    ...(opts.extractTimings ? { extractTimings: opts.extractTimings } : {}),
+    ...(opts.convertSidecar ? { convertSidecar: opts.convertSidecar } : {}),
   });
+  await delivery.clearScratch();
   const app = await buildServer({ logger: false, profileTokens: { verify: () => null }, handlers: deliveryHandlers(delivery, config, Date.now) });
   await app.ready();
   return {
@@ -55,6 +73,7 @@ export async function harness(
     delivery,
     app,
     enqueued,
+    events,
     dataDir,
     async close() {
       await delivery.shutdown();

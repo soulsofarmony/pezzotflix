@@ -11,8 +11,11 @@ import { createDelivery, type DeliveryDeps, KEYFRAME_JOB_MAX_ATTEMPTS } from './
 export interface DeliveryModuleOptions {
   /** Tests inject fakes; defaults run FFMPEG_PATH and FFPROBE_PATH. */
   spawn?: Spawn;
+  /** ffmpeg of the subtitle extraction; default spawn. */
+  extractSpawn?: Spawn;
   probe?: DeliveryProbe;
   timings?: DeliveryDeps['timings'];
+  extractTimings?: DeliveryDeps['extractTimings'];
 }
 
 export function deliveryModule(options: DeliveryModuleOptions = {}): ModuleFactory {
@@ -22,9 +25,12 @@ export function deliveryModule(options: DeliveryModuleOptions = {}): ModuleFacto
       log: ctx.log,
       now: ctx.now,
       jobs: () => ctx.ports.jobs,
+      events: () => ctx.ports.events,
       spawn: options.spawn ?? execaSpawn(ctx.config.FFMPEG_PATH),
+      ...(options.extractSpawn ? { extractSpawn: options.extractSpawn } : {}),
       probe: options.probe ?? createDeliveryProbe(ctx.config.FFPROBE_PATH),
       ...(options.timings ? { timings: options.timings } : {}),
+      ...(options.extractTimings ? { extractTimings: options.extractTimings } : {}),
     });
     return {
       name: 'delivery',

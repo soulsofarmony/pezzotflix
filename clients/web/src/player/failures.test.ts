@@ -53,7 +53,7 @@ describe('classifyHlsError: failure table of doc 05 §7.8.5', () => {
 });
 
 describe('classifyProbe: status of a progressive url after a <video> error', () => {
-  const status = (s: number): UrlStatus => ({ kind: 'status', status: s, retryAfterMs: null });
+  const status = (s: number): UrlStatus => ({ kind: 'status', status: s, retryAfterMs: null, code: null });
   it.each<[string, UrlStatus, FailureAction | null]>([
     ['410 → session closed', status(410), { kind: 'restart', error: 'HTTP_410' }],
     ['404 → session closed', status(404), { kind: 'restart', error: 'HTTP_404' }],

@@ -9,7 +9,7 @@ import { createFfprobeRunner } from '../../src/modules/analyzer/ffprobe.ts';
 import { mapFacts } from '../../src/modules/analyzer/facts.ts';
 import { boxes, type InitInfo, isSyncSample, parseInit, parseMoof } from '../../src/modules/delivery/bmff.ts';
 import type { AudioStreamFacts, MediaFacts, VideoStreamFacts } from '../../src/shared/media-facts.ts';
-import type { AudioAction, DirectPlayPlan, DirectStreamPlan } from '../../src/shared/playback-plan.ts';
+import type { AudioAction, DirectPlayPlan, DirectStreamPlan, ServedSubtitle, TranscodePlan } from '../../src/shared/playback-plan.ts';
 
 export const FFMPEG = process.env.FFMPEG_PATH ?? 'ffmpeg';
 export const FFPROBE = process.env.FFPROBE_PATH ?? 'ffprobe';
@@ -190,6 +190,46 @@ export function directStreamPlan(
     video: { kind: 'copy', source: videoSource(v), tag: v.codec === 'hevc' ? 'hvc1' : null, dolbyVision: 'none' },
     audio: a ? { source: audioSource(a), action: opts.action ?? { kind: 'copy' } } : null,
     subtitles: { selected: null, served: [] },
+    startPositionMs: opts.startPositionMs ?? 0,
+    reasons: [],
+    exclusions: [],
+  };
+}
+
+export function transcodePlan(
+  fileId: string,
+  facts: MediaFacts,
+  opts: {
+    width?: number;
+    height?: number;
+    maxBitrateBps?: number;
+    audioIndex?: number | null;
+    action?: AudioAction;
+    startPositionMs?: number;
+    selected?: TranscodePlan['subtitles']['selected'];
+    served?: ServedSubtitle[];
+  } = {},
+): TranscodePlan {
+  const v = videoOf(facts);
+  const audios = facts.streams.filter((s): s is AudioStreamFacts => s.type === 'audio');
+  const a = opts.audioIndex === null ? undefined : opts.audioIndex === undefined ? audios[0] : audios.find((s) => s.index === opts.audioIndex);
+  return {
+    planVersion: 1,
+    mode: 'transcode',
+    protocol: 'hls-fmp4',
+    file: fileOf(fileId, facts),
+    video: {
+      kind: 'transcode',
+      source: videoSource(v),
+      codec: 'h264',
+      width: opts.width ?? v.width,
+      height: opts.height ?? v.height,
+      maxBitrateBps: opts.maxBitrateBps ?? 8_000_000,
+      toneMap: v.hdr === 'SDR' ? 'none' : 'to_sdr',
+      causes: ['codec'],
+    },
+    audio: a ? { source: audioSource(a), action: opts.action ?? { kind: 'convert', codec: 'aac', channels: 2, bitrateBps: 192_000, layout: 'stereo' } } : null,
+    subtitles: { selected: opts.selected ?? null, served: opts.served ?? [] },
     startPositionMs: opts.startPositionMs ?? 0,
     reasons: [],
     exclusions: [],

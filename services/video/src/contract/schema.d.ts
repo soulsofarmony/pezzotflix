@@ -679,7 +679,7 @@ export interface paths {
         };
         /**
          * Sidecar or extracted subtitle track (WebVTT for text, PGS .sup for client rendering).
-         * @description While the track's availability is growing, the answer is a single streamed response without Content-Length that grows until the extraction's first pass ends; if the extraction is queued, the response stays open with no bytes until it starts. Once complete, the same url serves the whole file with Range (ADR 0003). Until the extraction exists (F1b.4) an embedded track answers 503 STREAM_PREPARING with Retry-After.
+         * @description While the track's availability is growing, the answer is a single streamed response without Content-Length that grows until the extraction's first pass ends, then the first pass's file until the merge completes; a streamed response is cut (not ended cleanly) if its pass fails or starts over. While the extraction is queued behind another one, an embedded track answers 503 STREAM_PREPARING with Retry-After. Once complete, the same url serves the whole file with Range, or answers 503 MEDIA_UNAVAILABLE if the extraction failed for good (ADR 0003).
          */
         get: operations["getSubtitle"];
         put?: never;
@@ -1026,7 +1026,7 @@ export interface components {
             /** @description Data-plane locator for sidecar or client-rendered subtitles. */
             url?: string | null;
             /**
-             * @description Subtitle tracks served separately (sidecar, client_render) only. growing: extraction is running and the url streams a response that grows until the first pass ends; it may not yet cover the part of the film before the session start. complete: the url serves the whole file with Range. The client learns of the change from the playback.subtitle_ready event and then re-reads the url. If the extraction is queued and not started yet, the url keeps the response open with no bytes until it starts (ADR 0003).
+             * @description Subtitle tracks served separately (sidecar, client_render) only. growing: the extraction is queued or running. While it is queued the url answers 503 STREAM_PREPARING with Retry-After; while its first pass runs the url streams a response that grows until that pass ends (it may not yet cover the part of the film before the session start); then the first pass's file is served until the merge completes. complete: final. The url serves the whole file with Range, or answers 503 MEDIA_UNAVAILABLE if the extraction failed for good. The client learns of the change from the playback.subtitle_ready event and then re-reads the url (ADR 0003).
              * @enum {string}
              */
             availability?: "complete" | "growing";
@@ -2326,14 +2326,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Partial content of a sidecar file served as is (.sup, .vtt). */
+            /** @description Partial content of a file: a sidecar served as is (.sup, .vtt), an extracted track, or the first pass's file. */
             206: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Not modified (sidecar files served as is). */
+            /** @description Not modified (any response served from a file with Range). */
             304: {
                 headers: {
                     [name: string]: unknown;
@@ -2343,14 +2343,14 @@ export interface operations {
             400: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             410: components["responses"]["Problem"];
-            /** @description Precondition failed (sidecar files served as is). */
+            /** @description Precondition failed (any response served from a file with Range). */
             412: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Range not satisfiable (sidecar files served as is). */
+            /** @description Range not satisfiable (any response served from a file with Range). */
             416: {
                 headers: {
                     [name: string]: unknown;
@@ -2359,7 +2359,7 @@ export interface operations {
             };
             /** @description STREAM_FAILED, terminal for the stream (see getHlsResource). */
             500: components["responses"]["Problem"];
-            /** @description STREAM_PREPARING with Retry-After (the track is not extracted yet), or MEDIA_UNAVAILABLE (the sidecar file is unreachable or could not be converted). */
+            /** @description STREAM_PREPARING with Retry-After (the embedded track's extraction is queued), or MEDIA_UNAVAILABLE. MEDIA_UNAVAILABLE with Retry-After is transient (the sidecar or the extracted file is briefly unreachable or not readable): retry like STREAM_PREPARING. Without Retry-After it is final for this stream (the extraction failed for good, or the sidecar could not be converted): re-plan without the track. */
             503: components["responses"]["ProblemRetryAfter"];
         };
     };

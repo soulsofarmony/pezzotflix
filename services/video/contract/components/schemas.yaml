@@ -417,11 +417,13 @@ SessionTrack:
           type: string
           enum: [complete, growing]
           description: >-
-            Subtitle tracks served separately (sidecar, client_render) only. growing: extraction is running and the
-            url streams a response that grows until the first pass ends; it may not yet cover the part of the film
-            before the session start. complete: the url serves the whole file with Range. The client learns of the
-            change from the playback.subtitle_ready event and then re-reads the url. If the extraction is queued
-            and not started yet, the url keeps the response open with no bytes until it starts (ADR 0003).
+            Subtitle tracks served separately (sidecar, client_render) only. growing: the extraction is queued or
+            running. While it is queued the url answers 503 STREAM_PREPARING with Retry-After; while its first pass
+            runs the url streams a response that grows until that pass ends (it may not yet cover the part of the
+            film before the session start); then the first pass's file is served until the merge completes.
+            complete: final. The url serves the whole file with Range, or answers 503 MEDIA_UNAVAILABLE if the
+            extraction failed for good. The client learns of the change from the playback.subtitle_ready event and
+            then re-reads the url (ADR 0003).
 
 PlaybackSession:
   type: object

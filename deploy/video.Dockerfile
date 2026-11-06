@@ -3,13 +3,15 @@
 FROM node:26.13.0-trixie-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS runtime
 
 # jellyfin-ffmpeg 8 (H10: CUDA/NVENC/tonemap_cuda available when the GPU override is used).
+# fonts-dejavu-core: the font libass falls back to for a burn-in (SRT, or ASS without attachments); named
+# here rather than left to fontconfig's dependency choice.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
  && install -d -m 0755 /etc/apt/keyrings \
  && curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg \
  && echo "deb [signed-by=/etc/apt/keyrings/jellyfin.gpg] https://repo.jellyfin.org/debian trixie main" > /etc/apt/sources.list.d/jellyfin.list \
  && apt-get update \
- && apt-get install -y --no-install-recommends jellyfin-ffmpeg8=8.1.3-2-trixie \
+ && apt-get install -y --no-install-recommends jellyfin-ffmpeg8=8.1.3-2-trixie fonts-dejavu-core \
  && apt-get purge -y curl gnupg && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*
 

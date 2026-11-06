@@ -485,7 +485,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
       if (slot) slot.mode = plan.mode;
       const res = await ports.streamDelivery.start(plan, a.sessionId);
       if (res.ok) return { plan, handle: res.handle };
-      if (res.code === 'STREAM_PREPARING') throw new RetryLater(res.retryAfterMs, 'The keyframe index of the file is being prepared');
+      if (res.code === 'STREAM_PREPARING') throw new RetryLater(res.retryAfterMs, 'The stream is being prepared (keyframe index or a subtitle to burn in)');
       if (res.code === 'MEDIA_UNAVAILABLE') throw new ProblemError('MEDIA_UNAVAILABLE', res.detail);
       const f = res.failure;
       const transient = notPlanFault(f);

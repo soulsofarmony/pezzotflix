@@ -15,8 +15,9 @@ import { type RunSeek, seekSeconds } from './ffmpeg-args.ts';
 import { type SegmentGrid, segmentStartMs } from './grid.ts';
 import { INIT_SEGMENT, segmentName } from './playlist.ts';
 import { type ChildLike, type KillMode, type Spawn, terminate } from './process.ts';
-import { fragmentKeyframeMs, SegmentGrouper } from './segmenter.ts';
+import { fragmentKeyframeMs, KEYFRAME_TOLERANCE_MS, SegmentGrouper } from './segmenter.ts';
 import { classifyStderr, StderrRing } from './stderr.ts';
+import type { BlameFn } from './transcode-args.ts';
 
 /** ADR 0003 D6: a request this many segments ahead of the run waits for it instead of restarting. */
 export const WAIT_WINDOW_SEGMENTS = 3;
@@ -49,8 +50,20 @@ export interface HlsStreamOptions {
   grid: SegmentGrid;
   /** Keyframe times of the index, for the pre-roll keyframe Kₖ. */
   keyframeTimes: readonly number[];
-  /** Direct Stream starts one GOP early; a Transcode with IDRs forced on the grid does not (F1b.4). */
-  preRoll: boolean;
+  /**
+   * Where a run for segment k starts. true: one GOP early, at the indexed keyframe before Bₖ (Direct Stream).
+   * 'segment': at Bₖ₋₁, one segment early, and one more per `extra` (a Transcode, whose IDRs are forced on the
+   * grid: the dropped segment warms up the encoders, so the seam is invisible). false: at Bₖ.
+   */
+  preRoll: boolean | 'segment';
+  /** The plan's mode: a restart or init mismatch excludes this mode for the file. Default direct_stream. */
+  mode?: 'direct_stream' | 'transcode';
+  /** How early before Bⱼ a boundary keyframe may be (SegmentGrouper); default the 1 ms tolerance. */
+  earlyMs?: number;
+  /** How late after Bⱼ a boundary keyframe may be (SegmentGrouper); default the 1 ms tolerance. */
+  lateMs?: number;
+  /** Who a failure blames, before the default rules (Transcode: burn-in, audio chain or video). */
+  blame?: BlameFn;
   /** ffmpeg arguments for a run that seeks (or from the start of the file: null). */
   argsFor: (seek: RunSeek | null) => string[];
   audio: PlanAudio | null;
@@ -88,7 +101,8 @@ interface Run {
   id: number;
   k: number;
   extra: number;
-  isRetry: boolean;
+  /** A retry: the segment its failure was at. Closing a later segment re-arms the automatic retry. */
+  retryOf: number | null;
   child: ChildLike;
   stderr: StderrRing;
   grouper: SegmentGrouper;
@@ -172,11 +186,16 @@ export class HlsStream {
   /** Starts the first run at segment k0 and resolves once its init segment is checked (ADR 0003 D11). */
   async start(k0: number): Promise<StartOutcome> {
     await mkdir(this.opts.dir, { recursive: true });
+    // Stopped during the mkdir (a shutdown): no run, and the directory the mkdir made goes too.
+    if (this.closed) {
+      await rm(this.opts.dir, { recursive: true, force: true, maxRetries: 3 }).catch(() => {});
+      return { ok: false, failure: this.failureRecord(null, 'no_output', { segment: null }), spawnFailed: false };
+    }
     this.lastRequested = k0;
     // A client that never asks for anything still gets its ffmpeg stopped.
     this.armIdle();
     const outcome = new Promise<StartOutcome>((resolve) => (this.startWaiter = resolve));
-    this.launch(k0, 0, false);
+    this.launch(k0, 0, null);
     const timeoutMs = this.opts.startTimeoutMs ?? 20_000;
     let timer: NodeJS.Timeout | null = null;
     const watchdog = () => {
@@ -252,8 +271,10 @@ export class HlsStream {
   private seekFor(k: number, extra: number): RunSeek | null {
     const { grid, keyframeTimes, preRoll } = this.opts;
     if (k === 0) return null;
-    if (!preRoll) {
-      const t = segmentStartMs(grid, k);
+    if (preRoll !== true) {
+      const j = preRoll === 'segment' ? k - 1 - extra : k;
+      if (j <= 0) return null;
+      const t = segmentStartMs(grid, j);
       return { seekS: t / 1000, keyframeMs: t };
     }
     // Kₖ: the indexed keyframe just before Bₖ (Cues list every keyframe; with the probe, the one found).
@@ -262,7 +283,7 @@ export class HlsStream {
     return { seekS: seekSeconds(keyframeTimes[i]!, keyframeTimes[i + 1] ?? null), keyframeMs: keyframeTimes[i]! };
   }
 
-  private launch(k: number, extra: number, isRetry: boolean): void {
+  private launch(k: number, extra: number, retryOf: number | null): void {
     // Overwrite policy: from k on, only this run's segments are served.
     for (const j of [...this.ready.keys()]) if (j >= k) void this.evict(j);
     const seek = this.seekFor(k, extra);
@@ -281,10 +302,10 @@ export class HlsStream {
       id: ++runSeq,
       k,
       extra,
-      isRetry,
+      retryOf,
       child,
       stderr,
-      grouper: new SegmentGrouper(this.opts.grid.starts, k),
+      grouper: new SegmentGrouper(this.opts.grid.starts, k, this.opts.earlyMs ?? KEYFRAME_TOLERANCE_MS, this.opts.lateMs ?? KEYFRAME_TOLERANCE_MS),
       initParts: [],
       gotInit: false,
       sink: null,
@@ -470,7 +491,7 @@ export class HlsStream {
       }
       if (this.ready.has(s.segment)) void this.evict(s.segment);
       this.ready.set(s.segment, { bytes: s.bytes, path: s.path, runId: run.id });
-      if (run.isRetry) this.retryAvailable = true;
+      if (run.retryOf !== null && s.segment > run.retryOf) this.retryAvailable = true;
       this.notify(s.segment, 'ready');
     } finally {
       if (run.closing === s.segment) run.closing = null;
@@ -531,7 +552,7 @@ export class HlsStream {
       if (j === r.closing || (j >= p && j <= p + WAIT_WINDOW_SEGMENTS)) return;
       this.detach(r, 'discard');
     }
-    this.launch(j, 0, false);
+    this.launch(j, 0, null);
   }
 
   private detach(r: Run, mode: KillMode): void {
@@ -577,7 +598,7 @@ export class HlsStream {
     if (failure.class === 'stream' && this.retryAvailable) {
       this.retryAvailable = false;
       const extra = failure.kind === 'restart_mismatch' || failure.kind === 'init_mismatch' ? run.extra + 1 : run.extra;
-      this.launch(failure.segment ?? run.k, extra, true);
+      this.launch(failure.segment ?? run.k, extra, failure.segment ?? run.k);
       return;
     }
     this.markTerminal(failure);
@@ -594,7 +615,10 @@ export class HlsStream {
     let suspect: SuspectDimension = 'unknown';
     let exclusion: PlanExclusion | null = null;
     const audio = this.opts.audio;
-    if (kind === 'aac_channel_config') {
+    const custom = run ? (this.opts.blame?.({ kind, stderrClass, stderr: stderrText }) ?? null) : null;
+    if (custom) {
+      ({ class: cls, suspect, exclusion } = custom);
+    } else if (kind === 'aac_channel_config') {
       cls = 'format';
       suspect = 'audio';
       exclusion =
@@ -603,7 +627,7 @@ export class HlsStream {
           : { dimension: 'audio', action: 'copy', codec: audio?.source.codec ?? 'aac', profile: audio?.source.profile ?? null, cause: 'server', error: kind };
     } else if (kind === 'restart_mismatch' || kind === 'init_mismatch') {
       suspect = 'video';
-      exclusion = { dimension: 'video', fileId: this.opts.fileId, mode: 'direct_stream', cause: 'server', error: kind };
+      exclusion = { dimension: 'video', fileId: this.opts.fileId, mode: this.opts.mode ?? 'direct_stream', cause: 'server', error: kind };
     } else if (kind === 'process_exit' && (stderrClass === 'encode' || stderrClass === 'filter') && audio?.action.kind === 'convert') {
       suspect = 'audio';
       exclusion = { dimension: 'audio', action: 'convert', codec: audio.action.codec, cause: 'server', error: kind };

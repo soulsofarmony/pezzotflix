@@ -2,6 +2,7 @@
 // with Cache-Control: no-store; the token is masked in the logs by the server's serializer. Bodies being
 // sent are registered with the stream, so stop and shutdown can cut them.
 import { ReadStream } from 'node:fs';
+import type { Readable } from 'node:stream';
 import { basename, dirname } from 'node:path';
 import send from '@fastify/send';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -24,6 +25,17 @@ const notReady = (reply: FastifyReply, seconds: number, what: string): ProblemEr
   void reply.header('Retry-After', String(seconds));
   return new ProblemError('STREAM_PREPARING', `${what} is not ready yet`);
 };
+
+/**
+ * A subtitle that will not come for this stream (the extraction failed for good, the sidecar conversion
+ * failed): MEDIA_UNAVAILABLE without Retry-After. Every other MEDIA_UNAVAILABLE of getSubtitle is a file
+ * briefly unreachable or not readable and carries Retry-After (contract getSubtitle 503).
+ */
+class SubtitleGone extends ProblemError {
+  constructor(detail: string) {
+    super('MEDIA_UNAVAILABLE', detail);
+  }
+}
 
 type SendOutcome = 'sent' | 'missing';
 
@@ -110,6 +122,81 @@ export function deliveryHandlers(delivery: Delivery, config: Config, now: () => 
     return delivery.resolveToken(token);
   };
 
+  /**
+   * An embedded track (ADR 0003 D12): complete → the cached file with Range; pass 1 running → one streamed
+   * response without Content-Length that grows until pass 1 ends (no bytes yet is fine: it waits), cut with
+   * an error if that pass fails; pass 1 over, merge not done → the pass-1 file; queued → 503 + Retry-After
+   * (the client's fallback, ADR 0005); failed for good → 503 MEDIA_UNAVAILABLE without Retry-After (SubtitleGone).
+   */
+  async function sendExtracted(req: FastifyRequest, reply: FastifyReply, rec: StreamRecord, track: ServedSubtitle): Promise<FastifyReply> {
+    const type = track.format === 'sup' ? 'application/octet-stream' : 'text/vtt; charset=utf-8';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const found = delivery.subtitle(rec, track);
+      switch (found.kind) {
+        case 'complete':
+        case 'partial':
+          if ((await sendFile(req, reply, rec, delivery, found.path, type)) === 'sent') return reply;
+          if (found.kind === 'complete') delivery.subtitleMissing(rec, track);
+          continue;
+        case 'growing': {
+          let body: Readable | null;
+          try {
+            body = await found.open();
+          } catch (err) {
+            // EMFILE, EACCES ...: the host's fault, not a bug (ENOENT comes back as null: the file moved).
+            throw new ProblemError('MEDIA_UNAVAILABLE', `The subtitle track is not readable (${(err as NodeJS.ErrnoException).code ?? 'error'})`);
+          }
+          if (!body) continue;
+          if (rec.abort.signal.aborted) {
+            body.destroy();
+            throw new ProblemError('SESSION_EXPIRED', 'Playback session closed or re-planned');
+          }
+          // Stop and expiry cut the response (track), which ends the read and closes the file.
+          delivery.track(rec, reply.raw);
+          reply.raw.once('close', () => body.destroy());
+          return reply.code(200).header('Cache-Control', 'no-store').type(type).send(body);
+        }
+        case 'queued':
+        case 'absent':
+          throw notReady(reply, SUBTITLE_RETRY_S, 'The subtitle track');
+        case 'failed':
+          throw new SubtitleGone('The subtitle track could not be extracted');
+      }
+    }
+    throw notReady(reply, SUBTITLE_RETRY_S, 'The subtitle track');
+  }
+
+  /** getSubtitle without its Retry-After rule. */
+  async function subtitle(req: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> {
+    const { params } = typed<'getSubtitle'>(req);
+    const rec = lookup(reply, params.sessionToken);
+    if (rec.hls?.terminal) throw streamFailed();
+    const track = findServedTrack(rec.served, params.track);
+    if (!track) throw new ProblemError('NOT_FOUND', 'No such subtitle track in this session');
+    rec.hls?.touchOther();
+    if (track.source.kind === 'embedded') return sendExtracted(req, reply, rec, track);
+    const file = await resolveMediaFile(config.LIBRARY_ROOTS, { rootName: rec.plan.file.location.rootName, relPath: track.source.relPath });
+    if (!file.ok) throw new ProblemError('MEDIA_UNAVAILABLE', file.detail);
+    if (track.format === 'sup' || track.source.format === 'vtt') {
+      const type = track.format === 'sup' ? 'application/octet-stream' : 'text/vtt; charset=utf-8';
+      if ((await sendFile(req, reply, rec, delivery, file.absPath, type)) === 'missing') throw new ProblemError('MEDIA_UNAVAILABLE', 'The subtitle file is no longer reachable');
+      return reply;
+    }
+    if (track.source.format === 'sup') throw new ProblemError('NOT_FOUND', 'No such subtitle track in this session');
+    let vtt: Buffer;
+    try {
+      vtt = await sidecarVtt(config, rec, track, file.absPath, track.source.format);
+    } catch (err) {
+      if (rec.abort.signal.aborted) throw new ProblemError('SESSION_EXPIRED', 'Playback session closed or re-planned');
+      // Cached for the stream: the same answer every time.
+      throw new SubtitleGone(`The subtitle could not be converted: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // The stream may have stopped during the conversion.
+    if (rec.abort.signal.aborted) throw new ProblemError('SESSION_EXPIRED', 'Playback session closed or re-planned');
+    delivery.track(rec, reply.raw);
+    return reply.code(200).type('text/vtt; charset=utf-8').send(vtt);
+  }
+
   return {
     async getMediaFile(req, reply) {
       const { params } = typed<'getMediaFile'>(req);
@@ -158,35 +245,12 @@ export function deliveryHandlers(delivery: Delivery, config: Config, now: () => 
     },
 
     async getSubtitle(req, reply) {
-      const { params } = typed<'getSubtitle'>(req);
-      const rec = lookup(reply, params.sessionToken);
-      if (rec.hls?.terminal) throw streamFailed();
-      const track = findServedTrack(rec.served, params.track);
-      if (!track) throw new ProblemError('NOT_FOUND', 'No such subtitle track in this session');
-      rec.hls?.touchOther();
-      if (track.source.kind === 'embedded') {
-        // F1b.4 serves the extraction while it grows; until then the client retries.
-        throw notReady(reply, SUBTITLE_RETRY_S, 'The subtitle track');
-      }
-      const file = await resolveMediaFile(config.LIBRARY_ROOTS, { rootName: rec.plan.file.location.rootName, relPath: track.source.relPath });
-      if (!file.ok) throw new ProblemError('MEDIA_UNAVAILABLE', file.detail);
-      if (track.format === 'sup' || track.source.format === 'vtt') {
-        const type = track.format === 'sup' ? 'application/octet-stream' : 'text/vtt; charset=utf-8';
-        if ((await sendFile(req, reply, rec, delivery, file.absPath, type)) === 'missing') throw new ProblemError('MEDIA_UNAVAILABLE', 'The subtitle file is no longer reachable');
-        return reply;
-      }
-      if (track.source.format === 'sup') throw new ProblemError('NOT_FOUND', 'No such subtitle track in this session');
-      let vtt: Buffer;
       try {
-        vtt = await sidecarVtt(config, rec, track, file.absPath, track.source.format);
+        return await subtitle(req, reply);
       } catch (err) {
-        if (rec.abort.signal.aborted) throw new ProblemError('SESSION_EXPIRED', 'Playback session closed or re-planned');
-        throw new ProblemError('MEDIA_UNAVAILABLE', `The subtitle could not be converted: ${err instanceof Error ? err.message : String(err)}`);
+        if (err instanceof ProblemError && err.code === 'MEDIA_UNAVAILABLE' && !(err instanceof SubtitleGone)) void reply.header('Retry-After', String(SUBTITLE_RETRY_S));
+        throw err;
       }
-      // The stream may have stopped during the conversion.
-      if (rec.abort.signal.aborted) throw new ProblemError('SESSION_EXPIRED', 'Playback session closed or re-planned');
-      delivery.track(rec, reply.raw);
-      return reply.code(200).type('text/vtt; charset=utf-8').send(vtt);
     },
   };
 }

@@ -5,9 +5,12 @@
 // - embedded and burned: nothing to do here.
 // A growing track is loaded as is; when it becomes complete (playback.subtitle_ready, or a session that reports
 // it) the selected track re-reads its url. A url answering 503 (extraction not started, ADR 0003 D12 fallback) is
-// not a failure: the renderer waits Retry-After and tries again, and the track shows "in preparazione".
+// not a failure: the renderer waits Retry-After and tries again, and the track shows "in preparazione". Except a
+// 503 MEDIA_UNAVAILABLE without Retry-After on a complete track: the extraction failed for good, so it is a
+// failure at once. A growing response cut short while its url still answers 2xx is read again, once until the
+// read delivers again or the track completes.
 import type { SessionTrack } from '../api/types.ts';
-import { parseRetryAfter, probeUrl, type UrlStatus } from './probe.ts';
+import { parseRetryAfter, problemCode, probeUrl, type UrlStatus } from './probe.ts';
 import type { Logger } from './types.ts';
 import { VttStreamParser } from './vtt.ts';
 
@@ -60,9 +63,9 @@ interface Active {
 /** An HTTP answer of the fetch fallback: its status is known, no probe needed. */
 class HttpStatusError extends Error {
   readonly status: UrlStatus;
-  constructor(status: number, retryAfterMs: number | null) {
+  constructor(status: number, retryAfterMs: number | null, code: string | null) {
     super(`HTTP ${status}`);
-    this.status = { kind: 'status', status, retryAfterMs };
+    this.status = { kind: 'status', status, retryAfterMs, code };
   }
 }
 
@@ -79,6 +82,11 @@ export class SubtitleRenderer {
   private token = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private preparing: { trackId: string; since: number } | null = null;
+  /**
+   * A growing response was cut short and read again (m4): a second cut is a failure, unless the new read
+   * delivered something or the track completed meanwhile (a server-side restart of the extraction).
+   */
+  private reloadedAfterCut = false;
 
   constructor(video: HTMLVideoElement, deps: SubtitleDeps) {
     this.video = video;
@@ -100,6 +108,7 @@ export class SubtitleRenderer {
     if (track && cur && cur.id === track.id && cur.url === track.url) {
       const wasGrowing = (this.active?.track ?? cur).availability === 'growing';
       this.selected = track;
+      if (track.availability === 'complete') this.reloadedAfterCut = false;
       if (this.active) {
         this.active.track = track;
         if (wasGrowing && track.availability === 'complete') {
@@ -125,6 +134,7 @@ export class SubtitleRenderer {
     if (!this.active || this.active.track.id !== trackId) return;
     this.active.track = track;
     this.selected = track;
+    this.reloadedAfterCut = false;
     this.deps.log('info', 'subtitle complete, reloading', { trackId });
     this.active.reload();
   }
@@ -136,6 +146,7 @@ export class SubtitleRenderer {
     this.active?.dispose();
     this.active = null;
     this.selected = null;
+    this.reloadedAfterCut = false;
     this.setPreparing(null);
   }
 
@@ -155,6 +166,11 @@ export class SubtitleRenderer {
     if (next && prev?.trackId !== next.trackId) this.deps.onPreparing?.(next.trackId, true);
   }
 
+  /** The current load delivered data (cues, or the whole file): a later cut may be read again once more. */
+  private delivered(token: number): void {
+    if (token === this.token) this.reloadedAfterCut = false;
+  }
+
   /** A load failed: a 503 waits and tries again, anything else is a failure of the track. */
   private fail(token: number, track: SessionTrack, err: unknown, known?: UrlStatus): void {
     if (token !== this.token) return;
@@ -164,10 +180,29 @@ export class SubtitleRenderer {
   private async afterFailure(token: number, track: SessionTrack, err: unknown, known?: UrlStatus): Promise<void> {
     const st = known ?? (track.url ? await probeUrl(track.url, this.fetchFn) : null);
     if (token !== this.token) return;
-    if (st?.kind === 'status' && st.status === 503 && this.wait(token, track, st.retryAfterMs)) return;
+    if (st?.kind === 'status' && st.status === 503 && !this.failedForGood(track, st) && this.wait(token, track, st.retryAfterMs)) return;
+    // A growing response cut short (probed: the url is fine) is read again, once; the loader's own status is final.
+    if (!known && st?.kind === 'status' && st.status >= 200 && st.status < 300 && track.availability === 'growing' && !this.reloadedAfterCut) {
+      this.reloadedAfterCut = true;
+      this.deps.log('info', 'subtitle response cut short, reading it again', { trackId: track.id, err: String(err) });
+      this.active?.dispose();
+      this.active = null;
+      this.load(this.selected ?? track, token);
+      return;
+    }
     this.setPreparing(null);
     this.deps.log('warn', 'subtitle load failed', { trackId: track.id, err: String(err), status: st?.kind === 'status' ? st.status : st?.kind });
     this.deps.onFailure(track.id, track.url);
+  }
+
+  /**
+   * A 503 MEDIA_UNAVAILABLE without Retry-After on a track the session reports complete: its extraction (or
+   * its sidecar conversion) failed for good (contract getSubtitle 503), so waiting would only delay the
+   * re-plan. With Retry-After (a file briefly unreachable), STREAM_PREPARING, or a growing track, it waits.
+   */
+  private failedForGood(track: SessionTrack, st: Extract<UrlStatus, { kind: 'status' }>): boolean {
+    const cur = this.selected?.id === track.id ? this.selected : track;
+    return st.code === 'MEDIA_UNAVAILABLE' && st.retryAfterMs === null && cur.availability === 'complete';
   }
 
   /** Waits Retry-After before the next try. False when the wait is over the limit. */
@@ -193,7 +228,7 @@ export class SubtitleRenderer {
     const st = track.url ? await probeUrl(track.url, this.fetchFn) : null;
     if (token !== this.token) return;
     if (st?.kind === 'status' && st.status === 503) {
-      if (!this.wait(token, track, st.retryAfterMs)) this.fail(token, track, new Error('still 503'), st);
+      if (this.failedForGood(track, st) || !this.wait(token, track, st.retryAfterMs)) this.fail(token, track, new Error('still 503'), st);
       return;
     }
     this.setPreparing(null);
@@ -206,14 +241,17 @@ export class SubtitleRenderer {
       factory = await this.deps.loadPgs();
     } catch (e) {
       // The libpgs chunk itself: the url is fine.
-      this.fail(token, track, e, { kind: 'status', status: 200, retryAfterMs: null });
+      this.fail(token, track, e, { kind: 'status', status: 200, retryAfterMs: null, code: null });
       return;
     }
     if (token !== this.token || !track.url) return;
     const video = this.video;
     const pgs = factory({ video, subUrl: track.url, timeOffset: this.offsetMs / 1000 });
     // ready resolves at the end of the file only: never awaited for a growing track, but a rejection is a failure.
-    pgs.ready.catch((e: unknown) => this.fail(token, track, e));
+    void pgs.ready.then(
+      () => this.delivered(token),
+      (e: unknown) => this.fail(token, track, e),
+    );
     let handle: number | null = null;
     let running = true;
     const loop = (_now: number, md: { mediaTime: number }) => {
@@ -272,6 +310,7 @@ export class SubtitleRenderer {
       next.label = track.title ?? track.language ?? track.id;
       next.addEventListener('load', () => {
         if (token !== this.token) return;
+        this.delivered(token);
         this.shiftCues(next.track, original);
         seen = next.track.cues?.length ?? 0;
         // The new <track> is complete: show it and drop the old one now, so there is no gap and no double cue.
@@ -296,6 +335,7 @@ export class SubtitleRenderer {
       const t = el?.track;
       const n = t?.cues?.length ?? 0;
       if (t && n !== seen) {
+        if (n > seen) this.delivered(token);
         seen = n;
         this.shiftCues(t, original);
       }
@@ -342,11 +382,12 @@ export class SubtitleRenderer {
     const load = async (url: string) => {
       const ctrl = abort;
       const res = await doFetch(url, { signal: ctrl.signal });
-      if (!res.ok || !res.body) throw new HttpStatusError(res.status, parseRetryAfter(res.headers.get('Retry-After')));
+      if (!res.ok || !res.body) throw new HttpStatusError(res.status, parseRetryAfter(res.headers.get('Retry-After')), await problemCode(res));
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       const parser = new VttStreamParser();
       const add = (cues: ReturnType<VttStreamParser['push']>) => {
         if (token !== this.token || ctrl.signal.aborted) return;
+        if (cues.length > 0) this.delivered(token);
         const off = this.offsetMs / 1000;
         for (const c of cues) {
           const cue = new VTTCue(c.startS - off, c.endS - off, c.text);

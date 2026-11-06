@@ -251,9 +251,18 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
     expect(codes(d)).toEqual(expect.arrayContaining(['dv_p5_transcode', 'transcode_limited']));
   });
 
-  it('DV P5 1080p → Transcode with tone-mapping, cause dv_p5', () => {
-    const p = plan(decide(input([file(F1, facts([dv(5, 0, { width: 1920, height: 1080 }), audio(1)]))], chrome())));
-    expect(p.video).toMatchObject({ kind: 'transcode', codec: 'h264', width: 1920, height: 1080, toneMap: 'to_sdr', causes: ['dv_p5'] });
+  it('DV P5 1080p → NO_COMPATIBLE_PLAN: the software Transcode cannot convert a base layer of no known format (m3)', () => {
+    const d = decide(input([file(F1, facts([dv(5, 0, { width: 1920, height: 1080 }), audio(1)]))], chrome()));
+    expect(d).toMatchObject({ ok: false, code: 'NO_COMPATIBLE_PLAN' });
+    expect(codes(d)).toEqual(expect.arrayContaining(['dv_p5_transcode', 'transcode_limited']));
+    expect(d.ok ? null : d.reasons.find((r) => r.code === 'transcode_limited')?.message).toBe(
+      'Dolby Vision profile 5 has no HDR10, HLG or SDR base layer: the software Transcode cannot convert it',
+    );
+  });
+
+  it('DV P8.4 (HLG base) 1080p on a client without HLG → tone-mapped Transcode: the base layer is known', () => {
+    const p = plan(decide(input([file(F1, facts([dv(8, 4, { width: 1920, height: 1080 }), audio(1)]))], { ...chrome(), hdr: [] })));
+    expect(p.video).toMatchObject({ kind: 'transcode', toneMap: 'to_sdr', causes: ['hdr_tonemap'] });
   });
 
   it('a DV client plays DV P8.1 directly (native)', () => {
@@ -401,6 +410,17 @@ describe('subtitles (doc 04 §3.1, §4.4, P3)', () => {
     expect(plan(d).mode).toBe('direct_play');
     expect(plan(d).subtitles.selected).toMatchObject({ trackId: 's2', delivery: 'client_render' });
     expect(plan(d).subtitles.served).toHaveLength(1);
+  });
+
+  it('a sidecar .sup is never burned (m6): dropped with the reason on a client without a PGS renderer, no Transcode', () => {
+    const caps = { ...chrome(), subtitles: { text: ['webvtt'], image: [] } };
+    const f = file(F1, facts([sdr1080(), aac(1, 'ita')], { sidecars: [sidecar({ id: 'x:0a0b0c0d', relPath: 'Film (2017)/Film (2017).it.sup', format: 'sup', language: 'ita' })] }));
+    const d = decide(input([f], caps, { selection: { subtitle: pick('x:0a0b0c0d') } }));
+    const p = plan(d);
+    expect(d.ok && d.droppedSubtitleTrackId).toBe('x:0a0b0c0d');
+    expect(p.mode).toBe('direct_play');
+    expect(p.subtitles.selected).toBeNull();
+    expect(p.reasons.find((r) => r.code === 'subtitle_dropped')?.message).toMatch(/A sidecar image track \(\.sup\) cannot be burned in/);
   });
 
   it('a client without a PGS renderer: PGS burned in on 1080p', () => {

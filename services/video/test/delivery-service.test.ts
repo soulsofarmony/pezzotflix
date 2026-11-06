@@ -2,7 +2,7 @@
 // tokens (404 unknown, 410 tombstone, 404 after the TTL), no-store, Direct Play with Range, the file
 // checks (MEDIA_UNAVAILABLE), STREAM_PREPARING and the urgent index job, the hls-fmp4 resources, 503 +
 // Retry-After, terminal STREAM_FAILED, subtitle locators. Library files are synthetic, in a temp dir.
-import { existsSync, mkdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { get as httpGet, type IncomingMessage } from 'node:http';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -43,6 +43,7 @@ afterAll(() => {
 
 const fakeProbe: DeliveryProbe = {
   timeline: async () => ({ startTimeMs: 0, rawDurationMs: DURATION, videoStreamIndex: 0 }),
+  streamEndMs: async () => DURATION,
   keyframesAt: async (_abs, _idx, targets) => targets.map((t) => ({ ptsMs: KEYFRAMES.filter((k) => k <= t).at(-1)!, pos: null })),
 };
 
@@ -191,10 +192,9 @@ describe('Direct Play (progressive)', () => {
     expect(r.ok ? '' : 'detail' in r ? r.detail : '').toMatch(detail);
   });
 
-  it('rejects another plan version; the Transcode tier is not here yet', async () => {
+  it('rejects another plan version', async () => {
     await open();
     await expect(h.delivery.port.start({ ...playPlan(), planVersion: 2 } as unknown as PlaybackPlan, 'sess')).rejects.toThrow(/plan version/);
-    await expect(h.delivery.port.start({ ...streamPlan('Cues/Cues.mkv'), mode: 'transcode' } as unknown as PlaybackPlan, 'sess')).rejects.toThrow(/F1b\.4/);
   });
 });
 
@@ -277,22 +277,31 @@ describe('Direct Stream (hls-fmp4) with a fake ffmpeg', () => {
     expect(runs).toHaveLength(2);
   });
 
-  it('subtitles: embedded answer 503 + Retry-After until F1b.4, a WebVTT sidecar is served as is', async () => {
+  it('subtitles: an embedded track is growing while it is extracted (delivery-extraction.test.ts), a WebVTT sidecar is served as is', async () => {
     await open();
     const handle = await startOk(streamPlan('Cues/Cues.mkv'));
     expect(handle.locators.subtitles).toEqual([
       { trackId: 's3', url: `${hlsBase(handle).replace(/hls\/$/, '')}subtitles/s3.sup`, availability: 'growing' },
       { trackId: 'x:it', url: `${hlsBase(handle).replace(/hls\/$/, '')}subtitles/x:it.vtt`, availability: 'complete' },
     ]);
-    const pgs = await get(handle.locators.subtitles[0]!.url);
-    expect(pgs.statusCode).toBe(503);
-    expect(pgs.headers['retry-after']).toBe('5');
     const vtt = await get(handle.locators.subtitles[1]!.url);
     expect(vtt.statusCode).toBe(200);
     expect(vtt.headers['content-type']).toBe('text/vtt; charset=utf-8');
     expect(vtt.body).toContain('Ciao');
     expect((await get(handle.locators.subtitles[1]!.url.replace('x:it.vtt', 'x:it.sup'))).statusCode).toBe(404);
     expect((await get(handle.locators.subtitles[1]!.url.replace('x:it.vtt', 's9.vtt'))).statusCode).toBe(404);
+    // The sidecar briefly unreachable: MEDIA_UNAVAILABLE with Retry-After, transient (contract getSubtitle 503).
+    const sidecar = join(lib, 'Cues/Cues.it.vtt');
+    renameSync(sidecar, `${sidecar}.away`);
+    try {
+      const gone = await get(handle.locators.subtitles[1]!.url);
+      expect(gone.statusCode).toBe(503);
+      expect(gone.json()).toMatchObject({ code: 'MEDIA_UNAVAILABLE' });
+      expect(gone.headers['retry-after']).toBe('5');
+    } finally {
+      renameSync(`${sidecar}.away`, sidecar);
+    }
+    expect((await get(handle.locators.subtitles[1]!.url)).statusCode).toBe(200);
   });
 
   it('an MKV without Cues: STREAM_PREPARING and an urgent index job; the job builds the index from the probe', async () => {
@@ -548,6 +557,40 @@ describe('lifecycle', () => {
     expect(await h.delivery.port.start(playPlan(), 'sess3')).toEqual({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'delivery is shutting down' });
   });
 
+  // Round 3: a shutdown at any point of a start's prelude (file check, index, scratch mkdir, spawn). Before the
+  // fix a start past its file check spawned after the shutdown and hung until its start timeout.
+  for (const [mode, wait] of [['direct_stream', 0], ['direct_stream', 1], ['direct_stream', 3], ['direct_stream', 10], ['direct_play', 0], ['direct_play', 1]] as const) {
+    it(`shutdown ${wait} ms into a ${mode} start: the start never spawns or registers after it, and settles`, async () => {
+      behaviors = [{ kind: 'hang' }];
+      await open({}, { waitMs: 2000, killGraceMs: 50, startTimeoutMs: 10_000 });
+      await startOk(streamPlan('Cues/Cues.mkv'));
+      const children: { killed: boolean }[] = [];
+      spawnOverride = () => {
+        const child = silentChild();
+        const seen = { killed: false };
+        children.push(seen);
+        const kill = child.kill.bind(child);
+        child.kill = (signal) => {
+          seen.killed = true;
+          return kill(signal);
+        };
+        return child;
+      };
+      const pending = h.delivery.port.start(mode === 'direct_play' ? playPlan() : streamPlan('Cues/Cues.mkv'), 'sess2');
+      await tick(wait);
+      const scratch = join(h.config.scratchDir, 'delivery');
+      await h.delivery.shutdown();
+      const r = await pending;
+      // Refused, or (a Direct Play whose start ended first) registered before the shutdown and stopped by it.
+      if (r.ok) expect((await h.delivery.port.status({ streamId: r.handle.streamId }))!.state).toBe('stopped');
+      else expect(r).toEqual({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'delivery is shutting down' });
+      await tick(30);
+      expect(children.every((c) => c.killed)).toBe(true);
+      expect(existsSync(scratch)).toBe(false);
+      expect(h.delivery.quotaUsed).toBe(0);
+    });
+  }
+
   it('clearScratch empties what a previous process left', async () => {
     await open();
     const old = join(h.config.scratchDir, 'delivery', 'old-stream');
@@ -571,7 +614,7 @@ describe('sidecar conversion', () => {
   write('Cues/Cues.en.srt', Buffer.from('1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n'));
   const planWithSrt = (): DirectPlayPlan => ({ ...playPlan(), subtitles: { selected: null, served: [SRT] } });
 
-  it('ffmpeg failing: 503 MEDIA_UNAVAILABLE, one conversion per track, the failure cached', async () => {
+  it('ffmpeg failing: 503 MEDIA_UNAVAILABLE without Retry-After (final), one conversion per track, the failure cached', async () => {
     await open({ FFMPEG_PATH: join(outside, 'no-ffmpeg.exe') });
     const handle = await startOk(planWithSrt());
     const url = handle.locators.subtitles[0]!.url;
@@ -579,6 +622,7 @@ describe('sidecar conversion', () => {
     for (const r of [a, b]) {
       expect(r.statusCode).toBe(503);
       expect(r.headers['cache-control']).toBe('no-store');
+      expect(r.headers['retry-after']).toBeUndefined();
       expect(r.json()).toMatchObject({ code: 'MEDIA_UNAVAILABLE' });
     }
     const rec = h.delivery.streamOf(handle.streamId)!;

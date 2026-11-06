@@ -138,6 +138,12 @@
    - Il segmenter scarta i frammenti il cui keyframe ha PTS (`tfdt` + composition offset del primo campione) < Bₖ.
    - Il raggruppamento in segmenti usa **sempre il PTS del keyframe, mai il `tfdt`**: su un GOP aperto il `tfdt` precede il PTS di 125 ms (t4).
    - **Controllo del primo keyframe tenuto:** il suo PTS si confronta con Bₖ in millisecondi sulla timeline originale, con tolleranza di 1 ms. Uno scarto è deterministico: il tentativo automatico del server (Decisione 7) riparte da un keyframe indicizzato ancora prima (due prima di Bₖ), mai con lo stesso comando. Solo se fallisce anche quello, `STREAM_FAILED`.
+   - **Transcode (F1b.4, 2026-11-06).**
+     - Un riavvio al segmento k ricodifica da **Bₖ₋₁**: un segmento di pre-roll, uno in più al tentativo automatico. Il segmenter scarta i frammenti prima di Bₖ.
+     - Senza pre-roll, all'inizio dell'esecuzione l'audio convertito aveva il frame di priming dell'AAC, con un buco di 21 ms e un click; l'audio copiato partiva dal keyframe sorgente prima di Bₖ.
+     - Gli IDR si forzano con una lista di tempi per esecuzione, non con `expr:`: dopo un seek il `t` di un'espressione conta dall'inizio dell'esecuzione.
+     - **Tolleranza sul ritardo dell'IDR:** max(1,5 frame; 250 ms), oppure 1 s se il frame rate è ignoto.
+     - **Verificato** dal segmento k, contro l'esecuzione da 0: audio convertito e copiato, GOP da 10 s, sorgente MPEG-TS, sorgente interlacciata.
    - Costo: un GOP letto in più a ogni riavvio, circa +0,2–0,4 s per seek a UHD; nel caso peggiore, con la sonda di ripiego (Kₖ = Bₖ₋₁), fino a un segmento, circa 0,5–0,7 s.
    - Comando di un'esecuzione, video copiato, su stdout:
 
@@ -199,9 +205,21 @@
       `-nostdin -readrate <r> -noaccurate_seek -ss <P> -i <file> -map 0:s:<i> -c copy -copyts -start_at_zero -flush_packets 1 -f sup <i>.sup`, una coppia `-map`/output per ogni traccia; per il testo e l'ASS `-c:s webvtt -f webvtt <i>.vtt`.
 
       Senza `-copyts` i cue finiscono sul punto di seek; senza `-flush_packets 1` il file resta vuoto fino alla fine (t3, t6).
-    - **Passaggi:** il primo va da P = max(0, X − `SUBTITLE_PREROLL_S`) alla fine, dove X è la posizione di partenza della sessione e il pre-roll vale 60 s di default. Così il cue sullo schermo a X è nel primo passaggio. Il secondo copre [0, P₁), con `-t P₁`, dove P₁ è il minimo, fra le tracce estratte, del primo PTS del primo passaggio. Se il primo passaggio è vuoto, il secondo va fino alla fine, senza `-t`. Se P = 0 basta un passaggio.
+
+      **Aggiornamento F1b.4 (2026-11-06): niente più `-readrate`.**
+      - **Perché:** ffmpeg 8 regola il passo sullo stream più lento non ancora finito. Una traccia di sottotitoli rada fa dormire la lettura a ogni cue. Misurato: 120 s di media in 232 s con readrate 10. L'estrazione restava quindi dietro la riproduzione.
+      - **Come funziona ora:**
+        - il video si copia in `framehash` su stdout;
+        - il servizio legge quell'orologio e smette di leggere stdout quando ffmpeg è avanti rispetto a R × tempo trascorso; la pipe piena ferma ffmpeg.
+      - **Misure:** su Windows e nell'immagine il passo medio è esattamente R. All'inizio di ogni passaggio la lettura va avanti di 30–46 s di media alla massima velocità (i buffer della pipe).
+      - **Watchdog:** `SUBTITLE_EXTRACT_STALL_S` (60 s) ferma un passaggio il cui orologio e i cui file non avanzano, fuori dalle pause volute. Sostituisce il timeout fisso del passaggio.
+    - **Passaggi:** il primo va da P = max(0, X − `SUBTITLE_PREROLL_S`) alla fine, dove X è la posizione di partenza della sessione e il pre-roll vale 60 s di default. Così il cue sullo schermo a X è nel primo passaggio. Il secondo copre [0, P₁), dove P₁ è il minimo, fra le tracce estratte, del primo PTS del primo passaggio. Se P = 0 basta un passaggio.
+      - **Fine del secondo passaggio (F1b.4):**
+        - con una traccia video il servizio ferma ffmpeg quando l'orologio supera P₁ + 5 s, e lo stop conta come successo; se il primo passaggio è vuoto, il limite è P;
+        - `-t P₁` resta solo per i file senza video.
+      - **Perché:** con `-t` in ingresso una traccia di testo decodificata, o una PGS rada, non finisce mai, e ffmpeg leggeva tutto il resto del file.
     - **Fusione:** concatenazione (il secondo davanti), con eliminazione dei duplicati per PTS, e rinomina atomica in `/data/cache/delivery/subtitles/<impronta>/`. Verificata identica byte per byte all'estrazione completa (t3, traccia da 10 s).
-    - **I/O:** la lettura è limitata in byte da `SUBTITLE_EXTRACT_MAX_MBPS` (default 15 MB/s), con `-readrate` = max(1,1; limite / bitrate del file).
+    - **I/O:** la lettura è limitata in byte da `SUBTITLE_EXTRACT_MAX_MBPS` (default 15 MB/s), con un passo R = max(1,1; limite / bitrate del file), regolato dal servizio come descritto sopra.
       - Il limite tiene l'estrazione sotto un terzo della capacità del bind mount NTFS (47–67 MB/s, S3). Accanto a un Direct Stream UHD (12,5–16 MB/s) restano circa 16–36 MB/s per i picchi di un seek.
       - Su un file oltre 13,6 MB/s (circa 110 Mbps) vale il minimo di 1,1×, quindi il limite viene superato di poco: l'estrazione deve restare davanti alla riproduzione.
       - La latenza di un seek durante un'estrazione sul bind mount reale non è misurata.
@@ -210,15 +228,27 @@
       - `switchWithoutRestart` riguarda solo lo stream: è true per una traccia `client_render` o `sidecar` che ha un URL;
       - lo stato dell'estrazione sta nel nuovo campo `availability` della traccia: `growing` mentre si estrae, `complete` dopo.
     - **Durante l'estrazione** l'URL della traccia è una sola risposta in streaming, senza `Content-Length`, che cresce fino alla fine del primo passaggio.
-    - **Estrazione in coda:** per una traccia `growing` la cui estrazione non è ancora partita, l'URL tiene aperta la risposta senza byte finché l'estrazione parte. Da verificare in F1c: libpgs e `<track>` devono tollerare un primo byte lento; ripiego: `503` con `Retry-After` sull'URL del sottotitolo.
+    - **Estrazione in coda:** l'URL risponde `503 STREAM_PREPARING` con `Retry-After`. Era il ripiego previsto; adottato in F1b.4, perché il web client aspetta già i `503`.
+    - **Code:**
+      - un'estrazione alla volta per tutti i file;
+      - un primo passaggio passa davanti ai secondi passaggi in coda e ferma quello in corso;
+      - l'estrazione che serve a un burn-in ha un posto suo, senza limite di lettura.
     - **Fine dell'estrazione:** il server pubblica l'evento `playback.subtitle_ready` (sessione, traccia) nel polling degli eventi (`listEvents`), la chiamata periodica che il client fa già. L'estrazione è per file e condivisa: l'evento esce per ogni sessione attiva su quel file, con il `sessionId` attuale di quella sessione. `reportProgress` risponde `204` senza corpo, e dargli un corpo non sarebbe additivo. Il client allora rilegge l'URL, che serve il file completo con Range (ADR 0005).
-    - I `.srt` esterni si convertono alla richiesta.
-    - `SUBTITLE_PREEXTRACT` (default `off`) abilita l'estrazione all'ingest.
+    - **Fallimenti (F1b.4):**
+      - se fallisce il secondo passaggio, si serve il primo e il secondo si ritenta;
+      - se si rinuncia al secondo passaggio, il primo si salva in cache come parziale, con un file marcatore accanto: si serve, e dopo il TTL dei fallimenti un nuovo avvio lo estrae di nuovo;
+      - se fallisce il primo passaggio, la traccia passa a `complete` con l'evento, e l'URL risponde `503 MEDIA_UNAVAILABLE`;
+      - un nuovo avvio che seleziona quella traccia la esclude subito, con una ripianificazione;
+      - **Fallimento definitivo o transitorio:**
+        - un `503 MEDIA_UNAVAILABLE` **senza** `Retry-After` vuol dire estrazione fallita per sempre: su una traccia `complete` il web client lo tratta subito come fallimento;
+        - con `Retry-After` è un errore transitorio di un file (radice irraggiungibile, troppi file aperti), e il client riprova.
+    - I `.srt` esterni si convertono alla richiesta. La codifica si ricava dai byte: UTF-8 se almeno il 90% delle sequenze multibyte è valido, altrimenti CP1252.
+    - `SUBTITLE_PREEXTRACT` (default `off`) abilita l'estrazione all'ingest. In F1b.4 toglie solo la cancellazione delle estrazioni avviate; il job di ingest non c'è ancora.
 13. **Dolby Vision verso il browser:**
     - P8.1 copiato com'è, con `hvc1`;
     - P7 con `-bsf:v hevc_metadata=remove_dovi=1` e `hvc1`: regola provvisoria finché H11 non è misurata, dichiarata nei motivi della sessione;
     - mai `-strict unofficial`, mai un box DV;
-    - P5 → Transcode, che per il 4K dà `NO_COMPATIBLE_PLAN` (P2).
+    - P5, e ogni DV senza un base layer HDR10, HLG o SDR (anche con base ignota) → `NO_COMPATIBLE_PLAN`, a ogni risoluzione: il tone-map HDR10 darebbe colori sbagliati (F1b.4).
 14. **Buffer del browser:** `BANDWIDTH` e `AVERAGE-BANDWIDTH` nella playlist, più il campo additivo `stream.bitrate { peakBps, averageBps, audioBps }` nella sessione, per il limite audio di 12 MiB.
 15. **Librerie:** nessuna nuova.
     - Lettore di box ISO-BMFF, parser EBML dei Cues e writer delle playlist scritti a mano, con test su fixture generate da ffmpeg.
@@ -226,7 +256,7 @@
 16. **Configurazione nuova** (ADR 0006):
     - `HLS_SEGMENT_TARGET_S=4`, `HLS_SEGMENT_MAX_S=6`, `HLS_SEGMENT_MAX_BYTES=32MiB`;
     - `DELIVERY_AHEAD_S=30`, `DELIVERY_BEHIND_S=30`, `DELIVERY_IDLE_KILL_S=120`;
-    - `SUBTITLE_EXTRACT_MAX_MBPS=15`, `SUBTITLE_PREROLL_S=60`, `SUBTITLE_PREEXTRACT=off`, `SUBTITLE_CACHE_MAX_BYTES=20GB`.
+    - `SUBTITLE_EXTRACT_MAX_MBPS=15`, `SUBTITLE_PREROLL_S=60`, `SUBTITLE_PREEXTRACT=off`, `SUBTITLE_CACHE_MAX_BYTES=20GB`, `SUBTITLE_EXTRACT_STALL_S=60` (F1b.4).
 
 **Runner-up:**
 - protocollo: DASH CMAF;

@@ -57,6 +57,20 @@ Precisazioni decise in F1b (2026-11-05, orchestratore su delega):
 - **L'ultima scelta è morbida.** Passa dalle stesse regole delle preferenze (commento in fondo, fallback di P1) e non fa mai fallire il piano. Una scelta che il profilo non ha mai fatto non viene ricordata: "sconosciuta" non vuol dire "spenta".
 - **Sottotitoli "spenti" per un titolo** (scelta esplicita o ricordata) vuol dire niente sottotitoli completi. La traccia forced nella lingua dell'audio resta, come in "solo forced", perché fa parte del film (dialoghi in un'altra lingua). La modalità "off" del profilo non cambia.
 
+Precisazioni decise in F1b.4 (2026-11-06, orchestratore su delega):
+- **Transcode software fino a 1080p.**
+  - Encoder: libx264 veryfast, CRF 21 con un tetto di bitrate (VBV), livello H.264 dalla tabella.
+  - HDR → SDR: zscale e tonemap hable, poi bt709.
+  - Deinterlacciamento `bwdif`, solo sui frame marcati come interlacciati.
+  - IDR forzati sulla griglia da 4 s.
+  - Riavvio con un segmento di pre-roll (ADR 0003, decisione 4).
+- **Burn-in.**
+  - PGS con un overlay.
+  - Testo con libass, su un file ASS già estratto.
+  - Un sidecar `.sup` non si imprime: il motore non lo pianifica.
+  - Nel burn-in di un ASS interno al file mancano i font allegati all'MKV (lacuna nota).
+- **Un sottotitolo interno fallito** sul server esclude la traccia al successivo avvio che la seleziona, con una ripianificazione immediata.
+
 ---
 
 ## 4. Regole per dimensione
@@ -81,7 +95,7 @@ Precisazioni decise in F1b (2026-11-05, orchestratore su delega):
 | HDR10 su client HDR | nessuna: la segnalazione HDR (BT.2020/PQ) resta nella copia, in MKV e in fMP4 ([H3 ✅](../spikes/S2-browser-playback.md)). I metadata statici nel bitstream (SEI) restano; i box `mdcv`/`clli` dell'fMP4 ci sono solo se il container sorgente li porta |
 | **Dolby Vision profilo 7** (UHD Blu-ray) | La maggior parte dei device riproduce il **base layer HDR10** ignorando l'enhancement layer. Default: servire il file com'è, con fallback HDR10. Conversione in DV profilo 8.1 durante lo stream = evoluzione futura **[H4]** |
 | DV profilo 5/8 | DV se supportato, altrimenti HDR10/SDR secondo la compatibilità del base layer |
-| **Dolby Vision nel browser** | Nessun browser riproduce DV ([S2](../spikes/S2-browser-playback.md)): con il tag `dvh1` lo stream viene rifiutato.<br>- **P8.1:** si serve come HDR10 con il tag `hvc1`, video copiato e RPU nel flusso, senza box DV (misurato in S2).<br>- **P7:** non misurato, manca un sample (S1). Regola provvisoria **[H11]**, come fa Jellyfin per i client solo HDR10: si tolgono i layer DV (RPU ed EL) con un filtro di bitstream, senza ricodificare il video: `hevc_metadata=remove_dovi=1` di jellyfin-ffmpeg (l'opzione c'è nell'immagine; l'effetto su un P7 è da verificare). `dovi_rpu=strip=1` di FFmpeg non basta: toglie solo l'ultima unità NAL e lascia l'EL. Poi si serve come HDR10 con `hvc1`.<br>- Verso il browser **mai** `-strict unofficial` né un box DV.<br>- Un MKV con DV non va in Direct Play nel browser finché non è misurato (§4.1).<br>- **P5:** non ha un base layer compatibile: serve un Transcode, che per il 4K nell'MVP non c'è (P2).<br>Un errore fatale MSE porta alla ripianificazione (§8) e, per il 4K, a `NO_COMPATIBLE_PLAN` (P2) |
+| **Dolby Vision nel browser** | Nessun browser riproduce DV ([S2](../spikes/S2-browser-playback.md)): con il tag `dvh1` lo stream viene rifiutato.<br>- **P8.1:** si serve come HDR10 con il tag `hvc1`, video copiato e RPU nel flusso, senza box DV (misurato in S2).<br>- **P7:** non misurato, manca un sample (S1). Regola provvisoria **[H11]**, come fa Jellyfin per i client solo HDR10: si tolgono i layer DV (RPU ed EL) con un filtro di bitstream, senza ricodificare il video: `hevc_metadata=remove_dovi=1` di jellyfin-ffmpeg (l'opzione c'è nell'immagine; l'effetto su un P7 è da verificare). `dovi_rpu=strip=1` di FFmpeg non basta: toglie solo l'ultima unità NAL e lascia l'EL. Poi si serve come HDR10 con `hvc1`.<br>- Verso il browser **mai** `-strict unofficial` né un box DV.<br>- Un MKV con DV non va in Direct Play nel browser finché non è misurato (§4.1).<br>- **P5:** non ha un base layer compatibile: serve un Transcode, che per il 4K nell'MVP non c'è (P2). Da F1b.4 vale a ogni risoluzione: un DV senza base HDR10, HLG o SDR, anche con base ignota, dà `NO_COMPATIBLE_PLAN`, perché il tone-map HDR10 darebbe colori sbagliati.<br>Un errore fatale MSE porta alla ripianificazione (§8) e, per il 4K, a `NO_COMPATIBLE_PLAN` (P2) |
 | Risoluzione > max del client | Transcode con downscale, **oppure** scelta di un altro file dell'item (D2), preferibile |
 
 ### 4.3 Audio — scala di qualità

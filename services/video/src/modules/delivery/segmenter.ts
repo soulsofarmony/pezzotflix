@@ -33,18 +33,22 @@ export type SegmentDecision =
  * - A run for k > 0 discards fragments whose keyframe is before Bₖ; its first kept keyframe must be Bₖ.
  * - Later keyframes open segment j+1 exactly at Bⱼ₊₁; a keyframe past a boundary that never came means
  *   the index and the stream disagree.
+ * - lateMs: how far after Bⱼ a boundary keyframe may be. Direct Stream boundaries are indexed keyframes
+ *   (tolerance only); a Transcode forces its IDR on the first frame at or after Bⱼ, up to a frame late.
  */
 export class SegmentGrouper {
   private cur: number | null = null;
   private readonly starts: readonly number[];
   private readonly k: number;
   private readonly tol: number;
+  private readonly late: number;
 
-  constructor(starts: readonly number[], startSegment: number, toleranceMs = KEYFRAME_TOLERANCE_MS) {
+  constructor(starts: readonly number[], startSegment: number, toleranceMs = KEYFRAME_TOLERANCE_MS, lateMs = toleranceMs) {
     if (startSegment < 0 || startSegment >= starts.length) throw new RangeError(`segment ${startSegment} out of range`);
     this.starts = starts;
     this.k = startSegment;
     this.tol = toleranceMs;
+    this.late = Math.max(toleranceMs, lateMs);
   }
 
   /** Segment receiving fragments, null while still in the pre-roll. */
@@ -62,14 +66,14 @@ export class SegmentGrouper {
       }
       const b = this.starts[this.k]!;
       if (keyframeMs < b - this.tol) return { action: 'discard' };
-      if (Math.abs(keyframeMs - b) > this.tol) return { action: 'mismatch', segment: this.k, keyframeMs, expectedMs: b };
+      if (keyframeMs - b > this.late) return { action: 'mismatch', segment: this.k, keyframeMs, expectedMs: b };
       this.cur = this.k;
       return { action: 'open', segment: this.k, closes: null };
     }
     if (keyframeMs === null) return { action: 'append', segment: this.cur };
     const next = this.cur + 1;
     if (next < this.starts.length && keyframeMs >= this.starts[next]! - this.tol) {
-      if (Math.abs(keyframeMs - this.starts[next]!) > this.tol) {
+      if (keyframeMs - this.starts[next]! > this.late) {
         return { action: 'mismatch', segment: next, keyframeMs, expectedMs: this.starts[next]! };
       }
       const closes = this.cur;

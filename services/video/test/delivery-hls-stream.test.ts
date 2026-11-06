@@ -274,6 +274,38 @@ describe('HlsStream', () => {
     expect(spawned).toBe(2);
   });
 
+  it('pre-roll by segment (Transcode): a restart at k runs from Bₖ₋₁ and drops it; a mismatch retries one more segment earlier', async () => {
+    const { s, runs } = stream([{ kind: 'ok' }, { kind: 'shift', ms: 500 }, { kind: 'ok' }], { aheadMs: 8000, preRoll: 'segment' });
+    await s.start(0);
+    await s.request(0);
+    expect(await s.request(10)).toBe('ready');
+    // B₉ = 36 s, then B₈ = 32 s after the mismatch at B₁₀.
+    expect(runs.map((r) => r.seek)).toEqual([null, 36, 32]);
+    expect(s.isReady(9)).toBe(false);
+    expect(s.isReady(8)).toBe(false);
+    expect(s.failure).toMatchObject({ kind: 'restart_mismatch', segment: 10 });
+    // k = 1: the pre-roll segment is the start of the file, no seek.
+    const { s: s1, runs: r1 } = stream([{ kind: 'ok' }], { preRoll: 'segment' });
+    await s1.start(1);
+    expect(r1.map((r) => r.seek)).toEqual([null]);
+    expect(await s1.request(1)).toBe('ready');
+    expect(s1.isReady(0)).toBe(false);
+  });
+
+  it('a retry that only produces the segment it failed at again does not re-arm the retry (T1: no endless restarts)', async () => {
+    // The stream ends at 50 s, in segment 12 of a 60 s grid: each run ends "before the last segment".
+    const short = fakeFfmpeg(KEYFRAMES.filter((k) => k < 50_000), 50_000, [{ kind: 'ok' }]);
+    const { s } = stream([{ kind: 'ok' }], { spawn: short.spawn, aheadMs: 120_000 });
+    await s.start(0);
+    expect(await s.request(12)).toBe('ready');
+    expect(await s.request(13)).toBe('failed');
+    await tick(100);
+    // The restart at 12, then one retry at 12 that closes 12 again: no third attempt (it used to loop).
+    expect(short.runs.map((r) => r.seek)).toEqual([null, 46.135, 46.135]);
+    expect(s.terminal).toBe(true);
+    expect(s.failure).toMatchObject({ kind: 'process_exit', segment: 12, terminal: true });
+  });
+
   it('stop removes the scratch and later requests answer gone', async () => {
     const { s } = stream([{ kind: 'ok' }]);
     await s.start(0);

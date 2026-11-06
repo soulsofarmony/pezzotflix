@@ -27,6 +27,7 @@ function probeOver(keyframes: number[], rawDurationMs: number | null) {
   const calls = { targets: 0 };
   const probe: DeliveryProbe = {
     timeline: async () => ({ startTimeMs: 0, rawDurationMs, videoStreamIndex: 0 }),
+    streamEndMs: async () => rawDurationMs,
     keyframesAt: async (_abs, _idx, targets) => {
       calls.targets += targets.length;
       const out: { ptsMs: number; pos: number | null }[] = [];

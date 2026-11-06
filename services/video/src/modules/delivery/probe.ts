@@ -35,7 +35,16 @@ export interface DeliveryProbe {
    * they are read in overlapping windows from the first target to the last, every keyframe of the range.
    */
   keyframesAt(absPath: string, streamIndex: number, targetsMs: readonly number[], opts: KeyframeProbeOptions, signal?: AbortSignal): Promise<ProbedKeyframe[]>;
+  /**
+   * End of a stream (absolute ms: PTS + duration of its last packet), read backwards from `nearMs` (the
+   * container's end, absolute) in growing windows, the whole file last; null when it has no timed packet.
+   * A video stream may end seconds before the container (the audio runs on).
+   */
+  streamEndMs(absPath: string, streamIndex: number, nearMs: number | null, signal?: AbortSignal): Promise<number | null>;
 }
+
+/** Windows read before the container's end, looking for a stream's last packet. */
+const END_WINDOWS_MS = [10_000, 40_000, 160_000, 640_000];
 
 /** Containers whose seek lands on a keyframe (indexed seeking). */
 export const SEEKS_TO_KEYFRAME = new Set(['matroska', 'webm', 'mp4', 'mov']);
@@ -53,6 +62,10 @@ const PacketsJson = z.looseObject({
   packets: z.array(z.looseObject({ pts_time: num.optional(), pos: num.optional(), flags: z.string().optional() })).default([]),
 });
 
+const EndPacketsJson = z.looseObject({
+  packets: z.array(z.looseObject({ pts_time: num.optional(), duration_time: num.optional() })).default([]),
+});
+
 /** Bytes one ffprobe call should read at most; batches and windows are sized from the bitrate. */
 const CALL_BUDGET_BYTES = 512 * 1024 * 1024;
 /** Slowest read rate assumed for the timeout (an NTFS bind mount under load). */
@@ -66,12 +79,37 @@ const SEEK_READ_S = 0.5;
 
 const callTimeoutMs = (bytes: number): number => 60_000 + Math.ceil((bytes / MIN_READ_BYTES_PER_S) * 1000);
 
+/**
+ * ffprobe's message for an input it cannot open (libavformat prints `<url>: <strerror>`), by errno code: the
+ * callers tell a file error (MEDIA_UNAVAILABLE) from a broken stream by the code, as for their own fs calls.
+ */
+const OPEN_ERRORS: ReadonlyArray<readonly [string, string]> = [
+  ['No such file or directory', 'ENOENT'],
+  ['Permission denied', 'EACCES'],
+  ['Operation not permitted', 'EPERM'],
+  ['Not a directory', 'ENOTDIR'],
+  ['Input/output error', 'EIO'],
+  ['Device or resource busy', 'EBUSY'],
+  ['Too many open files', 'EMFILE'],
+];
+
+/** The errno code of an input ffprobe could not open, from its stderr lines; null when it is something else. */
+export function openErrorCode(stderr: string): string | null {
+  for (const line of stderr.split(/\r?\n/)) {
+    for (const [message, code] of OPEN_ERRORS) if (line.trimEnd().endsWith(`: ${message}`)) return code;
+  }
+  return null;
+}
+
 function describe(err: unknown, what: string): Error {
   if (err instanceof ExecaError) {
     const why = err.timedOut ? 'timed out' : err.isCanceled ? 'canceled' : `exit ${err.exitCode ?? err.signal ?? '?'}`;
     const raw: unknown = err.stderr;
     const stderr = typeof raw === 'string' ? raw.split(/\r?\n/).filter(Boolean).slice(-3).join(' | ') : '';
-    return new Error(`${what}: ffprobe ${why}${stderr ? `: ${stderr.slice(0, 400)}` : ''}`);
+    const out = new Error(`${what}: ffprobe ${why}${stderr ? `: ${stderr.slice(0, 400)}` : ''}`);
+    // Only an ffprobe that ran and exited: a missing ffprobe binary (spawn ENOENT) is not a file error.
+    const code = typeof err.exitCode === 'number' && !err.timedOut && !err.isCanceled && typeof raw === 'string' ? openErrorCode(raw) : null;
+    return code ? Object.assign(out, { code }) : out;
   }
   return err instanceof Error ? err : new Error(String(err));
 }
@@ -157,6 +195,34 @@ export function createDeliveryProbe(ffprobePath: string, opts: { timeoutMs?: num
       for (const [ptsMs, pos] of seen) out.push({ ptsMs, pos });
       out.sort((a, b) => a.ptsMs - b.ptsMs);
       return out;
+    },
+    async streamEndMs(absPath, streamIndex, nearMs, signal) {
+      const endOf = async (interval: string | null, timeout: number): Promise<number | null> => {
+        const json = EndPacketsJson.parse(
+          await run(
+            ['-v', 'error', '-select_streams', String(streamIndex), ...(interval ? ['-read_intervals', interval] : []), '-show_entries', 'packet=pts_time,duration_time', '-of', 'json', '-i', `file:${absPath}`],
+            signal,
+            'stream end probe',
+            timeout,
+          ),
+        );
+        let end: number | null = null;
+        for (const p of json.packets) {
+          if (!Number.isFinite(p.pts_time)) continue;
+          const e = p.pts_time! + (Number.isFinite(p.duration_time) ? p.duration_time! : 0);
+          if (end === null || e > end) end = e;
+        }
+        return end === null ? null : Math.round(end * 1e6) / 1e3;
+      };
+      if (nearMs !== null && Number.isFinite(nearMs)) {
+        for (const w of END_WINDOWS_MS) {
+          const from = nearMs - w;
+          if (from <= 0) break;
+          const found = await endOf(`${(from / 1000).toFixed(6)}%`, callTimeoutMs((DEFAULT_BITRATE_BPS / 8) * (w / 1000)));
+          if (found !== null) return found;
+        }
+      }
+      return endOf(null, opts.timeoutMs ?? 600_000);
     },
   };
 }
