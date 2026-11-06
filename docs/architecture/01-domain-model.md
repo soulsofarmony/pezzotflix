@@ -198,6 +198,11 @@ missing ──(oltre periodo di grazia, o rimozione esplicita)──→ removed
 - **File scomparso ≠ contenuto cancellato.** Un disco scollegato o un NAS offline non deve cancellare catalogo, metadata, correzioni manuali o progress. L'item diventa "non disponibile".
 - **File spostato o rinominato:** riconosciuto tramite fingerprint. Path aggiornato, link e stato preservati.
 - **File sostituito** (nuovo remux dello stesso film): nuovo MediaFile. Se viene collegato allo stesso item, il progress resta valido (vedi §7.2).
+- **Contenuto cambiato allo stesso path** (F2, 2026-11-06):
+  - se i file cambiati si sono scambiati i contenuti fra loro (fingerprint uguali), le righe si spostano come per un rename;
+  - altrimenti il file viene identificato di nuovo. I collegamenti automatici si sostituiscono solo quando c'è un risultato nuovo: con i provider irraggiungibili restano quelli vecchi. Quelli manuali restano sempre;
+  - un extra tiene il suo item;
+  - un file toccato (mtime diversa, stessa dimensione) di cui non si riesce a leggere la fingerprint resta com'è, e la scansione successiva riprova.
 
 ---
 

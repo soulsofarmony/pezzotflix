@@ -71,6 +71,21 @@ Film/
   - stanno nella stessa cartella, con un suffisso dopo ` - ` (`2160p`, `1080p`, `3D`…);
   - il nome deve iniziare **esattamente** come la cartella (lo richiede Jellyfin per raggruppare le versioni);
   - il suffisso è informativo: le caratteristiche tecniche vere le legge il Media Analyzer dal file.
+- **Quale cartella è la cartella dell'item** (lettura, F2, 2026-11-06). Lo standard vuole cartella e file con lo stesso nome. In lettura Pezzotflix è tollerante, ma **non lega mai fra loro titoli diversi**: nel dubbio lascia l'anno vuoto o manda il file in "Da verificare". La cartella che contiene il file è la cartella dell'item solo se vale una di queste condizioni (le cartelle generiche in cima, come `Film/`, non contano):
+  - il nome del file inizia con il nome intero della cartella, parentesi e tag compresi (`Dune (2021)/Dune (2021) - 2160p.mkv`);
+  - i due titoli sono uguali a meno di maiuscole, accenti, punteggiatura e di un articolo iniziale, senza anni o ID in conflitto (`Matrix (1999)/The.Matrix.1999….mkv`);
+  - il file non ha un nome proprio (`title_t00.mkv` di MakeMKV e simili);
+  - il titolo del file continua quello della cartella dopo una parola o ` - `, il file porta **il suo anno, uguale a quello della cartella**, e la cartella ha titolo e anno o un ID (`Il Signore degli Anelli (2001)/Il Signore degli Anelli - La Compagnia dell'Anello (2001) - Extended.mkv`).
+
+  Una cartella senza anno né ID (collezione o genere: `Alien/`, `Il Signore degli Anelli/`, `Sci-fi/`, `UHD/`) non è mai la cartella di un item, a meno che il titolo sia lo stesso.
+- **Anno preso dalla cartella.** Un file che non sta nella sua cartella tiene il suo titolo. Prende l'anno della cartella solo se valgono tutte queste condizioni:
+  - il file non ha un anno suo;
+  - i titoli sono chiaramente diversi, cioè un nome tradotto (somiglianza sotto 0,6 con la normalizzazione del matcher): `Le Iene (1992)/Reservoir Dogs.mkv`;
+  - nessuno dei due titoli continua l'altro;
+  - gli ID non sono in conflitto.
+
+  Altrimenti l'anno resta vuoto e vale la regola dei nomi senza anno: candidato unico, oppure "Da verificare" (D6). Così un seguito nella cartella del primo film (`Alien (1979)/Aliens.mkv`) non viene abbinato al primo film. **Consiglio:** quando il nome del file è diverso da quello della cartella, mettete l'anno anche nel file.
+- **Correzioni che passano da un file all'altro.** Un file eredita l'identificazione di un altro file della stessa cartella solo se i due hanno lo stesso titolo normalizzato e, per i film, nessun anno diverso. Due film dello stesso anno in una cartella col titolo di base (`Che (2008)/Che - L'argentino (2008).mkv` e `Che - Guerriglia (2008).mkv`) restano due item.
 - **Caratteri speciali:**
   - i caratteri non ammessi dal filesystem (`: ? * " < > | / \`) si sostituiscono con ` - ` o si omettono, ad esempio `Mission - Impossible (1996)`;
   - gli articoli restano al loro posto, ad esempio `Il Buono, il Brutto, il Cattivo (1966)`.
@@ -88,6 +103,11 @@ Film/
 ```
 
 - L'etichetta è **testo libero** e diventa `editionLabel`. Plex accetta al massimo 32 caratteri.
+- **Edizioni e versioni nel suffisso** (lettura, F2, 2026-11-06). Senza `{edition-…}`, il suffisso dopo ` - ` decide così, dentro e fuori dalla cartella dell'item:
+  - **un taglio** fa un item a sé, anche nella stessa cartella delle versioni: Director's Cut, Extended (Edition, Cut), Theatrical, Final Cut, Assembly Cut, Special Edition, Unrated, Uncut, Versione Integrale, Versione estesa, Black and Chrome, Black and White. Tagli diversi hanno durate diverse, e la ripresa vale per item: unirli farebbe ripartire dalla scena sbagliata;
+  - **una parola di release** fa una versione dello stesso item: Remastered, IMAX, Criterion, risoluzione e HDR (`2160p`, `4K`, `HDR10`, `DV`…), sorgente e codec (`BluRay`, `Remux`, `HEVC`…), lingue, `3D` e ogni parola fuori dal vocabolario;
+  - `{edition-…}` resta la forma consigliata e può imporre qualunque etichetta, anche `{edition-IMAX}`;
+  - se il file nomina un taglio, vince sull'edizione della cartella.
 
 ### 3.3 ID esterno (opzionale)
 
@@ -136,6 +156,7 @@ Serie/
   - **Multi-episodio** (un file con due episodi consecutivi): `S01E02-E03`.
 - **Coerenza stagione/cartella:** il numero di stagione nel nome deve coincidere con la cartella; altrimenti viene registrato l'avviso `season_dir_mismatch` (§7.2).
   - Eccezione: in `Season 00` la stagione del file non viene controllata. Il parser di S4 si comporta già così.
+- **Cartella della serie in lettura** (F2, 2026-11-06): è la cartella sopra la cartella della stagione. Senza cartella della stagione, la cartella del file conta solo se nomina la stessa serie, o se il file non nomina nessuna serie (`Dark (2017)/S01E01.mkv`). Un titolo più lungo nel file resta il nome della sua serie e passa dai metadata: uno spin-off nella cartella della serie madre (`CSI (2000)/CSI - Miami - S01E01.mkv`) non viene mai unito alla serie della cartella. Lo stesso vale per un sottotitolo italiano nel nome (`Band of Brothers - Fratelli al fronte - S01E01.mkv`). L'anno segue la regola dell'anno preso dalla cartella (§3.1).
 - **Da evitare nei nomi dei file:** `1x02`, "Stagione 1 Episodio 2", "Puntata 3" e numeri nudi. Pezzotflix prova a leggerli, ma non è garantito: in S4 "Puntata" non viene riconosciuta.
 
 ---
@@ -167,6 +188,9 @@ Film/Blade Runner 2049 (2017)/
 
 - Il nome del file dell'extra è il suo **titolo visualizzato**.
 - **In alternativa**, i suffissi in stile Plex nella cartella dell'item: `Titolo (Anno)-trailer.mkv`, `-featurette`, `-behindthescenes`, `-deleted`, `-interview`, `-scene`, `-short`, `-other`. In questo caso il titolo visualizzato è l'etichetta del tipo ("Trailer"); se più extra hanno lo stesso tipo, si numerano.
+  - In lettura (F2) un extra con suffisso e un nome qualunque (`Avatar (2009)/Teaser-trailer.mkv`) appartiene alla cartella, se è la cartella di un item (titolo con anno o ID). Fa eccezione un nome con un anno o un ID suo, diverso da quello della cartella.
+  - Fuori dalla cartella di un item (`Sci-fi/Alien (1979)-trailer.mkv`) l'extra si identifica dal suo nome.
+  - L'extra va all'item della cartella attraverso il file che ha il titolo della cartella. Se nella cartella ci sono solo film con titoli diversi (`Che (2008)/`), l'extra passa dai metadata o va in "Da verificare".
 - **Extra di una serie:**
   - nella cartella della serie, se riguardano tutta la serie;
   - nella cartella della stagione, se riguardano una sola stagione.

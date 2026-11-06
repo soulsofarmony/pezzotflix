@@ -98,10 +98,10 @@ Il dimensionamento è di qualche migliaio di item, un nodo e un solo processo sc
    - claim atomico con `UPDATE … RETURNING`;
    - `job.run_at` è l'**unica** fonte del prossimo tentativo (backoff, `Retry-After`, provider non disponibile). `identification_case` non ha un proprio `not_before`;
    - concorrenza per tipo e trigger periodici nel Job Runner (ADR 0001, regola 6);
-   - all'avvio i job `running` tornano `queued` (doc 02 §7).
+   - all'avvio i job `running` tornano `queued` (doc 02 §7). Da F2 il job porta un segno di interruzione: fallisce solo se viene interrotto **due volte di fila**, così un job che fa cadere il servizio non lo riavvia in loop.
 7. **Eventi per il polling:**
    - tabella `domain_event` con id intero monotono, che fa da cursore di `GET /video/api/v1/events?cursor=` (ADR 0004), e retention di 7 giorni;
-   - un cursore più vecchio della retention riceve `CURSOR_EXPIRED` (HTTP 410), e il client si risincronizza rileggendo lo stato.
+   - un cursore più vecchio della retention riceve `CURSOR_EXPIRED` (HTTP 410), e il client si risincronizza rileggendo lo stato. Da F2 lo stesso `410` arriva anche per un cursore **più avanti** dell'ultimo evento (database ripristinato da un backup) e quando la retention ha tolto tutti gli eventi.
 8. **Ricerca:** tabella virtuale FTS5 `catalog_search` (titolo localizzato e originale, tokenizer `unicode61 remove_diacritics 2`), aggiornata dal Catalog nella stessa transazione della modifica (punto 4).
 9. **Paginazione:** keyset (chiave d'ordinamento + id), mai `OFFSET`. Il cursore opaco è codificato dall'API.
 10. **Backup:**
@@ -112,6 +112,12 @@ Il dimensionamento è di qualche migliaio di item, un nodo e un solo processo sc
     - un test Vitest copre backup, riapertura e integrity check;
     - **limite noto:** su Docker Desktop `video-backup` sta nello stesso disco virtuale WSL (vhdx) di `video-db`. Il backup protegge da corruzione ed errori applicativi, **non** dalla perdita del disco. Un backup fuori dall'host avrà una sua ADR;
     - nell'MVP il backup copre **solo il database**: l'artwork caricato dal proprietario (`video-artwork`) non ha backup.
+    - **Come è implementato (F2, 2026-11-06):**
+      - **copia giornaliera:** un controllo ogni ora, e all'avvio, la fa quando l'ultima copia ha più di 23 ore. Viene scritta come `.tmp`, verificata con `integrity_check` in un worker thread (ADR 0001, regola 5) e poi rinominata in `video-<data UTC>.db`. Una copia che fallisce il controllo viene cancellata e scritta nel log come errore. La copia è in `journal_mode=DELETE`, quindi il ripristino è un solo file;
+      - **retention:** 7 giornaliere e 4 settimanali, contate sui giorni e sulle settimane che hanno una copia (settimana da lunedì, UTC). Una copia datata nel futuro (orologio spostato) non blocca i backup e non viene cancellata;
+      - **prima di una migrazione:** una copia `pre-migrate-<data>.db` solo se c'è una migrazione da applicare, tenendo le ultime 3. Prima di F2 se ne faceva una a ogni avvio, mai cancellata: con un riavvio in loop riempiva il disco. Le copie vecchie si potano a ogni apertura;
+      - **migrazioni e chiavi esterne:** le migrazioni girano con `foreign_keys=OFF`, poi `foreign_key_check`, poi `ON`. Dentro la transazione di drizzle il `PRAGMA foreign_keys=OFF` di una migrazione che ricostruisce una tabella non ha effetto: con le chiavi attive, il `DROP` cancellava a cascata progressi e stato di visione. Se dopo una migrazione restano violazioni, l'avvio si rifiuta; senza migrazioni sono solo un warning nel log;
+      - `PRAGMA optimize` una volta al giorno (ADR 0001 §6).
 11. **Test:** ogni file di test apre un DB `:memory:` (o un file temporaneo) e applica le migrazioni reali.
 12. **Writes e event loop:**
     - transazioni brevi;

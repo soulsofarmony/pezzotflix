@@ -34,22 +34,26 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `8466e7e` | Diario e checklist aggiornati |
 | `f80caf5` | **Motivi di riproduzione in italiano** per chi guarda (`decision/reasons.ts`), con i nomi delle modalità del player |
 | `5808b1e` | **F2a**, stack in Compose: immagine del gateway con il web client, health check attivo e `503` in JSON quando il Video Service non risponde, una sola rete `platform` (quella `internal` bloccava Wikidata e TMDB). Test end-to-end: setup dello stack, smoke via API (Direct Play con Range, Direct Stream e ripresa, sottotitoli PGS e WebVTT, Transcode) e test nei browser su Chromium, Chrome, Edge e Firefox: 74 passati, 20 saltati per codec o sample mancanti. Misure sul bind mount (ADR 0003, decisione 12). Nel web client: nomi accessibili, "Riprendi da" subito dopo il player, scorciatoie attive all'apertura del player. 1592 test video, 371 web |
+| `7dbfef5` | Misure di F2a nei documenti (ADR 0003 decisione 12, doc 05), Firefox nel gate dell'ADR 0005, stato della revisione finale |
+| `5d2cc18` | **Revisione F2, web client fuori dal player:** "il servizio non risponde" per i `5xx` e il servizio giù, ripetizione degli errori transitori finché la pagina è aperta (con `Retry-After`), dati in cache a schermo, "Correggi" nel dettaglio di un caso, watchlist nascosta su stagioni ed episodi, etichette in italiano |
+| `ec718e4` | **Revisione F2, deploy:** token delle sessioni mascherati nei log del gateway, `421` per un Host estraneo (`PZF_HOSTS`), health check più tollerante, `404` vero per un asset mancante, utente fisso con `MEDIA_GID`, volume dei segreti, bind della libreria che non crea la cartella, immagini mai scaricate, backup nel README. Gate e2e severo: un sample mancante fa fallire, salvo `PZF_E2E_ALLOW_SKIP` |
+| `9639ed4` | ADR 0006, aggiornamento F2 per gateway e Compose |
+| `a5d698a` | **Revisione F2, riproduzione:** motivo della chiusura sul `410`, file sparito durante una ripianificazione → `503` con `sessionClosed`, tentativi esauriti → `500`, timeout della sessione a 150 s, il player libera il posto quando rinuncia, token del profilo fisso per sessione, `5xx` definitivo al primo errore (il test della ripianificazione forzata passa da 31 s a 9 s), WebVTT che cresce via `fetch` |
+| `4a6b9c1` | Doc 04 §8 "Precisazioni decise in F2", ADR 0003 e 0005 aggiornati |
+| `910ad92` | **Revisione F2, ingest e dati** (tre giri di revisione): film diversi in una cartella comune non vengono più collegati al primo, anno preso dalla cartella solo per un titolo tradotto, tagli come edizioni e parole di release come versioni, migrazioni con chiavi esterne spente e controllo dopo (prima cancellavano progressi e stato di visione), backup giornaliero verificato con retention 7+4, copia prima di una migrazione solo se serve, job che falliscono solo dopo due interruzioni, `/healthz` con `503` quando il servizio non sta bene. 1731 test video, 509 web |
+| (questo commit) | Standard di libreria, ADR 0002, doc 01 e diario allineati alle correzioni. **Test end-to-end finali** su uno stack ricostruito da volumi vuoti: 74 passati, 20 saltati (sample c4 e c7 mancanti, HEVC assente in Edge e Firefox su questo portatile), 0 falliti, in 5,2 minuti; nel log del gateway nessun token in chiaro |
 
 ## 2. In corso
 
-- **Revisione finale di F2** (cinque revisori: sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione). Rilievi più gravi, verificati con una riproduzione:
-  - film diversi in una cartella comune ("Saga", "Sci-fi") collegati tutti al primo riconosciuto;
-  - una migrazione che ricostruisce una tabella cancellerebbe progressi e stato di visione (le cascate restano attive dentro la transazione);
-  - nessun backup giornaliero del database, e una copia completa a ogni avvio, mai cancellata;
-  - token delle sessioni nei log del gateway.
-
-  Correzioni in corso, in quattro filoni paralleli: server, riproduzione, web client, deploy ed e2e.
-- **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non riesce a rispondere all'iPad, probabilmente per l'indirizzo Wi‑Fi privato, che cambia.
+- **MVP completo (F2 chiuso, 2026-11-06).** Revisione finale con cinque revisori (sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione); i rilievi gravi sono stati riprodotti, corretti e rivisti di nuovo. Quello che non è stato corretto è nelle lacune (§4).
+- **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non risponde all'iPad, probabilmente per l'indirizzo Wi‑Fi privato dell'iPad, che cambia.
 
 ## 3. Prossimi passi
 
-1. **F2**: integrare le correzioni della revisione finale e ripetere i test end-to-end su uno stack nuovo.
-2. Report finale per il proprietario.
+1. Prova del proprietario con lo stack Compose (`deploy/README.md`) e la libreria vera: percorsi, `LIBRARY_ROOTS`, `MEDIA_GID`, `PZF_HOSTS`.
+2. Controlli del proprietario (§5), che decidono P5 e H11.
+3. Film di prova legali (Tears of Steel, Sintel e simili) in `media-samples/`, se il proprietario dà l'ok al download.
+4. Dopo l'MVP: lacune di §4 in ordine di impatto, poi l'app per la TV (serve il modello della TV, ADB in rete, il collegamento audio).
 
 ## 4. Lacune note, da riprendere
 
@@ -84,7 +88,16 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
   - mancano i sample c4 (Opus 5.1) e c7 (AAC 5.1).
 - **Flag di revisione dei metadata** non salvato (ADR 0007 §2/§3): per ora solo un warning nel log.
 - **Autore e licenza delle immagini Commons** non salvati: serve una migrazione della tabella `artwork`.
-- **Job:** manutenzione dell'identifier e dei metadata scrive direttamente sulla tabella dei job; va sostituito da una funzione della porta `JobQueuePort`.
+- **Job:** manutenzione dell'identifier e dei metadata, e da F2 anche il giro dell'analyzer sui probe falliti, scrivono direttamente sulla tabella dei job; va sostituito da una funzione della porta `JobQueuePort`.
+- **Rimasto dalla revisione F2:**
+  - le edizioni con parole di release (IMAX, Remastered, Criterion) in un database creato prima di F2 restano edizioni separate: non c'è una migrazione che le riunisca. Una nuova identificazione del file le sistema;
+  - un heartbeat che riceve `404` dopo un riavvio del servizio mostra "sessione scaduta" con "Riprendi", invece di ripartire da solo;
+  - un cambio di traccia il cui piano nuovo fallisce, senza altri piani, dà un `422` semplice: il player mostra "interrotta" e non torna alle tracce di prima;
+  - i segreti `<NOME>_FILE` dell'ADR 0006 non ci sono: il token TMDB passa solo dal file `.env`;
+  - Docker Desktop su Windows crea comunque una `MEDIA_DIR` che non esiste (su Linux il bind la rifiuta);
+  - lo stato dell'ingest non dice quanti job in coda sono già dovuti: il setup dei test e2e aspetta con una stima;
+  - il gateway risponde `MEDIA_UNAVAILABLE` anche quando il Video Service è giù: serve un codice suo;
+  - un transcode è finito una volta con `no_output` dopo 21 s nei test e2e, non più riprodotto.
 - **Ultima scelta delle tracce** persa quando un titolo viene completato.
 - **Token del profilo** firmato, più severo di quanto chiede l'ADR 0004: va bene così, da annotare nell'ADR alla prossima revisione.
 - **Ricerca:** la scansione per sottostringa sull'indice FTS costa O(righe); va bene per una libreria domestica.
@@ -96,6 +109,8 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 - **Ascolto 5.1** delle clip c1–c7 (`spikes/s2-browser-playback/index.html`). Serve un'uscita HDMI verso l'AVR: il PC originale ha solo uscite stereo.
 - **Un sample Dolby Vision profilo 7** (UHD Blu-ray), per H11.
 - Percorsi reali della libreria, modello della TV, ADB, eARC, porta 8080 nel firewall.
+- **Estensione HEVC di Windows** (Microsoft Store) per provare il 4K anche in Edge e Firefox, e l'ok al download dei film di prova legali.
+- Impostazione "Indirizzo Wi‑Fi privato: No" sull'iPad per la rete di casa, se l'iPad continua a non raggiungere il portatile.
 
 ## 6. Scadenze
 
