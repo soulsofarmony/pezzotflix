@@ -28,23 +28,43 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `3e2b8c1` | **F1b.2**, motore di decisione e gestore delle sessioni: scelta della versione per qualità (P6), audio per lingua, qualità e conversione minima, tracce ricordate per file, ripianificazione automatica (3 tentativi), sessioni concorrenti, attesa senza stream mentre l'indice si prepara. Due revisioni approfondite e una rilettura. 1161 test |
 | `8111756` | **F1c**, web client: profili, Home, catalogo, ricerca, dettaglio, player (Direct Play e HLS, PGS e WebVTT, ripianificazione automatica), admin "Da verificare", attribuzioni. Revisione del player con correzioni (posizione di ripresa, motore staccato durante i cambi). 349 test |
 | `4c60f78` | **F1b.3**, Stream Delivery: indice dei keyframe, token, Direct Play con Range, HLS fMP4 con segmentatore proprio; riavvii con video identico e audio convertito allineato (scarto misurato 0 ms). Due revisioni approfondite e una rilettura. 1396 test |
+| `712a7af` | Diario e checklist aggiornati |
+| `5da30a8` | **Richieste dal web client:** titolo della serie sugli episodi, riga "prossimo episodio" in Home, motivi di `session_terminated`, campo "sessione chiusa" sul 422, stato di visione che segue un file ricollegato (migrazione 0003), `ANALYZER_VERSION` a 2 con nuova analisi dei file vecchi |
+| `5acca04` | **F1b.4**, sottotitoli interni al file e transcode software fino a 1080p. Estrazione in due passaggi con passo regolato dal servizio (con ffmpeg 8 `-readrate` restava dietro la riproduzione), cache con file parziali, burn-in PGS e testo, tone-map HDR, deinterlacciamento, riavvii del transcode identici all'esecuzione da 0. Corretta anche una corsa allo spegnimento di F1b.3. Due revisioni approfondite, tre giri di correzioni, due riletture. 1561 test video, 366 web |
 
 ## 2. In corso
 
-- **F1b.4**: estrazione dei sottotitoli interni al file (due passate, risposta che cresce, evento `subtitle_ready`) e transcode software fino a 1080p (tone-mapping, burn-in). Revisione approfondita dopo.
-- **Piccole richieste dal web client**: titolo della serie sugli episodi, riga "prossimo episodio" in Home, motivi di `session_terminated`, campo strutturato "sessione chiusa" sul 422, stato di visione che segue un file ricollegato, `ANALYZER_VERSION` a 2.
+- **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non riesce a rispondere all'iPad, probabilmente per l'indirizzo Wi‑Fi privato, che cambia.
 
 ## 3. Prossimi passi
 
-1. Integrare F1b.4 e le richieste del web client.
-2. **F2**: stack in Compose, test end-to-end Playwright (riproduzione, streaming, regressione di S2, accessibilità) sui sample, revisione approfondita finale, correzioni.
-3. Report finale per il proprietario.
+1. **F2**: stack in Compose, test end-to-end Playwright (riproduzione, streaming, regressione di S2, accessibilità) sui sample, revisione approfondita finale, correzioni.
+2. Report finale per il proprietario.
 
 ## 4. Lacune note, da riprendere
 
 - **Nessun timeout sulle chiamate a Stream Delivery**: un avvio che si blocca ferma anche gli avvii successivi dello stesso profilo. Oggi lo limita il timeout di avvio di Delivery; servirà quando Delivery andrà in un container separato.
 - **Conteggio degli avvii bloccati in memoria**: si azzera al riavvio del servizio.
-- **Stato di visione orfano** quando un file viene ricollegato a un altro item (`reassignItemState` non c'è ancora).
+- **Motivi della sessione in inglese** (`decision/reasons.ts`): vanno tradotti in italiano in F2.
+- **Riproduzione e stato di visione:**
+  - "ultima visione" ignora i segni manuali;
+  - un 422 su `reportPlaybackFailure` non porta il campo "sessione chiusa";
+  - un segno manuale dopo un completamento non si vede;
+  - nel web client la tolleranza "già posizionato" è di 6 s.
+- **Sottotitoli (F1b.4):**
+  - **Limite di lettura:** vale in media. All'inizio di ogni passaggio la lettura va avanti di 30–46 s di media alla massima velocità; da misurare in F2 sul bind mount reale.
+  - **Estrazione all'ingest:** il job (`SUBTITLE_PREEXTRACT`) non c'è.
+  - **Spazio:** i file di lavoro non contano nel limite della cache.
+  - **Burn-in di un sottotitolo testuale interno al file:**
+    - su un remux grande serve una lettura completa di 5–10 minuti, oltre l'attesa di 60 s del client;
+    - attivato a metà film, ferma il video per tutta l'estrazione;
+    - mancano i font allegati all'MKV.
+  - **Errori dei file da ffprobe:** riconosciuti dal testo inglese dei messaggi; una locale diversa nell'immagine li farebbe diventare "in preparazione".
+- **Transcode (F1b.4):**
+  - nessun limite ai thread di x264;
+  - un DV con base ignota dà `NO_COMPATIBLE_PLAN`;
+  - l'HDR 1080p60 con tone-map è misurato solo a 24 fps (85 fps di codifica).
+- **Spegnimento:** ora aspetta gli avvii in corso; uno bloccato su un mount di rete appeso lo ritarda (Docker poi chiude il container).
 - **Flag di revisione dei metadata** non salvato (ADR 0007 §2/§3): per ora solo un warning nel log.
 - **Autore e licenza delle immagini Commons** non salvati: serve una migrazione della tabella `artwork`.
 - **Job:** manutenzione dell'identifier e dei metadata scrive direttamente sulla tabella dei job; va sostituito da una funzione della porta `JobQueuePort`.
