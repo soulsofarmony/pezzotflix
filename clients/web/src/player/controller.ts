@@ -9,6 +9,11 @@
 // - Positions: until the engine has put the element at its start (positioned), currentTime is not a position:
 //   failures, heartbeats and stops report the start position, and timeupdate is ignored.
 // - Automatic re-plan (doc 04 §8): no question to the user; at most 3 attempts per start, then reasons + "Riprova".
+// - Closed sessions: a session closed by another device, after a failure or with its item removed (SESSION_EXPIRED
+//   reason) ends the player there; an expired one, or one the server no longer knows, starts again. A stream that
+//   answers 404/410 says nothing about why, so the control plane is asked once before starting again.
+// - Giving up (failure dialogs, leaving the player, pagehide) stops the session on the server: it would otherwise
+//   hold the only slot until the session timeout.
 // - attach/detach and destroy are idempotent: React StrictMode's double mount leaves no hls.js instance behind.
 import { type ActiveSession, type AppEvent, type ClientCapabilities, type PlaybackSession, type StartPlaybackRequest, type Suspect, UnsupportedProtocolError } from '../api/types.ts';
 import type { Engine, EngineCallbacks } from './engine.ts';
@@ -16,7 +21,7 @@ import { type FailureAction, MAX_AUTOMATIC_ATTEMPTS } from './failures.ts';
 import { type PreflightEnv, preflight } from './preflight.ts';
 import { isLocalTrack, SubtitleRenderer, type SubtitleDeps } from './subtitles.ts';
 import { toOriginalMs, toPlayerTimeS } from './timeline.ts';
-import { isPlaybackApiError, type Logger, type PlaybackApi, type PlaybackApiError } from './types.ts';
+import { closedReason, isPlaybackApiError, type Logger, type PlaybackApi, type PlaybackApiError } from './types.ts';
 
 export type PlayerPhase =
   | 'idle'
@@ -122,6 +127,20 @@ const LIVE_PHASES: ReadonlySet<PlayerPhase> = new Set(['starting', 'preparing', 
 const HEARTBEAT_PHASES: ReadonlySet<PlayerPhase> = new Set(['ready', 'preparing', 'replanning']);
 /** Phases where the user may change tracks or version. */
 const CHANGE_PHASES: ReadonlySet<PlayerPhase> = new Set(['ready', 'preparing']);
+/** Phases whose session the server already closed: nothing to stop. */
+const CLOSED_PHASES: ReadonlySet<PlayerPhase> = new Set(['terminated', 'expired', 'stopped']);
+/**
+ * SESSION_EXPIRED reasons after which the player does not start a session by itself: another device took the slot,
+ * nothing could play it, or the title left the library. The others (expired, stopped, shutdown, unknown) start again.
+ */
+const TERMINAL_REASONS: ReadonlySet<string> = new Set(['terminated', 'failed', 'item_removed']);
+/** How long a stream's 404/410 waits for the control plane to say why, before starting again anyway. */
+export const CLOSED_REASON_TIMEOUT_MS = 10_000;
+/**
+ * How long a new start waits for the stop of the session it replaces (one slot): a stop that does not answer by then
+ * (a dead link) is sent again and the start goes on, so "Riprova" never waits for ever.
+ */
+export const STOP_WAIT_MS = 3_000;
 
 const INITIAL: PlayerSnapshot = {
   phase: 'idle',
@@ -150,6 +169,35 @@ const INITIAL: PlayerSnapshot = {
 };
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** True when `p` settles within `ms`. */
+async function settlesWithin(p: Promise<unknown>, ms: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<boolean>((r) => {
+    timer = setTimeout(() => r(false), ms);
+  });
+  try {
+    return await Promise.race([p.then(() => true), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The StopPlayback of a session the player gave up on (release), while it runs. */
+interface Release {
+  sessionId: string;
+  /** Settles (never rejects) when the stop answers. */
+  done: Promise<void>;
+  failed: boolean;
+  /** A new start took it over (closeCurrent): it sends the stop again itself if this one fails. */
+  adopted: boolean;
+}
+
+/** withPreparing's answer when a session call found the session closed (404/410, or a 422 that closed it). */
+interface ClosedSignal {
+  closed: PlaybackApiError;
+}
+const isClosedSignal = (r: PlaybackSession | ClosedSignal | null): r is ClosedSignal => r !== null && 'closed' in r;
 
 interface ChangeHooks {
   /** The change is applied (also through a restart): track ids follow the new file. */
@@ -181,8 +229,10 @@ export class PlayerController {
 
   private request: StartOptions | null = null;
   private probed: ProbeResult | null = null;
-  /** A session this client stopped itself (restart, new start): no more reports or changes to it. */
+  /** A session this client stopped itself (restart, new start, giving up): no more reports, changes or events. */
   private closedSessionId: string | null = null;
+  /** The StopPlayback of a session the player gave up on, while it runs: a new start waits for it (one slot). */
+  private releasing: Release | null = null;
   /** The stream that already had its one engine reload. */
   private reloadedStreamUrl: string | null = null;
   /** The user's own subtitle choice: a track id, null for "Nessuno", undefined while they have not chosen. */
@@ -217,6 +267,40 @@ export class PlayerController {
   private openSession(): PlaybackSession | null {
     const s = this.snapshot.session;
     return s && LIVE_PHASES.has(this.snapshot.phase) && s.sessionId !== this.closedSessionId ? s : null;
+  }
+
+  /**
+   * The session the server may still hold for this client, also after the player gave up on it (a failure dialog):
+   * the one to stop when leaving. StopPlayback is idempotent, so a session the server closed meanwhile is harmless.
+   */
+  private closableSession(): PlaybackSession | null {
+    const s = this.snapshot.session;
+    return s && s.sessionId !== this.closedSessionId && !CLOSED_PHASES.has(this.snapshot.phase) ? s : null;
+  }
+
+  /**
+   * The player gives up on its session (a failure dialog): StopPlayback now, so the slot (and a transcode slot) frees
+   * at once instead of at the session timeout; "Riprova" starts a new session anyway. A stop that does not go
+   * through is sent again by the next close (Riprova, leaving the player).
+   */
+  private release(positionMs: number): void {
+    const s = this.closableSession();
+    if (!s) return;
+    const id = s.sessionId;
+    this.closedSessionId = id;
+    const r: Release = { sessionId: id, done: Promise.resolve(), failed: false, adopted: false };
+    r.done = this.deps.api.stop(id, positionMs).then(
+      () => {
+        if (this.releasing === r) this.releasing = null;
+      },
+      () => {
+        r.failed = true;
+        if (this.releasing === r) this.releasing = null;
+        // Not through: the next close (Riprova, pagehide, leaving) sends it again.
+        if (!r.adopted && this.closedSessionId === id) this.closedSessionId = null;
+      },
+    );
+    this.releasing = r;
   }
 
   // ------------------------------------------------------------ element lifecycle
@@ -260,8 +344,12 @@ export class PlayerController {
     if (this.destroyed) return;
     this.destroyed = true;
     this.op += 1;
-    const s = this.openSession();
-    if (s) void this.deps.api.stop(s.sessionId, this.positionMs()).catch(() => undefined);
+    // Also after a failure dialog: the server may still hold the session (and the only slot).
+    const s = this.closableSession();
+    if (s) {
+      this.closedSessionId = s.sessionId;
+      void this.deps.api.stop(s.sessionId, this.positionMs()).catch(() => undefined);
+    }
     this.stopHeartbeat();
     this.destroyEngine();
     this.subtitles?.destroy();
@@ -286,6 +374,11 @@ export class PlayerController {
    * (StrictMode); a different one stops the open session first.
    */
   async start(opts: StartOptions): Promise<void> {
+    await this.begin(opts, undefined);
+  }
+
+  /** asSession: the start replaces that session (back from the back/forward cache), under its profile. */
+  private async begin(opts: StartOptions, asSession: string | undefined): Promise<void> {
     const r = this.request;
     const same =
       r !== null &&
@@ -304,7 +397,7 @@ export class PlayerController {
     this.userSubtitle = opts.subtitleTrackId === null ? null : undefined;
     this.reloadedStreamUrl = null;
     this.set({ attempts: 0, failures: [], error: null, notice: null, terminatedReason: null, activeSessions: [] });
-    await this.startSession(op, opts.startPositionMs);
+    await this.startSession(op, opts.startPositionMs, asSession);
   }
 
   /** "Riprova": a new StartPlayback from the current position, with fresh attempts. */
@@ -334,7 +427,11 @@ export class PlayerController {
     await this.startSession(op, this.request.startPositionMs);
   }
 
-  private async startSession(op: number, startPositionMs: number | undefined): Promise<void> {
+  /**
+   * StartPlayback from the current request. asSession: an automatic restart of that session, which runs under the
+   * session's own profile even if another tab picked another one meanwhile (api/playback.ts).
+   */
+  private async startSession(op: number, startPositionMs: number | undefined, asSession?: string): Promise<void> {
     const video = this.video;
     const req = this.request;
     if (!video || !req) return;
@@ -365,8 +462,9 @@ export class PlayerController {
       ...(startPositionMs !== undefined ? { startPositionMs: Math.max(0, Math.round(startPositionMs)) } : {}),
       ...(req.forceMode ? { forceMode: req.forceMode } : {}),
     };
-    const session = await this.withPreparing(op, () => this.deps.api.start(body));
-    if (!session) return;
+    // StartPlayback is not a session call: its 404 is an unknown item, never a closed session.
+    const session = await this.withPreparing(op, () => (asSession !== undefined ? this.deps.api.start(body, { asSession }) : this.deps.api.start(body)));
+    if (!session || isClosedSignal(session)) return;
     if (op !== this.op) {
       // Superseded while StartPlayback ran (the user left, the session was terminated): nobody plays this
       // session, so free its slot now instead of leaving it to the heartbeat timeout.
@@ -379,12 +477,18 @@ export class PlayerController {
   /**
    * Repeats a session call while it answers 503 (STREAM_PREPARING or MEDIA_UNAVAILABLE), after Retry-After (2 s if
    * missing), for at most 60 s, showing "in preparazione". On a session call the session stays open without a
-   * stream, so the engine goes at the first 503. Other errors go to fail(). Returns null when the operation was
-   * superseded or failed; a result that arrives after its operation was superseded is still returned.
+   * stream, so the engine goes at the first 503. An error `closed` recognises (the session closed meanwhile, e.g. the
+   * Video Service restarted behind the gateway's 503) comes back as a ClosedSignal, at any retry; other errors go to
+   * fail(). Returns null when the operation was superseded or failed; a result that arrives after its operation was
+   * superseded is still returned.
    */
-  private async withPreparing(op: number, call: () => Promise<PlaybackSession>, first?: unknown): Promise<PlaybackSession | null> {
+  private async withPreparing(
+    op: number,
+    call: () => Promise<PlaybackSession>,
+    opts: { first?: unknown; closed?: (e: unknown) => boolean } = {},
+  ): Promise<PlaybackSession | ClosedSignal | null> {
     const t0 = this.now();
-    let pending: unknown = first;
+    let pending: unknown = opts.first;
     for (;;) {
       if (pending === undefined) {
         try {
@@ -396,6 +500,7 @@ export class PlayerController {
       }
       const e = pending;
       pending = undefined;
+      if (opts.closed?.(e) && isPlaybackApiError(e)) return { closed: e };
       if (isRetryLater(e)) {
         const left = PREPARING_LIMIT_MS - (this.now() - t0);
         if (left > 0) {
@@ -411,10 +516,12 @@ export class PlayerController {
     }
   }
 
-  /** Maps an error of the control plane to a phase. */
+  /** Maps an error of the control plane to a phase. The player gives up on the session: the server is told. */
   private fail(e: unknown): void {
+    const positionMs = this.positionMs();
     this.stopHeartbeat();
     this.destroyEngine();
+    this.release(positionMs);
     if (e instanceof UnsupportedProtocolError) {
       this.set({ phase: 'no_plan', busy: false, error: { code: 'CLIENT_UNSUPPORTED_PROTOCOL', detail: e.protocol } });
       return;
@@ -445,6 +552,7 @@ export class PlayerController {
     this.set({ session, durationMs: session.durationMs, positionMs: startMs, timelineOffsetMs: 0, ended: false, error: null });
 
     if (session.stream.protocol === 'hls-fmp4' && !probed.hlsSupported) {
+      this.release(startMs);
       this.set({ phase: 'no_plan', busy: false, error: { code: 'CLIENT_NO_MSE', detail: null } });
       return;
     }
@@ -535,12 +643,14 @@ export class PlayerController {
     const failures = [...this.snapshot.failures, { suspect: action.kind === 'replan' || action.kind === 'reload' ? action.suspect : null, error: action.error, at: this.now() }];
     if (action.kind === 'network') {
       this.stopHeartbeat();
+      this.release(positionMs);
       this.set({ phase: 'network', failures, positionMs, busy: false, error: { code: 'NETWORK', detail: action.error } });
       return;
     }
     if (this.snapshot.attempts >= MAX_AUTOMATIC_ATTEMPTS || !session) {
       this.stopHeartbeat();
       this.destroyEngine();
+      this.release(positionMs);
       this.set({ phase: 'failed', failures, positionMs, busy: false });
       return;
     }
@@ -558,7 +668,8 @@ export class PlayerController {
       return;
     }
     if (act.kind === 'restart') {
-      await this.restartClosed(op, positionMs);
+      // From the data plane: its 404/410 does not say why the session closed.
+      await this.restartClosed(op, positionMs, null);
       return;
     }
     if (act.kind !== 'replan') return;
@@ -568,33 +679,71 @@ export class PlayerController {
       next = await this.deps.api.reportFailure(session.sessionId, body);
     } catch (e) {
       if (op !== this.op) return;
-      if (isClosed(e)) {
-        await this.restartClosed(op, positionMs);
+      if (isClosed(e) && isPlaybackApiError(e)) {
+        await this.restartClosed(op, positionMs, e);
         return;
       }
-      if (isRetryLater(e)) next = await this.withPreparing(op, () => this.deps.api.reportFailure(session.sessionId, body), e);
-      else {
+      if (!isRetryLater(e)) {
         this.fail(e);
         return;
       }
+      const r = await this.withPreparing(op, () => this.deps.api.reportFailure(session.sessionId, body), { first: e, closed: isClosed });
+      if (isClosedSignal(r)) {
+        if (op === this.op) await this.restartClosed(op, positionMs, r.closed);
+        return;
+      }
+      next = r;
     }
     if (!next || op !== this.op) return;
     await this.applySession(op, next, positionMs);
   }
 
-  /** The session is closed on the server: StopPlayback (idempotent, frees the slot), then StartPlayback from here. */
-  private async restartClosed(op: number, positionMs: number): Promise<void> {
+  /**
+   * The session is closed on the server, or its stream answers 404/410. `cause`: the control-plane error that said
+   * so; null when the data plane did, which says nothing about why, so one heartbeat asks the control plane first.
+   * A terminal reason (another device took the slot, nothing could play it, the title left the library) ends the
+   * player there with that reason. Otherwise (expired, stopped, a restarted service, a stream gone while the session
+   * is open): StopPlayback (idempotent, frees the slot), then StartPlayback from here.
+   */
+  private async restartClosed(op: number, positionMs: number, cause: PlaybackApiError | null): Promise<void> {
     const old = this.snapshot.session;
     const pos = this.engine && this.positioned ? this.positionMs() : positionMs;
     this.stopHeartbeat();
     this.destroyEngine();
+    let reason = cause ? closedReason(cause) : null;
+    if (!cause && old && old.sessionId !== this.closedSessionId) {
+      reason = await this.askWhyClosed(old.sessionId, pos);
+      if (op !== this.op) return;
+    }
+    if (old && reason !== null && TERMINAL_REASONS.has(reason)) {
+      this.closedSessionId = old.sessionId;
+      this.set({ phase: 'terminated', terminatedReason: reason, positionMs: pos, busy: false, playing: false });
+      return;
+    }
     if (old) {
       this.closedSessionId = old.sessionId;
-      await this.deps.api.stop(old.sessionId, pos).catch(() => undefined);
+      await settlesWithin(this.deps.api.stop(old.sessionId, pos).catch(() => undefined), STOP_WAIT_MS);
     }
     if (op !== this.op || !this.request) return;
     this.request = { ...this.request, startPositionMs: pos };
-    await this.startSession(op, pos);
+    await this.startSession(op, pos, old?.sessionId);
+  }
+
+  /** One heartbeat: the reason of a closed session (410), or null when it is open, unknown (404) or does not answer in time. */
+  private async askWhyClosed(sessionId: string, positionMs: number): Promise<string | null> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((r) => {
+      timer = setTimeout(() => r(null), CLOSED_REASON_TIMEOUT_MS);
+    });
+    const ask = this.deps.api.reportProgress(sessionId, { positionMs, state: 'buffering', clientTs: this.now() }).then(
+      () => null,
+      (e: unknown) => (isPlaybackApiError(e) && e.status === 410 ? closedReason(e) : null),
+    );
+    try {
+      return await Promise.race([ask, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // ------------------------------------------------------------ session changes
@@ -616,7 +765,8 @@ export class PlayerController {
   /**
    * Session call for a track or version change (contract after F1b.2). The server stops the old stream before it
    * starts the new one, so the engine is detached for the call (its 410s are expected), then:
-   * - 404/410, or a 422 with sessionClosed (the refusal closed the session): StartPlayback from here;
+   * - 404/410, or a 422 with sessionClosed (the refusal closed the session): StartPlayback from here (also when it
+   *   comes after a 503), unless the session was closed for a terminal reason (restartClosed);
    * - 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the session stays open without a stream, "in preparazione",
    *   the same call again after Retry-After;
    * - 422: refused before the server touched the stream: the engine is bound again, with a notice;
@@ -630,19 +780,32 @@ export class PlayerController {
     const positionMs = this.positionMs();
     this.detachEngine();
     this.set({ busy: true, notice: null });
+    const closedChange = (e: unknown) => (isClosed(e) || isClosedRefusal(e)) && this.request !== null;
+    /** The session closed under the change: a restart carries the change, a terminal reason ends the player. */
+    const restart = async (e: PlaybackApiError, withChange: boolean): Promise<void> => {
+      const terminal = TERMINAL_REASONS.has(closedReason(e) ?? '');
+      if (withChange && !terminal && this.request) {
+        this.request = update(this.request);
+        hooks.onApplied?.();
+      }
+      await this.restartClosed(op, positionMs, e);
+    };
     let next: PlaybackSession | null;
     try {
       next = await call(session.sessionId, positionMs);
     } catch (e) {
       if (op !== this.op) return;
-      if ((isClosed(e) || isClosedRefusal(e)) && this.request) {
-        this.request = update(this.request);
-        hooks.onApplied?.();
-        await this.restartClosed(op, positionMs);
+      if (closedChange(e) && isPlaybackApiError(e)) {
+        await restart(e, true);
         return;
       }
       if (isRetryLater(e)) {
-        next = await this.withPreparing(op, () => call(session.sessionId, positionMs), e);
+        const r = await this.withPreparing(op, () => call(session.sessionId, positionMs), { first: e, closed: closedChange });
+        if (isClosedSignal(r)) {
+          if (op === this.op) await restart(r.closed, true);
+          return;
+        }
+        next = r;
       } else if (isPlaybackApiError(e) && e.status === 422) {
         hooks.onRefused?.();
         this.set({ notice: { code: e.code, detail: e.detail } });
@@ -653,9 +816,14 @@ export class PlayerController {
         }
         // Refused while the session waited for a stream (503 before): the server went back to the previous tracks.
         // An empty ChangeTracks returns the session with its stream, or 503 while that one still prepares.
-        next = await this.withPreparing(op, () => this.deps.api.changeTracks(session.sessionId, { positionMs }));
-        if (!next || op !== this.op) return;
-        await this.applySession(op, next, positionMs);
+        const r = await this.withPreparing(op, () => this.deps.api.changeTracks(session.sessionId, { positionMs }), { closed: closedChange });
+        if (isClosedSignal(r)) {
+          // The refused change is not carried into the new session.
+          if (op === this.op) await restart(r.closed, false);
+          return;
+        }
+        if (!r || op !== this.op) return;
+        await this.applySession(op, r, positionMs);
         return;
       } else {
         this.fail(e);
@@ -762,8 +930,9 @@ export class PlayerController {
       if (track && e.availability === 'complete') this.subtitles?.reload(e.trackId, track);
       return;
     }
-    // Only a live session ends here: a failure, a missing plan or an expiry already on screen stays.
-    if (e.type === 'playback.session_terminated' && e.sessionId === s.sessionId && LIVE_PHASES.has(this.snapshot.phase)) {
+    // Only a live session ends here: a failure, a missing plan or an expiry already on screen stays. A session this
+    // client already closed itself (a restart from here, "Riprova") is stale news: the new start goes on.
+    if (e.type === 'playback.session_terminated' && e.sessionId === s.sessionId && s.sessionId !== this.closedSessionId && LIVE_PHASES.has(this.snapshot.phase)) {
       const positionMs = this.positionMs();
       this.op += 1;
       this.stopHeartbeat();
@@ -866,7 +1035,10 @@ export class PlayerController {
     this.heartbeat = null;
   }
 
-  /** ReportProgress: the heartbeat, also while paused. A closed session offers to resume (SESSION_EXPIRED). */
+  /**
+   * ReportProgress: the heartbeat, also while paused. A closed session offers to resume (SESSION_EXPIRED), or shows
+   * why it ended when the reason is terminal (another device, a failure, the title removed).
+   */
   private report(): void {
     const s = this.snapshot.session;
     if (!s || !HEARTBEAT_PHASES.has(this.snapshot.phase) || s.sessionId === this.closedSessionId) return;
@@ -876,11 +1048,16 @@ export class PlayerController {
     const state = this.engine ? this.lastState : 'buffering';
     this.deps.api.reportProgress(sessionId, { positionMs, state, clientTs: this.now() }).catch((e: unknown) => {
       if (this.snapshot.session?.sessionId !== sessionId || !HEARTBEAT_PHASES.has(this.snapshot.phase)) return;
-      if (isClosed(e)) {
+      // An answer that comes after an automatic attempt began (its own stop, or the closure it is handling): that
+      // attempt decides, as for a late session_terminated event.
+      if (sessionId === this.closedSessionId || this.snapshot.phase === 'replanning') return;
+      if (isClosed(e) && isPlaybackApiError(e)) {
         this.op += 1;
         this.stopHeartbeat();
         this.destroyEngine();
-        this.set({ phase: 'expired', positionMs, playing: false, busy: false, error: { code: (e as PlaybackApiError).code, detail: null } });
+        const reason = closedReason(e);
+        if (reason !== null && TERMINAL_REASONS.has(reason)) this.set({ phase: 'terminated', terminatedReason: reason, positionMs, playing: false, busy: false });
+        else this.set({ phase: 'expired', positionMs, playing: false, busy: false, error: { code: e.code, detail: null } });
       }
     });
   }
@@ -947,18 +1124,26 @@ export class PlayerController {
     ],
   ];
 
-  /** pagehide: StopPlayback with fetch keepalive (sendBeacon cannot send Authorization). */
+  /**
+   * pagehide: StopPlayback with fetch keepalive (sendBeacon cannot send Authorization), also for a session a failure
+   * dialog still shows (the server may hold it). A live session ends as "stopped"; a dialog stays as it is.
+   */
   private readonly onPageHide = (): void => {
-    if (!LIVE_PHASES.has(this.snapshot.phase)) return;
-    const open = this.openSession();
+    const live = LIVE_PHASES.has(this.snapshot.phase);
+    const s = this.closableSession();
+    const r = this.releasing;
+    if (!live && !s && !r) return;
     const positionMs = this.positionMs();
+    if (s) {
+      this.closedSessionId = s.sessionId;
+      void this.deps.api.stop(s.sessionId, positionMs, { keepalive: true }).catch(() => undefined);
+    }
+    // The stop sent when the player gave up may still be running, and dies with the page: again, with keepalive.
+    if (r && r.sessionId !== s?.sessionId) void this.deps.api.stop(r.sessionId, positionMs, { keepalive: true }).catch(() => undefined);
+    if (!live) return;
     this.op += 1;
     this.stopHeartbeat();
     this.destroyEngine();
-    if (open) {
-      this.closedSessionId = open.sessionId;
-      void this.deps.api.stop(open.sessionId, positionMs, { keepalive: true }).catch(() => undefined);
-    }
     this.set({ phase: 'stopped', positionMs, playing: false, busy: false });
   };
 
@@ -966,17 +1151,30 @@ export class PlayerController {
   private readonly onPageShow = (e: Event): void => {
     if (!(e as PageTransitionEvent).persisted || this.snapshot.phase !== 'stopped' || !this.request) return;
     this.request = { ...this.request, startPositionMs: this.snapshot.positionMs };
-    void this.start(this.request);
+    void this.begin(this.request, this.snapshot.session?.sessionId);
   };
 
-  /** Stops the current session unless it is already over (also after a failure: the server may still hold it). */
+  /**
+   * Before a new start: stops the current session unless it is already over (also after a failure: the server may
+   * still hold it). A stop the player sent when it gave up is waited for, so the new start does not race it for the
+   * slot; neither wait lasts more than STOP_WAIT_MS, and a stop that did not answer or failed is sent again.
+   */
   private async closeCurrent(positionMs: number): Promise<void> {
-    const s = this.snapshot.session;
     this.stopHeartbeat();
     this.destroyEngine();
-    if (!s || s.sessionId === this.closedSessionId || ['terminated', 'expired', 'stopped'].includes(this.snapshot.phase)) return;
-    this.closedSessionId = s.sessionId;
-    await this.deps.api.stop(s.sessionId, positionMs).catch(() => undefined);
+    const r = this.releasing;
+    if (r) r.adopted = true;
+    const toStop = new Set<string>();
+    const open = this.closableSession();
+    if (open) toStop.add(open.sessionId);
+    // From here the old session is over for this player: late news about it (an event, a heartbeat) is stale, and
+    // one the server already closed (expired, terminated) is not stopped again by a later failure.
+    const old = this.snapshot.session;
+    if (old) this.closedSessionId = old.sessionId;
+    this.set({ phase: 'starting', busy: true });
+    if (r && (!(await settlesWithin(r.done, STOP_WAIT_MS)) || r.failed)) toStop.add(r.sessionId);
+    if (toStop.size === 0) return;
+    await settlesWithin(Promise.all([...toStop].map((id) => this.deps.api.stop(id, positionMs).catch(() => undefined))), STOP_WAIT_MS);
   }
 }
 
@@ -995,7 +1193,10 @@ export function isClosedRefusal(e: unknown): boolean {
   return e.sessionClosed === true || /the session was closed|la sessione è stata chiusa/i.test(e.detail ?? '');
 }
 
-/** 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the same call again after Retry-After. */
+/**
+ * 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the same call again after Retry-After. Not when the 503 closed the
+ * session (sessionClosed: the file went away during an automatic re-plan): that one is shown at once.
+ */
 function isRetryLater(e: unknown): e is PlaybackApiError {
-  return isPlaybackApiError(e) && e.status === 503 && (e.code === 'STREAM_PREPARING' || e.code === 'MEDIA_UNAVAILABLE');
+  return isPlaybackApiError(e) && e.status === 503 && e.sessionClosed !== true && (e.code === 'STREAM_PREPARING' || e.code === 'MEDIA_UNAVAILABLE');
 }

@@ -5,7 +5,8 @@ import type { ErrorData, HlsConfig, InitPTSFoundData, LevelLoadedData, LoadPolic
 import type { HlsStream, SessionTrack } from '../api/types.ts';
 import { deliveredAudioCodec, hlsBufferConfig } from './buffer.ts';
 import type { Engine, EngineCallbacks } from './engine.ts';
-import { classifyHlsError } from './failures.ts';
+import { classifyHlsError, classifyProbe, type FailureAction, isFailedStream } from './failures.ts';
+import { probeUrl } from './probe.ts';
 import { timelineOffsetFromInitPts } from './timeline.ts';
 
 export type HlsClass = typeof HlsType;
@@ -14,10 +15,12 @@ export type HlsClass = typeof HlsType;
 export const PROVISIONAL_TARGET_DURATION_S = 6;
 
 /**
- * A 500 is STREAM_FAILED, terminal for the stream (ADR 0003): no hls.js retries, so the error turns fatal at once.
- * A 503 keeps hls.js's own retry (default decision passed as `retry`).
+ * A 500 is STREAM_FAILED, terminal for the stream (ADR 0003), like any 5xx but 503 (isFailedStream): no hls.js
+ * retries for a playlist, so the error turns fatal at once. Fragments ignore it when there is no other level to
+ * switch to: classifyHlsError acts on their first error instead. A 503 keeps hls.js's own retry (`retry`).
  */
-export const no500Retry: NonNullable<RetryConfig['shouldRetry']> = (_cfg, _count, _timeout, response, retry) => (response?.code === 500 ? false : retry);
+export const no500Retry: NonNullable<RetryConfig['shouldRetry']> = (_cfg, _count, _timeout, response, retry) =>
+  typeof response?.code === 'number' && isFailedStream(response.code) ? false : retry;
 
 export function withNo500Retry(policy: LoadPolicy): LoadPolicy {
   const d = policy.default;
@@ -28,6 +31,8 @@ export interface HlsEngineDeps {
   Hls: HlsClass;
   workerPath: string;
   isTypeSupported: ((t: string) => boolean) | null;
+  /** Probes the playlist url when a fatal network error carries no HTTP status. */
+  fetch: typeof fetch;
 }
 
 export function createHlsEngine(video: HTMLVideoElement, stream: HlsStream, audio: SessionTrack | null, cb: EngineCallbacks, deps: HlsEngineDeps): Engine {
@@ -113,7 +118,20 @@ export function createHlsEngine(video: HTMLVideoElement, stream: HlsStream, audi
     cb.log('warn', 'hls.js error', { type: data.type, details: data.details, fatal: data.fatal, action: action.kind });
     // Never let hls.js retry the same stream after a fatal error (S2 finding 4): stop now, the controller replaces it.
     hls.stopLoad();
-    cb.onFailure(action);
+    if (action.kind !== 'network') {
+      cb.onFailure(action);
+      return;
+    }
+    // No usable status (a body cut when the server closed the session, a lost connection): the playlist url says
+    // which, as in progressive: 404/410 a closed session, 5xx a failed stream, no answer the network. A playlist
+    // that answers means the server and the session are alive: one reload (a second one becomes a re-plan).
+    void probeUrl(stream.url, deps.fetch).then((st) => {
+      if (destroyed) return;
+      const alive = st.kind === 'status' && st.status >= 200 && st.status < 300;
+      const probed: FailureAction = alive ? { kind: 'reload', error: action.error, suspect: 'unknown' } : (classifyProbe(st) ?? action);
+      cb.log('info', 'playlist probed after a network error', { status: st.kind === 'status' ? st.status : st.kind, action: probed.kind });
+      cb.onFailure(probed);
+    });
   });
 
   return {

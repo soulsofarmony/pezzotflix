@@ -181,6 +181,7 @@ export const it = {
   'player.sessionLimitTitle': 'C’è già una riproduzione in corso',
   'player.sessionLimitText': 'Il server permette una sola riproduzione alla volta. Puoi interrompere l’altra e guardare qui.',
   'player.stopOther': 'Interrompi «{title}» ({profile})',
+  'player.stopOtherNoProfile': 'Interrompi «{title}»',
   'player.stopOtherUnknown': 'Interrompi l’altra riproduzione',
   'player.expiredTitle': 'La sessione è scaduta',
   'player.expiredText': 'Il server ha chiuso la riproduzione per inattività.',

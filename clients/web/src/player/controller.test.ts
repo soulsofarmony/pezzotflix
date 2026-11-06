@@ -327,7 +327,29 @@ describe('a StartPlayback answered after its operation was superseded (M1)', () 
     expect(engines).toHaveLength(0);
   });
 
-  it('session_terminated during a restart: the new session is stopped; "Riprova" starts afresh', async () => {
+  it('session_terminated while the player asks why its stream closed: it ends there, nothing is started; "Riprova" starts afresh', async () => {
+    const { c, api, engines } = setup();
+    await c.start({ itemId: 'item-1' });
+    const why = deferred<void>();
+    api.reportProgress.mockImplementationOnce(() => why.promise);
+    engines[0]?.cb.onFailure({ kind: 'restart', error: 'HTTP_410' });
+    await flush();
+    expect(api.reportProgress).toHaveBeenCalledTimes(1);
+    c.onEvent({ seq: 9, at: 0, type: 'playback.session_terminated', sessionId: 's1', reason: 'terminated' });
+    expect(c.getSnapshot()).toMatchObject({ phase: 'terminated', terminatedReason: 'terminated' });
+    why.resolve();
+    await flush();
+    expect(api.start).toHaveBeenCalledTimes(1);
+    expect(api.stop).not.toHaveBeenCalled();
+    expect(engines).toHaveLength(1);
+    await c.retry();
+    // The server closed s1: no StopPlayback for it.
+    expect(api.stop).not.toHaveBeenCalled();
+    expect(api.start).toHaveBeenCalledTimes(2);
+    expect(c.getSnapshot()).toMatchObject({ phase: 'ready', session: { sessionId: 's2' } });
+  });
+
+  it('session_terminated for the session a restart already stopped is stale: the new session plays', async () => {
     const { c, api, engines } = setup();
     await c.start({ itemId: 'item-1' });
     const restart = deferred<PlaybackSession>();
@@ -335,20 +357,14 @@ describe('a StartPlayback answered after its operation was superseded (M1)', () 
     engines[0]?.cb.onFailure({ kind: 'restart', error: 'HTTP_410' });
     await flush();
     expect(api.stop).toHaveBeenCalledWith('s1', 0);
+    // The expiry that closed s1 reaches the poller while the new StartPlayback runs.
     c.onEvent({ seq: 9, at: 0, type: 'playback.session_terminated', sessionId: 's1', reason: 'expired' });
-    expect(c.getSnapshot().phase).toBe('terminated');
+    expect(c.getSnapshot().phase).toBe('starting');
     restart.resolve(session());
     await flush();
-    expect(api.stop.mock.calls).toEqual([
-      ['s1', 0],
-      ['s2', 0],
-    ]);
-    expect(engines).toHaveLength(1);
-    await c.retry();
-    // s1 was already stopped: no second StopPlayback for it.
-    expect(api.stop).toHaveBeenCalledTimes(2);
-    expect(api.start).toHaveBeenCalledTimes(3);
-    expect(c.getSnapshot()).toMatchObject({ phase: 'ready', session: { sessionId: 's3' } });
+    expect(c.getSnapshot()).toMatchObject({ phase: 'ready', session: { sessionId: 's2' } });
+    expect(api.stop.mock.calls).toEqual([['s1', 0]]);
+    expect(engines).toHaveLength(2);
   });
 });
 
@@ -613,10 +629,12 @@ describe('heartbeat', () => {
     engines[0]?.cb.onFailure({ kind: 'restart', error: 'HTTP_410' });
     await flush();
     expect(c.getSnapshot().phase).toBe('preparing');
+    // The one heartbeat that asked why the stream closed, before the stop.
+    expect(api.reportProgress).toHaveBeenCalledTimes(1);
     video.media.paused = false;
     video.pause();
     await vi.advanceTimersByTimeAsync(4000);
-    expect(api.reportProgress).not.toHaveBeenCalled();
+    expect(api.reportProgress).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1000);
     expect(c.getSnapshot()).toMatchObject({ phase: 'ready', session: { sessionId: 's2' } });
   });

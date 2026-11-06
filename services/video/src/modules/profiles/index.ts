@@ -43,6 +43,7 @@ export function profilesModule(opts: ProfilesModuleOptions = {}): ModuleFactory 
       recordProgress: watch.recordProgress,
       resumePositionMs: watch.resumePositionMs,
       lastTrackChoice: watch.lastTrackChoice,
+      profileName: (profileId) => store.get(profileId)?.name ?? null,
     };
 
     const noContent = (reply: { code: (n: number) => { send: () => unknown } }) => reply.code(204).send();

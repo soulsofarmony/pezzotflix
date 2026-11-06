@@ -36,9 +36,18 @@ Problem:
     sessionClosed:
       type: boolean
       description: >-
-        ChangeTracks and ChangeVersion, 422 only: true when the refusal also closed the session (it was waiting
-        without a stream and its previous tracks could not be played either). The client starts a new session
-        instead of keeping the current one. Absent means false.
+        True when the error also closed the session: the client starts a new session instead of keeping or
+        retrying the current one. Absent means false. Set on ChangeTracks and ChangeVersion 422 (the session was
+        waiting without a stream and its previous tracks could not be played either) and on reportPlaybackFailure
+        503 MEDIA_UNAVAILABLE (the file is no longer reachable; no Retry-After).
+    reason:
+      type: string
+      description: >-
+        SESSION_EXPIRED (410) on a session call: why the session closed. Open set, unknown values must be
+        tolerated: the reasons of playback.session_terminated (expired, terminated, failed, item_removed) plus
+        stopped (StopPlayback) and shutdown (the service was stopping). A client whose stream answers 404/410 asks
+        the control plane once and does not start again on terminated, failed or item_removed. Absent on 404 (the
+        server does not know the session, e.g. after a restart).
 
 ServerInfo:
   type: object

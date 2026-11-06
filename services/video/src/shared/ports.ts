@@ -112,6 +112,8 @@ export interface ProfilePlaybackPort {
   resumePositionMs(profileId: string, itemId: string): number | null;
   /** Last tracks chosen on this item, or null when never played with known tracks. */
   lastTrackChoice(profileId: string, itemId: string): TrackChoice | null;
+  /** The profile's display name (session-limit dialog), or null when the profile does not exist. */
+  profileName(profileId: string): string | null;
 }
 
 /** Implemented by modules/profiles. Used by catalog to compose Home and summaries, and by admin (moveFileState). */

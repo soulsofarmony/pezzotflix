@@ -37,7 +37,9 @@ const isPublic = (method: string, schemaPath: string) => PUBLIC_OPERATIONS.has(`
 
 /**
  * Adds `Authorization: Bearer <profileToken>` to the profile-scoped operations. A 401 on one of them clears the
- * token and calls onUnauthorized, which brings the user back to the profile choice.
+ * token and calls onUnauthorized, which brings the user back to the profile choice; not when the request carried
+ * another token than the stored one (a session pinned to its profile, or a profile another tab picked while the
+ * request ran): that 401 is about a profile this tab no longer uses.
  */
 export function profileMiddleware(store: ProfileStore, onUnauthorized: () => void): Middleware {
   return {
@@ -49,6 +51,9 @@ export function profileMiddleware(store: ProfileStore, onUnauthorized: () => voi
     },
     onResponse({ request, response, schemaPath }) {
       if (response.status === 401 && !isPublic(request.method, schemaPath)) {
+        const sent = request.headers.get('Authorization');
+        const p = store.get();
+        if (sent !== null && p !== null && sent !== `Bearer ${p.token}`) return undefined;
         store.clear();
         onUnauthorized();
       }

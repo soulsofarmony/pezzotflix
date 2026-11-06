@@ -143,6 +143,11 @@ export class FakeDelivery implements StreamDeliveryPort {
 }
 
 export class FakeProfiles implements ProfilePlaybackPort {
+  /** Display names for profileName; an unknown profile has none. */
+  names = new Map<string, string>([
+    [P1, 'Simone'],
+    [P2, 'Giulia'],
+  ]);
   prefs = new Map<string, ProfilePlaybackPrefs>([
     [P1, { audioLanguages: ['ita', 'eng'], subtitleLanguages: ['ita'], subtitleMode: 'off' }],
     [P2, { audioLanguages: ['eng'], subtitleLanguages: [], subtitleMode: 'off' }],
@@ -155,6 +160,9 @@ export class FakeProfiles implements ProfilePlaybackPort {
   last = new Map<string, TrackChoice>();
   getPrefs(profileId: string) {
     return this.prefs.get(profileId) ?? null;
+  }
+  profileName(profileId: string) {
+    return this.names.get(profileId) ?? null;
   }
   recordProgress(sample: ProgressSample) {
     this.samples.push(sample);
@@ -221,7 +229,8 @@ export async function playbackHarness(o: { env?: Record<string, string>; overrid
   const catalog = new FakeCatalog();
   const events: PlaybackHarness['events'] = [];
   const eventsFail = { on: false };
-  const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: '[]', ...o.env });
+  // The tests' timings use a 60 s session timeout; the default (150 s) has its own test.
+  const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: '[]', SESSION_TIMEOUT_S: '60', ...o.env });
   let ids = 0;
   const waiters: ((key: string) => void)[] = [];
   const onQueued = (key: string) => waiters.splice(0).forEach((w) => w(key));

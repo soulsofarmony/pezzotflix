@@ -12,7 +12,10 @@ export class ApiError extends Error {
   /** From Retry-After (seconds or HTTP date), in ms; null when absent. */
   readonly retryAfterMs: number | null;
   readonly activeSessions: ActiveSession[];
-  /** Problem extension sessionClosed (ChangeTracks/ChangeVersion 422); false when absent. */
+  /**
+   * Problem extension sessionClosed (ChangeTracks/ChangeVersion 422, reportPlaybackFailure 503
+   * MEDIA_UNAVAILABLE): the error also closed the session. False when absent, e.g. on a transient 503.
+   */
   readonly sessionClosed: boolean;
   readonly problem: Partial<Problem> | null;
 

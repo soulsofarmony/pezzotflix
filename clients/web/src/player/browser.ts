@@ -41,11 +41,13 @@ export function browserPlayerDeps(api: PlaybackApi, log: Logger = consoleLogger)
       const audio = session.tracks.audio.find((t) => t.selected) ?? null;
       if (session.stream.protocol === 'hls-fmp4') {
         const { Hls, workerPath } = await loadHls();
-        return createHlsEngine(video, session.stream, audio, cb, { Hls, workerPath, isTypeSupported: pre.isTypeSupported });
+        return createHlsEngine(video, session.stream, audio, cb, { Hls, workerPath, isTypeSupported: pre.isTypeSupported, fetch: globalThis.fetch.bind(globalThis) });
       }
       return createProgressiveEngine(video, session.stream.url, session.tracks.audio.length > 0, cb, { fetch: globalThis.fetch.bind(globalThis) });
     },
-    subtitles: { loadPgs, growingVtt: 'track', fetch: globalThis.fetch.bind(globalThis) },
+    // A growing WebVTT is read with fetch: its response stays open for most of the film, and only fetch can abort it
+    // when the track is switched off (a <track> may keep its connection, and HTTP/1.1 has 6 per host).
+    subtitles: { loadPgs, growingVtt: 'fetch', fetch: globalThis.fetch.bind(globalThis) },
     log,
     win: window,
   };

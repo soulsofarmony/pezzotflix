@@ -478,6 +478,29 @@ describe('WebVTT sidecar with <track>', () => {
     expect(second?.track.mode).toBe('showing');
   });
 
+  it('a <track> loses its src before it is removed (switched off, or replaced by a reload), so the browser drops its load', () => {
+    const { video, r } = setup();
+    const srcAtRemoval: (string | null)[] = [];
+    const watch = (el: HTMLTrackElement | null | undefined) => {
+      if (!el) throw new Error('no track');
+      const remove = el.remove.bind(el);
+      el.remove = () => {
+        srcAtRemoval.push(el.getAttribute('src'));
+        remove();
+      };
+    };
+    r.show(vtt({ availability: 'growing' }));
+    const first = video.querySelector('track');
+    watch(first);
+    r.reload('vtt-1', vtt());
+    const second = video.querySelectorAll('track')[1];
+    watch(second);
+    second?.dispatchEvent(new Event('load'));
+    r.show(null);
+    expect(srcAtRemoval).toEqual([null, null]);
+    expect(video.querySelectorAll('track')).toHaveLength(0);
+  });
+
   it('a <track> error is a subtitle failure; clear removes only its own tracks', async () => {
     const { video, r, deps } = setup();
     const other = document.createElement('track');
@@ -528,6 +551,79 @@ describe('WebVTT fetch fallback for a growing track', () => {
       [1, 2, 'Uno'],
       [3, 4, 'Due'],
     ]);
+    vi.unstubAllGlobals();
+  });
+
+  it('switching the growing track off, or to another track, aborts its open response (F2 review, point 8)', async () => {
+    const signals: AbortSignal[] = [];
+    const { video, r } = setup({
+      growingVtt: 'fetch',
+      fetch: (_url, init) => {
+        if (init?.signal) signals.push(init.signal);
+        // Pass 1 of the extraction: the response stays open while the file grows.
+        return Promise.resolve(new Response(new ReadableStream<Uint8Array>({ start: () => undefined }), { status: 200 }));
+      },
+    });
+    video.addTextTrack = vi.fn(() => new FakeTextTrack() as unknown as TextTrack);
+    r.show(vtt({ availability: 'growing' }));
+    await vi.waitFor(() => expect(signals).toHaveLength(1));
+    r.show(vtt({ id: 'vtt-2', availability: 'growing', url: '/video/media/sessions/s1/subtitles/vtt-2.vtt?st=x' }));
+    await vi.waitFor(() => expect(signals).toHaveLength(2));
+    expect(signals.map((x) => x.aborted)).toEqual([true, false]);
+    r.show(null);
+    expect(signals[1]?.aborted).toBe(true);
+  });
+
+  it('every load reuses the TextTrack of its label and language: the element cannot drop one (F2 review 2, point 9)', async () => {
+    vi.stubGlobal('VTTCue', Cue);
+    const fetches: string[] = [];
+    const { video, r } = setup({
+      growingVtt: 'fetch',
+      fetch: (url) => {
+        fetches.push(url instanceof Request ? url.url : url.toString());
+        return Promise.resolve(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nUno\n', { status: 200 }));
+      },
+    });
+    const made: FakeTextTrack[] = [];
+    video.addTextTrack = vi.fn(() => {
+      const t = new FakeTextTrack();
+      made.push(t);
+      return t as unknown as TextTrack;
+    });
+    const ita = vtt({ availability: 'growing' });
+    const eng = vtt({ id: 'vtt-2', language: 'eng', availability: 'growing', url: '/video/media/sessions/s1/subtitles/vtt-2.vtt?st=x' });
+    r.show(ita);
+    await vi.waitFor(() => expect(made[0]?.list).toHaveLength(1));
+    r.show(eng);
+    await vi.waitFor(() => expect(made[1]?.list).toHaveLength(1));
+    // Back to the first one, and the same track in the next session's stream (a re-plan): no new TextTrack.
+    r.show(ita);
+    r.show(null);
+    r.show({ ...ita, url: '/video/media/sessions/s2/subtitles/vtt-1.vtt?st=y' });
+    await vi.waitFor(() => expect(fetches).toHaveLength(4));
+    await vi.waitFor(() => expect(made[0]?.list).toHaveLength(1));
+    expect(video.addTextTrack).toHaveBeenCalledTimes(2);
+    expect(made.map((t) => t.mode)).toEqual(['showing', 'disabled']);
+    vi.unstubAllGlobals();
+  });
+
+  it('a response that arrives after its load was replaced leaves the shared TextTrack alone', async () => {
+    vi.stubGlobal('VTTCue', Cue);
+    const answers: ((res: Response) => void)[] = [];
+    const { video, r } = setup({ growingVtt: 'fetch', fetch: () => new Promise<Response>((res) => answers.push(res)) });
+    const textTrack = new FakeTextTrack();
+    video.addTextTrack = vi.fn(() => textTrack as unknown as TextTrack);
+    const ita = vtt({ availability: 'growing' });
+    r.show(ita);
+    r.show(null);
+    r.show({ ...ita, url: '/video/media/sessions/s2/subtitles/vtt-1.vtt?st=y' });
+    expect(answers).toHaveLength(2);
+    answers[1]?.(new Response('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nNuovo\n', { status: 200 }));
+    await vi.waitFor(() => expect(textTrack.list).toHaveLength(1));
+    // The first fetch ignored its abort signal (a fake fetch): its late answer must not clear the cues.
+    answers[0]?.(new Response('WEBVTT\n\n00:00:05.000 --> 00:00:06.000\nVecchio\n', { status: 200 }));
+    await new Promise((res) => setTimeout(res, 10));
+    expect(textTrack.list.map((c) => c.text)).toEqual(['Nuovo']);
     vi.unstubAllGlobals();
   });
 

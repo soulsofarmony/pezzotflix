@@ -54,14 +54,18 @@ const stream = (over: Partial<HlsStream> = {}): HlsStream => ({
   ...over,
 });
 
-function setup(s: HlsStream = stream(), audio: SessionTrack | null = null) {
+/** What the playlist url answers to the engine's probe; an Error is no answer at all. */
+type ProbeAnswer = { status: number } | Error;
+
+function setup(s: HlsStream = stream(), audio: SessionTrack | null = null, probe: ProbeAnswer = { status: 200 }) {
   FakeHls.instances = [];
   const cb = { onFailure: vi.fn(), onTimelineOffset: vi.fn(), onBufferFull: vi.fn(), log: vi.fn() } satisfies EngineCallbacks;
   const video = createFakeVideo();
-  const engine = createHlsEngine(video, s, audio, cb, { Hls: FakeHls as unknown as HlsClass, workerPath: '/assets/hls.worker-abc.js', isTypeSupported: () => true });
+  const fetchFn = vi.fn((_url: string) => (probe instanceof Error ? Promise.reject(probe) : Promise.resolve(new Response(null, { status: probe.status }))));
+  const engine = createHlsEngine(video, s, audio, cb, { Hls: FakeHls as unknown as HlsClass, workerPath: '/assets/hls.worker-abc.js', isTypeSupported: () => true, fetch: fetchFn as unknown as typeof fetch });
   const hls = FakeHls.instances[0];
   if (!hls) throw new Error('no instance');
-  return { cb, engine, hls, video };
+  return { cb, engine, hls, video, fetchFn };
 }
 
 /** initPTS as hls.js 1.7.4 computes it for fMP4: first decode time minus the fragment's playlist start. */
@@ -171,6 +175,65 @@ describe('hls engine', () => {
     expect(cb.onFailure).toHaveBeenCalledWith({ kind: 'replan', suspect: 'audio', error: 'bufferAddCodecError' });
   });
 
+  describe('a fatal network error without an HTTP status (F2 review, point 1)', () => {
+    // The server cut the body when the session closed (another device took the slot), or the network went away.
+    const cut = { type: 'networkError', details: 'fragLoadError', fatal: true, response: { code: 0 } };
+
+    it.each([
+      [410, { kind: 'restart', error: 'HTTP_410' }],
+      [404, { kind: 'restart', error: 'HTTP_404' }],
+      [500, { kind: 'replan', suspect: 'unknown', error: 'STREAM_FAILED' }],
+      // The server and the session are alive (F2 review 2, point 6): one reload, not a stopped session.
+      [200, { kind: 'reload', error: 'fragLoadError', suspect: 'unknown' }],
+      [206, { kind: 'reload', error: 'fragLoadError', suspect: 'unknown' }],
+      [400, { kind: 'network', error: 'fragLoadError' }],
+    ] as const)('probes the playlist: %d → %o', async (status, action) => {
+      const { cb, hls, fetchFn } = setup(stream(), null, { status });
+      hls.emit(EVENTS.ERROR, cut);
+      expect(hls.calls).toContain('stopLoad');
+      await vi.waitFor(() => expect(cb.onFailure).toHaveBeenCalledTimes(1));
+      expect(fetchFn).toHaveBeenCalledWith('/video/media/sessions/s1/main.m3u8?st=x', expect.objectContaining({ headers: { Range: 'bytes=0-0' } }));
+      expect(cb.onFailure).toHaveBeenCalledWith(action);
+    });
+
+    it('no answer to the probe either: the network', async () => {
+      const { cb, hls } = setup(stream(), null, new TypeError('Failed to fetch'));
+      hls.emit(EVENTS.ERROR, { type: 'networkError', details: 'manifestLoadError', fatal: true });
+      await vi.waitFor(() => expect(cb.onFailure).toHaveBeenCalledWith({ kind: 'network', error: 'Failed to fetch' }));
+    });
+
+    it('an error with its own status is not probed; nothing is reported after destroy', async () => {
+      const a = setup();
+      a.hls.emit(EVENTS.ERROR, { ...cut, response: { code: 410 } });
+      expect(a.fetchFn).not.toHaveBeenCalled();
+      expect(a.cb.onFailure).toHaveBeenCalledWith({ kind: 'restart', error: 'HTTP_410' });
+      const b = setup(stream(), null, { status: 410 });
+      b.hls.emit(EVENTS.ERROR, cut);
+      b.engine.destroy();
+      await vi.waitFor(() => expect(b.fetchFn).toHaveBeenCalled());
+      await new Promise((r) => setTimeout(r, 0));
+      expect(b.cb.onFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  it.each([500, 502])('a %d on a fragment fails the stream at its first, non-fatal error (no hls.js retries)', (code) => {
+    // With one level hls.js retries a fragment six times (about 31 s) whatever shouldRetry says (F2 review 2, point 10).
+    const { cb, hls, fetchFn } = setup();
+    hls.emit(EVENTS.ERROR, { type: 'networkError', details: 'fragLoadError', fatal: false, response: { code } });
+    expect(hls.calls).toContain('stopLoad');
+    expect(cb.onFailure).toHaveBeenCalledWith({ kind: 'replan', suspect: 'unknown', error: 'STREAM_FAILED' });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('a non-fatal 503 or a fragment without an answer is left to the hls.js retries', () => {
+    const { cb, hls } = setup();
+    hls.emit(EVENTS.ERROR, { type: 'networkError', details: 'fragLoadError', fatal: false, response: { code: 503 } });
+    hls.emit(EVENTS.ERROR, { type: 'networkError', details: 'fragLoadError', fatal: false, response: { code: 0 } });
+    hls.emit(EVENTS.ERROR, { type: 'networkError', details: 'fragLoadTimeOut', fatal: false });
+    expect(hls.calls).not.toContain('stopLoad');
+    expect(cb.onFailure).not.toHaveBeenCalled();
+  });
+
   it('counts bufferFullError without failing', () => {
     const { cb, hls } = setup();
     hls.emit(EVENTS.ERROR, { type: 'mediaError', details: 'bufferFullError', fatal: false });
@@ -210,7 +273,10 @@ describe('no500Retry', () => {
   const cfg = POLICY.default.errorRetry as never;
   it.each([
     [500, true, false],
+    [502, true, false],
+    [504, true, false],
     [503, true, true],
+    [0, true, true],
     [503, false, false],
     [404, false, false],
   ])('HTTP %d with default %s → %s', (code, retry, expected) => {

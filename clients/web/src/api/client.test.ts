@@ -1,3 +1,4 @@
+import type { Middleware } from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
 import spec from '../../../../services/video/contract/dist/openapi.json';
 import { call, createVideoClient, PUBLIC_OPERATIONS } from './client.ts';
@@ -62,6 +63,24 @@ describe('profile middleware', () => {
   it('a 401 on a profile operation clears the profile and goes back to the choice', async () => {
     const { client, store, onUnauthorized } = setup(401, { type: 'about:blank', title: 'Unauthorized', status: 401, code: 'UNAUTHORIZED' });
     await expect(call(client.GET('/video/api/v1/home'))).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
+    expect(store.get()).toBeNull();
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('a 401 for a token that is no longer the stored one leaves the profile another tab picked (F2 review 2, point 4)', async () => {
+    const { client, store, onUnauthorized } = setup(401, { type: 'about:blank', title: 'Unauthorized', status: 401, code: 'UNAUTHORIZED' });
+    // A call pinned to the profile of its session (api/playback.ts), after another tab picked tok-1.
+    const pinned: Middleware = {
+      onRequest({ request }) {
+        request.headers.set('Authorization', 'Bearer tok-0');
+        return undefined;
+      },
+    };
+    await expect(call(client.GET('/video/api/v1/home', { middleware: [pinned] }))).rejects.toMatchObject({ status: 401 });
+    expect(store.get()?.token).toBe('tok-1');
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    // The stored profile's own 401 still clears it.
+    await expect(call(client.GET('/video/api/v1/home'))).rejects.toMatchObject({ status: 401 });
     expect(store.get()).toBeNull();
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });

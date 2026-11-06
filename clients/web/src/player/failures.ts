@@ -30,6 +30,15 @@ export interface HlsErrorLike {
 
 const SESSION_CLOSED = new Set([401, 403, 404, 410]);
 
+/**
+ * A 5xx of the data plane other than 503 (500 STREAM_FAILED, ADR 0003): the stream cannot be produced, retrying
+ * the same url is useless. 503 is "not ready yet" (STREAM_PREPARING, or the gateway while the service restarts):
+ * the contract says retry, so hls.js keeps its retries for it.
+ */
+export function isFailedStream(status: number): boolean {
+  return status >= 500 && status !== 503;
+}
+
 function httpStatus(e: HlsErrorLike): number | null {
   const code = e.response?.code;
   if (typeof code === 'number' && code > 0) return code;
@@ -57,6 +66,9 @@ export function classifyHlsError(e: HlsErrorLike, mimeType: string | null, isTyp
   if (e.type === 'networkError') {
     const status = httpStatus(e);
     if (status !== null && SESSION_CLOSED.has(status)) return { kind: 'restart', error: `HTTP_${status}` };
+    // Already on the first, non-fatal error: with a single level hls.js retries a fragment up to six times
+    // (about 31 s) whatever shouldRetry says, and a failed stream does not get better.
+    if (status !== null && isFailedStream(status)) return { kind: 'replan', suspect: 'unknown', error: 'STREAM_FAILED' };
     if (!e.fatal) return { kind: 'ignore' };
     if (status !== null && status >= 500) return { kind: 'replan', suspect: 'unknown', error: 'STREAM_FAILED' };
     return { kind: 'network', error: e.details };

@@ -23,16 +23,25 @@ export interface PlaybackApiError {
   detail: string | null;
   retryAfterMs: number | null;
   activeSessions: ActiveSession[];
-  /** Problem extension of ChangeTracks/ChangeVersion 422s: the refusal also closed the session. */
+  /** Problem extension: the error also closed the session (ChangeTracks/ChangeVersion 422, reportPlaybackFailure 503). */
   sessionClosed?: boolean;
+  /** The Problem body, as ApiError keeps it: SESSION_EXPIRED carries `reason`, why the server closed the session. */
+  problem?: { reason?: unknown } | null;
 }
 
 export function isPlaybackApiError(e: unknown): e is PlaybackApiError {
   return typeof e === 'object' && e !== null && typeof (e as PlaybackApiError).status === 'number' && typeof (e as PlaybackApiError).code === 'string';
 }
 
+/** Why the server closed the session (SESSION_EXPIRED's reason: expired, terminated, failed, item_removed, …); null when absent. */
+export function closedReason(e: PlaybackApiError): string | null {
+  const r = e.problem?.reason;
+  return typeof r === 'string' && r !== '' ? r : null;
+}
+
 export interface PlaybackApi {
-  start(body: StartPlaybackRequest): Promise<PlaybackSession>;
+  /** asSession: the start replaces that session (an automatic restart), so it runs under that session's profile. */
+  start(body: StartPlaybackRequest, opts?: { asSession?: string }): Promise<PlaybackSession>;
   reportProgress(sessionId: string, body: ProgressReport): Promise<void>;
   /** keepalive: the request must survive the page going away (pagehide). */
   stop(sessionId: string, positionMs: number, opts?: { keepalive?: boolean }): Promise<void>;

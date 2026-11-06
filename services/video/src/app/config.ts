@@ -50,7 +50,7 @@ const Env = z.object({
   SCRATCH_MAX_BYTES: byteSize.default(20 * 1024 ** 3),
   MAX_SESSIONS: z.coerce.number().int().min(1).default(1),
   MAX_TRANSCODES: z.coerce.number().int().min(0).default(1),
-  SESSION_TIMEOUT_S: z.coerce.number().int().min(10).default(60),
+  SESSION_TIMEOUT_S: z.coerce.number().int().min(10).default(150), // > 2 min: a hidden tab runs its heartbeat timer about once a minute
   /** Longest a start or a session may wait without a stream (STREAM_PREPARING) before 500 STREAM_FAILED. */
   PLAYBACK_PREPARING_MAX_S: z.coerce.number().int().min(10).default(900),
   // Stream Delivery (ADR 0003 D16).

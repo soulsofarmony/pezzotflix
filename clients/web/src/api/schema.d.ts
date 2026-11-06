@@ -397,7 +397,7 @@ export interface paths {
         put?: never;
         /**
          * Client playback failure — the server re-plans from the suspect dimension with the minimum change (doc 04 §8).
-         * @description The failed format stays excluded for the session. audio: one step down the audio ladder (Direct Play becomes Direct Stream with converted audio; Direct Stream stays Direct Stream with another audio format). subtitle: the next subtitle treatment; if there is none (e.g. burn-in on a 4K source), playback goes on without that track and the session reasons say why. video, container or unknown: a heavier mode (Direct Play, Direct Stream, Transcode). If the required step does not exist (4K Transcode), 422 NO_COMPATIBLE_PLAN.
+         * @description The failed format stays excluded for the session. audio: one step down the audio ladder (Direct Play becomes Direct Stream with converted audio; Direct Stream stays Direct Stream with another audio format). subtitle: the next subtitle treatment; if there is none (e.g. burn-in on a 4K source), playback goes on without that track and the session reasons say why. video, container or unknown: a heavier mode (Direct Play, Direct Stream, Transcode). If the required step does not exist (4K Transcode), 422 NO_COMPATIBLE_PLAN. Both 422 and 500 close the session.
          */
         post: operations["reportPlaybackFailure"];
         delete?: never;
@@ -756,8 +756,10 @@ export interface components {
                 message: string;
             }[];
             activeSessions?: components["schemas"]["ActiveSession"][];
-            /** @description ChangeTracks and ChangeVersion, 422 only: true when the refusal also closed the session (it was waiting without a stream and its previous tracks could not be played either). The client starts a new session instead of keeping the current one. Absent means false. */
+            /** @description True when the error also closed the session: the client starts a new session instead of keeping or retrying the current one. Absent means false. Set on ChangeTracks and ChangeVersion 422 (the session was waiting without a stream and its previous tracks could not be played either) and on reportPlaybackFailure 503 MEDIA_UNAVAILABLE (the file is no longer reachable; no Retry-After). */
             sessionClosed?: boolean;
+            /** @description SESSION_EXPIRED (410) on a session call: why the session closed. Open set, unknown values must be tolerated: the reasons of playback.session_terminated (expired, terminated, failed, item_removed) plus stopped (StopPlayback) and shutdown (the service was stopping). A client whose stream answers 404/410 asks the control plane once and does not start again on terminated, failed or item_removed. Absent on 404 (the server does not know the session, e.g. after a restart). */
+            reason?: string;
         };
         ServerInfo: {
             name: string;
@@ -1896,7 +1898,7 @@ export interface operations {
             422: components["responses"]["Problem"];
             /** @description STREAM_FAILED, the stream could not be produced and the automatic attempts are used up. */
             500: components["responses"]["Problem"];
-            /** @description STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE. */
+            /** @description STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a stream, retry the same request after Retry-After), or MEDIA_UNAVAILABLE with sessionClosed true and no Retry-After (the file is no longer reachable and the session is closed: do not retry, tell the viewer), or MEDIA_UNAVAILABLE without sessionClosed (the service is stopping or unreachable, e.g. an answer of the gateway): transient, retry after Retry-After, or after a short wait when it is absent. */
             503: components["responses"]["ProblemRetryAfter"];
         };
     };

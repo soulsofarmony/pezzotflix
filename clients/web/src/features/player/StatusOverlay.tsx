@@ -127,7 +127,7 @@ export function StatusOverlay({ snap, controller, onExit }: { snap: PlayerSnapsh
             {snap.activeSessions.length > 0 ? (
               snap.activeSessions.map((s) => (
                 <button key={s.sessionId} type="button" className="btn btn-primary" onClick={() => void controller.terminateOther(s.sessionId)}>
-                  {t('player.stopOther', { title: s.itemTitle ?? '—', profile: s.profileName ?? '—' })}
+                  {s.profileName ? t('player.stopOther', { title: s.itemTitle ?? '—', profile: s.profileName }) : t('player.stopOtherNoProfile', { title: s.itemTitle ?? '—' })}
                 </button>
               ))
             ) : (

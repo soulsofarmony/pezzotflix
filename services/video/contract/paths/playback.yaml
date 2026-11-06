@@ -159,7 +159,7 @@ failure:
       subtitle: the next subtitle treatment; if there is none (e.g. burn-in on a 4K source), playback goes on
       without that track and the session reasons say why. video, container or unknown: a heavier mode
       (Direct Play, Direct Stream, Transcode). If the required step does not exist (4K Transcode), 422
-      NO_COMPATIBLE_PLAN.
+      NO_COMPATIBLE_PLAN. Both 422 and 500 close the session.
     requestBody:
       required: true
       content:
@@ -181,4 +181,7 @@ failure:
         $ref: '../components/responses.yaml#/ProblemRetryAfter'
         description: >-
           STREAM_PREPARING (the new stream's keyframe index is not ready; the session stays open without a
-          stream, retry the same request after Retry-After) or MEDIA_UNAVAILABLE.
+          stream, retry the same request after Retry-After), or MEDIA_UNAVAILABLE with sessionClosed true and no
+          Retry-After (the file is no longer reachable and the session is closed: do not retry, tell the viewer),
+          or MEDIA_UNAVAILABLE without sessionClosed (the service is stopping or unreachable, e.g. an answer of the
+          gateway): transient, retry after Retry-After, or after a short wait when it is absent.

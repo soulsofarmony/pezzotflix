@@ -24,7 +24,10 @@ export interface PgsLike {
 
 export type PgsFactory = (opts: { video: HTMLVideoElement; subUrl: string; timeOffset: number }) => PgsLike;
 
-/** Which way a growing WebVTT track is read: <track> (ADR 0005) or the fetch fallback (to verify in F1c/F2). */
+/**
+ * Which way a growing WebVTT track is read: <track> (ADR 0005) or fetch + VTTCue. The browser wiring uses fetch:
+ * only fetch can abort the long response when the track is switched off.
+ */
 export type GrowingVttStrategy = 'track' | 'fetch';
 
 export interface SubtitleDeps {
@@ -44,6 +47,16 @@ export interface SubtitleDeps {
 /** Waiting on a 503 subtitle url stops here and becomes a failure. */
 export const SUBTITLE_PREPARING_LIMIT_MS = 120_000;
 const DEFAULT_RETRY_AFTER_MS = 2_000;
+
+/**
+ * Removes a <track>: its src goes first, so the browser drops the load it may still hold open (a growing file's
+ * response can last most of the film). Growing tracks normally use the fetch strategy, which aborts for sure.
+ */
+function dropTrack(t: HTMLTrackElement): void {
+  t.track.mode = 'disabled';
+  t.removeAttribute('src');
+  t.remove();
+}
 
 /** Tracks the client can show without restarting the stream. */
 export const isLocalTrack = (t: SessionTrack) => !!t.url && t.switchWithoutRestart && (t.delivery === 'client_render' || t.delivery === 'sidecar');
@@ -87,6 +100,11 @@ export class SubtitleRenderer {
    * delivered something or the track completed meanwhile (a server-side restart of the extraction).
    */
   private reloadedAfterCut = false;
+  /**
+   * TextTracks of the fetch strategy, by label and language. The element cannot drop a track made by addTextTrack,
+   * and its label and language are read-only, so each one is reused by every later load with the same pair.
+   */
+  private readonly fetchTracks = new Map<string, TextTrack>();
 
   constructor(video: HTMLVideoElement, deps: SubtitleDeps) {
     this.video = video;
@@ -316,8 +334,7 @@ export class SubtitleRenderer {
         // The new <track> is complete: show it and drop the old one now, so there is no gap and no double cue.
         next.track.mode = 'showing';
         if (el && el !== next) {
-          el.track.mode = 'disabled';
-          el.remove();
+          dropTrack(el);
           own.delete(el);
         }
         el = next;
@@ -353,35 +370,40 @@ export class SubtitleRenderer {
       },
       dispose: () => {
         video.removeEventListener('timeupdate', onTimeUpdate);
-        for (const t of own) {
-          t.track.mode = 'disabled';
-          t.remove();
-        }
+        for (const t of own) dropTrack(t);
         own.clear();
       },
     };
   }
 
+  private fetchTrack(track: SessionTrack): TextTrack {
+    const label = track.title ?? track.language ?? track.id;
+    const language = track.language ?? '';
+    const key = JSON.stringify([label, language]);
+    let t = this.fetchTracks.get(key);
+    if (!t) {
+      t = this.video.addTextTrack('subtitles', label, language);
+      this.fetchTracks.set(key, t);
+    }
+    return t;
+  }
+
   private showVttFetch(track: SessionTrack, token: number): Active {
-    const video = this.video;
-    const textTrack = video.addTextTrack('subtitles', track.title ?? track.language ?? track.id, track.language ?? '');
-    textTrack.mode = 'showing';
+    const shown = this.fetchTrack(track);
+    shown.mode = 'showing';
     const original = new WeakMap<TextTrackCue, [number, number]>();
     let abort = new AbortController();
     const doFetch = this.fetchFn;
 
     const clearCues = () => {
-      const cues = textTrack.cues;
-      while (cues && cues.length > 0) {
-        const c = cues[0];
-        if (!c) break;
-        textTrack.removeCue(c);
-      }
+      for (let c = shown.cues?.[0]; c; c = shown.cues?.[0]) shown.removeCue(c);
     };
 
     const load = async (url: string) => {
       const ctrl = abort;
       const res = await doFetch(url, { signal: ctrl.signal });
+      // A response of a load already replaced must not clear the cues of the one that replaced it (same TextTrack).
+      if (token !== this.token || ctrl.signal.aborted) return;
       if (!res.ok || !res.body) throw new HttpStatusError(res.status, parseRetryAfter(res.headers.get('Retry-After')), await problemCode(res));
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
       const parser = new VttStreamParser();
@@ -392,7 +414,7 @@ export class SubtitleRenderer {
         for (const c of cues) {
           const cue = new VTTCue(c.startS - off, c.endS - off, c.text);
           original.set(cue, [c.startS, c.endS]);
-          textTrack.addCue(cue);
+          shown.addCue(cue);
         }
       };
       clearCues();
@@ -414,7 +436,7 @@ export class SubtitleRenderer {
 
     return {
       track,
-      setOffset: () => this.shiftCues(textTrack, original),
+      setOffset: () => this.shiftCues(shown, original),
       reload: () => {
         abort.abort();
         abort = new AbortController();
@@ -423,7 +445,7 @@ export class SubtitleRenderer {
       dispose: () => {
         abort.abort();
         clearCues();
-        textTrack.mode = 'disabled';
+        shown.mode = 'disabled';
       },
     };
   }

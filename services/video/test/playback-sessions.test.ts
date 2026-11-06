@@ -2,12 +2,19 @@
 // ADR 0003 D7/D9): lifecycle, limits, re-plans with a stable sessionId, the 3-attempt budget, the
 // delivery record winning over the client's suspect, Retry-After, and every response against the contract.
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- response bodies are untyped JSON, checked against the contract by the harness */
+import { randomBytes } from 'node:crypto';
 import pino from 'pino';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { compose } from '../src/app/compose.ts';
+import { loadConfig } from '../src/app/config.ts';
+import { buildServer } from '../src/app/server.ts';
+import { closeDb, openDb } from '../src/db/index.ts';
+import { playbackModule } from '../src/modules/playback/index.ts';
+import { profilesModule } from '../src/modules/profiles/index.ts';
 import { createWatchState } from '../src/modules/profiles/watch.ts';
 import type { PlayableItem } from '../src/shared/ports.ts';
 import { aac, ac3, audio, chrome, edge, facts, file, firefox, sdr1080, sub, video } from './playback-fixtures.ts';
-import { failure, P1, P2, type PlaybackHarness, playbackHarness } from './playback-harness.ts';
+import { failure, FakeCatalog, FakeDelivery, P1, P2, type PlaybackHarness, playbackHarness } from './playback-harness.ts';
 import { fakeCatalogRead, seedCatalog } from './profiles-fixtures.ts';
 
 const ITEM = '01936f0e-0000-7000-8000-0000000000b1';
@@ -96,7 +103,7 @@ describe('startPlayback', () => {
     expect(h.delivery.calls[0]).toMatchObject({ op: 'start', sessionId: S1 });
     expect(h.delivery.starts()[0]?.startPositionMs).toBe(3_723_000);
     const list = await h.call('listActiveSessions', 'GET', SESSIONS);
-    expect(list.body).toEqual({ sessions: [{ sessionId: S1, profileId: P1, itemId: ITEM, itemTitle: 'Blade Runner 2049', mode: 'direct_stream', startedAt: 1_000_000, positionMs: 3_723_000 }] });
+    expect(list.body).toEqual({ sessions: [{ sessionId: S1, profileId: P1, profileName: 'Simone', itemId: ITEM, itemTitle: 'Blade Runner 2049', mode: 'direct_stream', startedAt: 1_000_000, positionMs: 3_723_000 }] });
   });
 
   it('Direct Play of a single-track MKV: progressive, offset 0', async () => {
@@ -211,11 +218,12 @@ describe('delivery outcomes at start (ADR 0003 D7, D8)', () => {
     expect(r.body.mode).toBe('direct_stream');
   });
 
-  it('after 3 automatic attempts: 422 NO_COMPATIBLE_PLAN, no session left', async () => {
+  it('after 3 automatic attempts: 500 STREAM_FAILED (the client offers "Riprova"), no session left', async () => {
     for (let i = 0; i < 4; i++) h.delivery.next.push({ ok: false, code: 'STREAM_FAILED', failure: failure({ suspect: 'audio' }) });
     const r = await start({ itemId: ITEM_HD });
-    expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('i 3 tentativi automatici sono esauriti');
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ code: 'STREAM_FAILED' });
+    expect(r.body.detail).toContain('the 3 automatic attempts of this playback are used up');
     expect(h.delivery.starts()).toHaveLength(4);
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
     expect((await start({ itemId: ITEM_HD })).status).toBe(201); // slot released
@@ -367,8 +375,9 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     expect((await fail(id, { suspect: 'audio' })).status).toBe(200); // attempt 2
     expect((await fail(id, { suspect: 'audio' })).status).toBe(200); // attempt 3
     const r = await fail(id, { suspect: 'audio' });
-    expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('I 3 tentativi automatici di questa riproduzione sono esauriti');
+    expect(r.status).toBe(500);
+    expect(r.body).toMatchObject({ code: 'STREAM_FAILED' });
+    expect(r.body.detail).toContain('the 3 automatic attempts of this playback are used up');
     expect(h.delivery.starts()).toHaveLength(4);
     // The formats excluded so far, one per attempt: the copy at start, then FLAC, then AAC.
     expect(h.delivery.starts()[3]?.exclusions.map((e) => [e.dimension, 'action' in e ? `${e.action}:${e.codec}` : '', e.cause])).toEqual([
@@ -379,11 +388,38 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
   });
 
-  it('file_unavailable from delivery: the session ends with MEDIA_UNAVAILABLE', async () => {
+  it('the file goes away mid-film (delivery cannot start it): 503 MEDIA_UNAVAILABLE with sessionClosed, no Retry-After, session closed', async () => {
+    const id = (await start({ itemId: ITEM_HD })).body.sessionId;
+    h.delivery.statuses.set('st1', { state: 'failed', failure: failure({ stderrClass: 'io' }) });
+    h.delivery.next.push({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'root Film offline' });
+    const r = await fail(id, { positionMs: 1_800_000, suspect: 'unknown', error: 'STREAM_FAILED' });
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ code: 'MEDIA_UNAVAILABLE', sessionClosed: true, detail: 'root Film offline' });
+    expect(r.headers['retry-after']).toBeUndefined();
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
+    expect(h.events.at(-1)?.payload).toMatchObject({ sessionId: id, reason: 'failed' });
+    expect(h.profiles.stored.get(`${P1}/${ITEM_HD}`)).toMatchObject({ positionMs: 1_800_000 });
+    // The next session call says the session is closed, and why.
+    const again = await h.call('reportProgress', 'POST', `${SESSIONS}/${id}/progress`, { positionMs: 1_800_000, state: 'paused', clientTs: 9 });
+    expect(again.body).toMatchObject({ status: 410, code: 'SESSION_EXPIRED', reason: 'failed', detail: 'Session closed: the file is not reachable' });
+  });
+
+  it('the file is no longer available in the catalog: the automatic re-plan closes the session the same way', async () => {
+    const id = (await start({ itemId: ITEM_HD })).body.sessionId;
+    h.catalog.items.set(ITEM_HD, hd({ files: hd().files.map((f) => ({ ...f, available: false })) }));
+    const r = await fail(id, { suspect: 'video' });
+    expect(r.body).toMatchObject({ status: 503, code: 'MEDIA_UNAVAILABLE', sessionClosed: true });
+    expect(r.headers['retry-after']).toBeUndefined();
+    expect(h.delivery.ops()).toEqual(['start direct_play', 'stop st1 stopped']);
+  });
+
+  it('a user change still waits for an unreachable file: 503 MEDIA_UNAVAILABLE without sessionClosed, the session stays', async () => {
     const id = (await start({ itemId: ITEM })).body.sessionId;
-    h.delivery.statuses.set('st1', { state: 'failed', failure: failure({ kind: 'file_unavailable' }) });
-    const r = await h.callProblem('POST', `${SESSIONS}/${id}/failure`, { positionMs: 0, error: 'STREAM_FAILED', suspect: 'unknown' });
+    h.delivery.next.push({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'root Film offline' });
+    const r = await h.call('changeTracks', 'POST', `${SESSIONS}/${id}/tracks`, { audioTrackId: 's1' });
     expect(r.body).toMatchObject({ status: 503, code: 'MEDIA_UNAVAILABLE' });
+    expect(r.body.sessionClosed).toBeUndefined();
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toMatchObject([{ sessionId: id }]);
   });
 
   it('STREAM_PREPARING during a re-plan: 503 + Retry-After, the session stays open without a stream (S3)', async () => {
@@ -403,7 +439,7 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     // Two more automatic attempts are left.
     expect((await fail(id, { suspect: 'audio' })).status).toBe(200);
     expect((await fail(id, { suspect: 'audio' })).status).toBe(200);
-    expect((await fail(id, { suspect: 'audio' })).status).toBe(422);
+    expect((await fail(id, { suspect: 'audio' })).status).toBe(500);
   });
 
   it('a session waiting for its stream still expires and still stops', async () => {
@@ -1091,4 +1127,136 @@ describe('waiting without a stream is capped (PLAYBACK_PREPARING_MAX_S, M3)', ()
     // The stream was stopped by the first re-plan: no second stop.
     expect(h.delivery.ops()).toEqual(['start direct_play', 'stop st1 replanned', 'start direct_stream', 'start direct_stream', 'start direct_stream']);
   });
+});
+
+describe('across the seams (F2 review)', () => {
+  const progress = (id: string, token = 't1', clientTs = 1) => h.call('reportProgress', 'POST', `${SESSIONS}/${id}/progress`, { positionMs: 1_000, state: 'paused', clientTs }, token);
+
+  it('point 1: a session closed by another device answers 410 with reason terminated, so its player does not start again', async () => {
+    const a = (await start({ itemId: ITEM }, 't2')).body.sessionId;
+    // B (another profile) frees the only slot.
+    expect((await h.call('terminateSession', 'DELETE', `${SESSIONS}/${a}`)).status).toBe(204);
+    expect((await progress(a, 't2')).body).toMatchObject({ status: 410, code: 'SESSION_EXPIRED', reason: 'terminated' });
+    expect((await h.call('reportPlaybackFailure', 'POST', `${SESSIONS}/${a}/failure`, { positionMs: 0, error: 'HTTP_410' }, 't2')).body).toMatchObject({ status: 410, reason: 'terminated' });
+  });
+
+  it.each([
+    ['expired', async (id: string) => {
+      h.clock.now += 61_000;
+      await h.expire();
+      return id;
+    }],
+    ['stopped', async (id: string) => {
+      await h.call('stopPlayback', 'POST', `${SESSIONS}/${id}/stop`, { positionMs: 0 });
+      return id;
+    }],
+    ['item_removed', async (id: string) => {
+      h.catalog.items.delete(ITEM);
+      await h.call('changeTracks', 'POST', `${SESSIONS}/${id}/tracks`, { audioTrackId: 's1' });
+      return id;
+    }],
+    ['failed', async (id: string) => {
+      await h.call('reportPlaybackFailure', 'POST', `${SESSIONS}/${id}/failure`, { positionMs: 0, error: 'x', suspect: 'video' }); // 4K: no heavier mode
+      return id;
+    }],
+  ] as const)('point 1: the 410 says why the session closed: %s', async (reason, close) => {
+    const id = await close((await start({ itemId: ITEM })).body.sessionId);
+    expect((await progress(id, 't1', 2)).body).toMatchObject({ status: 410, code: 'SESSION_EXPIRED', reason });
+  });
+
+  it('point 1: an unknown session (e.g. after a restart) is a 404 without a reason', async () => {
+    const r = await progress('01936f0e-0000-7000-8000-00000000dead');
+    expect(r.body).toMatchObject({ status: 404, code: 'NOT_FOUND' });
+    expect(r.body.reason).toBeUndefined();
+  });
+
+  it('point 4: a shutdown during an automatic re-plan closes the session as shutdown, not failed (no event, no "file" text)', async () => {
+    const id = (await start({ itemId: ITEM_HD })).body.sessionId;
+    const gate = h.delivery.gateStart();
+    // Delivery refuses starts while it shuts down (MEDIA_UNAVAILABLE).
+    h.delivery.next.push({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'The video service is shutting down' });
+    const replan = fail(id, { suspect: 'audio' });
+    await gate.reached;
+    const down = h.shutdown();
+    gate.release();
+    const r = await replan;
+    await down;
+    expect(r.body).toMatchObject({ status: 503, code: 'MEDIA_UNAVAILABLE' });
+    expect(r.body.sessionClosed).toBeUndefined();
+    expect(h.events).toEqual([]);
+  });
+
+  it('point 7: the session-limit problem and the list name the profile of each session', async () => {
+    const a = (await start({ itemId: ITEM }, 't2')).body.sessionId;
+    const r = await start({ itemId: ITEM_HD });
+    expect(r.body).toMatchObject({ code: 'SESSION_LIMIT_REACHED', activeSessions: [{ sessionId: a, profileId: P2, profileName: 'Giulia', itemTitle: 'Blade Runner 2049' }] });
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions[0]).toMatchObject({ profileName: 'Giulia' });
+  });
+
+  it('point 7: a profile without a name, or a port that cannot give one, leaves profileName out', async () => {
+    h.profiles.names.clear();
+    await start({ itemId: ITEM });
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions[0].profileName).toBeUndefined();
+    h.profiles.profileName = () => {
+      throw new Error('db gone');
+    };
+    expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions[0].profileName).toBeUndefined();
+  });
+
+  it('point 7: the real profiles module names the profile in the session-limit problem', async () => {
+    const db = await openDb({ path: ':memory:' });
+    const catalog = new FakeCatalog();
+    catalog.items.set(ITEM, uhd());
+    catalog.items.set(ITEM_HD, hd());
+    const comp = compose({
+      config: loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: '[]' }),
+      db,
+      log: pino({ level: 'silent' }),
+      factories: [
+        () => ({ name: 'fakes', provides: { catalogRead: catalog, streamDelivery: new FakeDelivery(), events: { publish: () => undefined } } }),
+        profilesModule({ tokenKey: randomBytes(32) }),
+        playbackModule(),
+      ],
+    });
+    const app = await buildServer({ logger: false, handlers: comp.handlers, profileTokens: comp.ports.profileTokens });
+    try {
+      const api = async (method: 'GET' | 'POST', url: string, payload?: object, token?: string) => {
+        const r = await app.inject({ method, url: `/video/api/v1${url}`, ...(payload ? { payload } : {}), ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}) });
+        return r.json();
+      };
+      const tokenOf = async (name: string) => {
+        const p = await api('POST', '/profiles', { name });
+        return (await api('POST', `/profiles/${p.id}/select`)).profileToken as string;
+      };
+      const giulia = await tokenOf('Giulia');
+      const simone = await tokenOf('Simone');
+      expect((await api('POST', '/playback/sessions', { itemId: ITEM, capabilities: chrome() }, giulia)).sessionId).toBeDefined();
+      const r = await api('POST', '/playback/sessions', { itemId: ITEM_HD, capabilities: chrome() }, simone);
+      expect(r).toMatchObject({ code: 'SESSION_LIMIT_REACHED', activeSessions: [{ profileName: 'Giulia', itemTitle: 'Blade Runner 2049' }] });
+    } finally {
+      await app.close();
+      closeDb(db);
+    }
+  });
+
+  it('point 6: the default session timeout (150 s) outlives a hidden tab whose heartbeat runs once a minute', async () => {
+    const timeoutS = loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: '[]' }).SESSION_TIMEOUT_S;
+    expect(timeoutS).toBe(150);
+    await h.close();
+    h = await playbackHarness({ env: { SESSION_TIMEOUT_S: String(timeoutS) } });
+    h.catalog.items.set(ITEM, uhd());
+    const s = (await start({ itemId: ITEM })).body;
+    expect(s.heartbeatIntervalMs).toBe(10_000);
+    // Chrome and Edge align timers of a tab hidden for over 5 minutes to about one per minute, with some drift.
+    for (let i = 1; i <= 5; i++) {
+      h.clock.now += 75_000;
+      await h.expire();
+      expect((await progress(s.sessionId, 't1', i)).status).toBe(204);
+    }
+    h.clock.now += 151_000;
+    await h.expire();
+    expect((await progress(s.sessionId, 't1', 9)).body).toMatchObject({ status: 410, reason: 'expired' });
+  });
+
+  const fail = (id: string, body: Record<string, unknown>) => h.call('reportPlaybackFailure', 'POST', `${SESSIONS}/${id}/failure`, { positionMs: 120_000, error: 'MEDIA_ERR_DECODE', ...body });
 });

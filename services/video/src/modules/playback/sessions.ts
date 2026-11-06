@@ -67,6 +67,8 @@ export interface SessionManagerDeps {
 }
 
 type EndKind = 'stopped' | 'terminated' | 'expired' | 'failed' | 'shutdown';
+/** Why a session closed: the kind, or a more specific playback.session_terminated reason (contract Event). */
+type EndReason = EndKind | 'item_removed';
 
 interface ReplanOptions {
   automatic: boolean;
@@ -131,6 +133,8 @@ interface Tombstone {
   fileId: string;
   durationMs: number | null;
   kind: EndKind;
+  /** SESSION_EXPIRED's `reason` extension. */
+  reason: EndReason;
   at: number;
   detail: string | null;
 }
@@ -185,6 +189,14 @@ function problemOf(d: Exclude<Decision, { ok: true }>): ProblemError {
 
 const isPlayable = (item: PlayableItem): boolean => item.kind === 'movie' || item.kind === 'episode' || item.kind === 'extra';
 const shuttingDown = (): ProblemError => new ProblemError('MEDIA_UNAVAILABLE', 'The video service is shutting down');
+/**
+ * The error of an automatic re-plan that ended the session. A 503 on a session call means "the session stays,
+ * retry" (contract), so a MEDIA_UNAVAILABLE that closed it says so with sessionClosed, and carries no Retry-After.
+ */
+const closedBy = (err: unknown): unknown =>
+  err instanceof ProblemError && err.code === 'MEDIA_UNAVAILABLE' ? new ProblemError('MEDIA_UNAVAILABLE', err.message, { ...err.extra, sessionClosed: true }) : err;
+const attemptsUsedUp = (what: string): ProblemError =>
+  new ProblemError('STREAM_FAILED', `${what} and the ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts of this playback are used up.`);
 const isOff = (sel: TrackSelection): boolean => sel.subtitle !== undefined && sel.subtitle.trackId === null;
 
 /** E-3: track ids are file-local, so with several versions they need the file they belong to. */
@@ -287,15 +299,29 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     });
   };
 
-  const active = (s: Session): ActiveSession => ({
-    sessionId: s.sessionId,
-    profileId: s.profileId,
-    itemId: s.itemId,
-    itemTitle: s.itemTitle,
-    mode: s.plan.mode,
-    startedAt: s.startedAt,
-    positionMs: s.positionMs,
-  });
+  /** The profile's name for the session-limit dialog ("Interrompi «Dune» (Giulia)"); absent when unknown. */
+  function profileName(profileId: string): string | undefined {
+    try {
+      return ports.profilePlayback.profileName(profileId) ?? undefined;
+    } catch (err) {
+      log.warn({ err, profileId }, 'profile name not read');
+      return undefined;
+    }
+  }
+
+  const active = (s: Session): ActiveSession => {
+    const name = profileName(s.profileId);
+    return {
+      sessionId: s.sessionId,
+      profileId: s.profileId,
+      ...(name !== undefined ? { profileName: name } : {}),
+      itemId: s.itemId,
+      itemTitle: s.itemTitle,
+      mode: s.plan.mode,
+      startedAt: s.startedAt,
+      positionMs: s.positionMs,
+    };
+  };
 
   const clampToDuration = (ms: number, durationMs: number | null): number => Math.max(0, durationMs === null ? ms : Math.min(ms, durationMs));
 
@@ -338,11 +364,12 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     return run;
   }
 
+  /** 410 for a closed session, with why it closed (reason), so a client can tell "interrotta" from "scaduta". */
   function gone(sessionId: string): ProblemError {
     const t = tombstones.get(sessionId);
     const detail =
       t?.detail ?? (t?.kind === 'terminated' ? 'Session terminated' : t?.kind === 'failed' ? 'Session ended after a playback failure' : 'Session closed');
-    return new ProblemError('SESSION_EXPIRED', detail);
+    return new ProblemError('SESSION_EXPIRED', detail, t ? { reason: t.reason } : {});
   }
 
   /** The live session of this profile; 410 for a closed one, 404 otherwise. */
@@ -364,7 +391,8 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     s.ended = true;
     sessions.delete(s.sessionId);
     const at = now();
-    tombstones.set(s.sessionId, { profileId: s.profileId, itemId: s.itemId, fileId: s.plan.file.fileId, durationMs: s.plan.file.durationMs, kind, at, detail: o.detail ?? null });
+    const reason: EndReason = o.reason ?? kind;
+    tombstones.set(s.sessionId, { profileId: s.profileId, itemId: s.itemId, fileId: s.plan.file.fileId, durationMs: s.plan.file.durationMs, kind, reason, at, detail: o.detail ?? null });
     const handle = s.handle;
     s.handle = null;
     if (handle && !o.streamStopped) {
@@ -376,7 +404,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     }
     record(s, o.positionMs ?? s.positionMs, at);
     if (kind === 'expired' || kind === 'terminated' || kind === 'failed') {
-      publish('playback.session_terminated', { sessionId: s.sessionId, profileId: s.profileId, itemId: s.itemId, reason: o.reason ?? kind });
+      publish('playback.session_terminated', { sessionId: s.sessionId, profileId: s.profileId, itemId: s.itemId, reason });
     }
   }
 
@@ -492,12 +520,9 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
       const transient = notPlanFault(f);
       if (a.attempts >= MAX_AUTOMATIC_ATTEMPTS) {
         logFailure(log0, { cause: 'server', error: f.kind }, undefined, a.attempts, plan.mode, null);
-        // STREAM_FAILED's detail is technical (the client shows its own text); NO_COMPATIBLE_PLAN's reaches the viewer.
-        if (transient) throw new ProblemError('STREAM_FAILED', `The stream could not be produced (${f.kind}) and the ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts are used up.`);
-        throw new ProblemError(
-          'NO_COMPATIBLE_PLAN',
-          `Lo stream non è stato prodotto (${f.kind}) e i ${MAX_AUTOMATIC_ATTEMPTS} tentativi automatici sono esauriti. ${plan.reasons.map((r) => r.message).join('; ')}`,
-        );
+        // The budget used up is STREAM_FAILED (contract: the client offers "Riprova"); its detail is technical,
+        // the client shows its own text. NO_COMPATIBLE_PLAN is only for "no mode can play this".
+        throw attemptsUsedUp(`The stream could not be produced (${f.kind})`);
       }
       a.attempts += 1;
       a.pinnedFileId = plan.file.fileId;
@@ -552,8 +577,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     };
     if (o.automatic && s.attempts >= MAX_AUTOMATIC_ATTEMPTS) {
       await end(s, 'failed', { positionMs: o.positionMs });
-      if (o.transient) throw new ProblemError('STREAM_FAILED', `The ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts of this playback are used up.`);
-      throw new ProblemError('NO_COMPATIBLE_PLAN', `I ${MAX_AUTOMATIC_ATTEMPTS} tentativi automatici di questa riproduzione sono esauriti. ${s.plan.reasons.map((r) => r.message).join('; ')}`);
+      throw attemptsUsedUp(`The playback failed again (${o.failure?.error ?? 'unknown'})`);
     }
     const base = o.exclusions ?? s.exclusions;
     const fileId = o.fileId ?? s.plan.file.fileId;
@@ -577,7 +601,11 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
       const first = decideFor(a);
       if (!first.ok) {
         if (o.failure) logFailure(s, o.failure, o.exclusion, a.attempts, s.plan.mode, null);
-        if (o.automatic) await end(s, 'failed', { positionMs: o.positionMs });
+        if (o.automatic) {
+          // No file left to play (e.g. its root went offline mid-film): MEDIA_UNAVAILABLE that closed the session.
+          await end(s, 'failed', { positionMs: o.positionMs, ...(first.code === 'MEDIA_UNAVAILABLE' ? { detail: 'Session closed: the file is not reachable' } : {}) });
+          throw closedBy(problemOf(first));
+        }
         return await refuse(problemOf(first));
       }
       const refused = droppedRequired(a, first);
@@ -608,8 +636,11 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
           s.waiting = { ...o, exclusion: undefined, exclusions: a.exclusions };
           throw err;
         }
-        await end(s, 'failed', { positionMs: o.positionMs, streamStopped: true });
-        throw err;
+        // An automatic re-plan cannot wait for the file (nobody would retry it): the session closes, and its
+        // MEDIA_UNAVAILABLE says so (sessionClosed), so the client shows "file non raggiungibile", not "in preparazione".
+        const unreachable = o.automatic && !closing && err instanceof ProblemError && err.code === 'MEDIA_UNAVAILABLE';
+        await end(s, closing ? 'shutdown' : 'failed', { positionMs: o.positionMs, streamStopped: true, ...(unreachable ? { detail: 'Session closed: the file is not reachable' } : {}) });
+        throw unreachable ? closedBy(err) : err;
       }
       if (s.ended || closing) {
         // m1: the session closed (or the service is stopping) while the stream started.
@@ -953,11 +984,8 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
       const dead = status?.state === 'failed' || failure?.terminal === true;
       const selection = anchored(s);
       const base = { automatic: true, selection, fileChosen: s.fileChosen, positionMs: body.positionMs };
-      if (server && failure.kind === 'file_unavailable') {
-        logFailure(s, { cause: 'server', error: failure.kind }, undefined, s.attempts, s.plan.mode, null);
-        await end(s, 'failed', { positionMs: body.positionMs });
-        throw new ProblemError('MEDIA_UNAVAILABLE', 'The file is no longer available');
-      }
+      // A file that went away is found by the re-plan itself (no available file, or delivery's MEDIA_UNAVAILABLE
+      // at start): the session closes with MEDIA_UNAVAILABLE, sessionClosed (see replan).
       if (server && notPlanFault(failure)) {
         // m7: not the plan's fault: the same plan again, within the budget.
         return replan(s, { ...base, transient: true, failure: { cause: 'server', error: failure.kind } });

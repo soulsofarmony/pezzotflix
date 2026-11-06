@@ -45,6 +45,25 @@ describe('player status overlays', () => {
     expect(controller.terminateOther).toHaveBeenCalledWith('other');
   });
 
+  it('a session without a profile name: no "(—)" in the button', () => {
+    setup({ phase: 'session_limit', activeSessions: [{ sessionId: 'other', profileId: 'p2', itemId: 'i2', itemTitle: 'Dune', mode: 'direct_play', startedAt: 0 }] });
+    expect(screen.getByRole('button', { name: 'Interrompi «Dune»' })).toBeTruthy();
+  });
+
+  it('500 STREAM_FAILED (the server used up its attempts): the failed dialog with its text and "Riprova"', async () => {
+    const { controller, user } = setup({ phase: 'failed', attempts: 1, error: { code: 'STREAM_FAILED', detail: 'The 3 automatic attempts of this playback are used up.' } });
+    expect(screen.getByRole('alertdialog', { name: 'Non riesco a riprodurre questo titolo' })).toBeTruthy();
+    expect(screen.getByText(/anche dopo i tentativi automatici/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Riprova' }));
+    expect(controller.retry).toHaveBeenCalled();
+  });
+
+  it('503 MEDIA_UNAVAILABLE that closed the session: the "file non raggiungibile" text with "Riprova"', () => {
+    setup({ phase: 'error', error: { code: 'MEDIA_UNAVAILABLE', detail: 'root Film offline' } });
+    expect(screen.getByText(/Il file non è raggiungibile/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Riprova' })).toBeTruthy();
+  });
+
   it('422 NO_COMPATIBLE_PLAN shows the server reason', () => {
     setup({ phase: 'no_plan', error: { code: 'NO_COMPATIBLE_PLAN', detail: '4K: serve un Transcode, non disponibile nell’MVP' } });
     expect(screen.getByText('4K: serve un Transcode, non disponibile nell’MVP')).toBeTruthy();
