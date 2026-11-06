@@ -1092,6 +1092,9 @@ describe('track ids, 503, 500 and 422 on session changes', () => {
     expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail }))).toBe(true);
     expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail: 'No plan for file-2: HDR10 needs a Transcode.' }))).toBe(false);
     expect(isClosedRefusal(apiError(410, 'SESSION_EXPIRED', { detail }))).toBe(false);
+    // The same text since the reasons are Italian (F2b): `${why} La sessione è stata chiusa: …`
+    const italian = 'Sottotitoli VobSub (fre) non visualizzabili. La sessione è stata chiusa: nemmeno le tracce precedenti si possono riprodurre.';
+    expect(isClosedRefusal(apiError(422, 'NO_COMPATIBLE_PLAN', { detail: italian }))).toBe(true);
   });
 
   it('a 422 that closed the session restarts; a plain 422 keeps the stream', async () => {

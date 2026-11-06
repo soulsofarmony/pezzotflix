@@ -987,11 +987,12 @@ function isClosed(e: unknown): boolean {
 
 /**
  * A 422 on ChangeTracks/ChangeVersion that closed the session: the problem's sessionClosed. A server from before
- * the field is recognised by its detail text: "<why> The session was closed: its previous tracks could not be played either."
+ * the field is recognised by its detail text: "<why> The session was closed: …" (English, before the Italian reasons)
+ * or "<why> La sessione è stata chiusa: …".
  */
 export function isClosedRefusal(e: unknown): boolean {
   if (!isPlaybackApiError(e) || e.status !== 422) return false;
-  return e.sessionClosed === true || /the session was closed/i.test(e.detail ?? '');
+  return e.sessionClosed === true || /the session was closed|la sessione è stata chiusa/i.test(e.detail ?? '');
 }
 
 /** 503 STREAM_PREPARING or MEDIA_UNAVAILABLE: the same call again after Retry-After. */

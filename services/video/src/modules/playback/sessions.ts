@@ -179,7 +179,8 @@ const notPlanFault = (f: StreamFailure): boolean =>
 
 function problemOf(d: Exclude<Decision, { ok: true }>): ProblemError {
   if (d.code === 'MEDIA_UNAVAILABLE') return new ProblemError('MEDIA_UNAVAILABLE', 'No file of the item is available');
-  return new ProblemError('NO_COMPATIBLE_PLAN', d.reasons.map((r) => r.message).join('; ') || 'No compatible playback plan');
+  // The NO_COMPATIBLE_PLAN detail is shown to the viewer (web client "no plan" dialog): Italian, like the reasons.
+  return new ProblemError('NO_COMPATIBLE_PLAN', d.reasons.map((r) => r.message).join('; ') || 'Nessun modo compatibile di riprodurre questo titolo');
 }
 
 const isPlayable = (item: PlayableItem): boolean => item.kind === 'movie' || item.kind === 'episode' || item.kind === 'extra';
@@ -467,7 +468,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
 
   function droppedRequired(a: Attempt, d: Extract<Decision, { ok: true }>): ProblemError | null {
     if (a.requireSubtitle === undefined || d.droppedSubtitleTrackId !== a.requireSubtitle) return null;
-    return new ProblemError('NO_COMPATIBLE_PLAN', d.plan.reasons.find((r) => r.code === 'subtitle_dropped')?.message ?? 'The subtitle track cannot be shown');
+    return new ProblemError('NO_COMPATIBLE_PLAN', d.plan.reasons.find((r) => r.code === 'subtitle_dropped')?.message ?? 'La traccia di sottotitoli non si può visualizzare');
   }
 
   /**
@@ -491,8 +492,12 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
       const transient = notPlanFault(f);
       if (a.attempts >= MAX_AUTOMATIC_ATTEMPTS) {
         logFailure(log0, { cause: 'server', error: f.kind }, undefined, a.attempts, plan.mode, null);
-        const why = `The stream could not be produced (${f.kind}) and the ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts are used up.`;
-        throw transient ? new ProblemError('STREAM_FAILED', why) : new ProblemError('NO_COMPATIBLE_PLAN', `${why} ${plan.reasons.map((r) => r.message).join('; ')}`);
+        // STREAM_FAILED's detail is technical (the client shows its own text); NO_COMPATIBLE_PLAN's reaches the viewer.
+        if (transient) throw new ProblemError('STREAM_FAILED', `The stream could not be produced (${f.kind}) and the ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts are used up.`);
+        throw new ProblemError(
+          'NO_COMPATIBLE_PLAN',
+          `Lo stream non è stato prodotto (${f.kind}) e i ${MAX_AUTOMATIC_ATTEMPTS} tentativi automatici sono esauriti. ${plan.reasons.map((r) => r.message).join('; ')}`,
+        );
       }
       a.attempts += 1;
       a.pinnedFileId = plan.file.fileId;
@@ -524,7 +529,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
    */
   async function refusedWhileWaiting(s: Session, o: ReplanOptions, err: ProblemError): Promise<ProblemError> {
     const closed = (why: string) =>
-      new ProblemError('NO_COMPATIBLE_PLAN', `${why} The session was closed: its previous tracks could not be played either.`, { sessionClosed: true });
+      new ProblemError('NO_COMPATIBLE_PLAN', `${why} La sessione è stata chiusa: nemmeno le tracce precedenti si possono riprodurre.`, { sessionClosed: true });
     if (o.fallback) {
       await end(s, 'failed', { positionMs: o.positionMs, detail: 'Session closed: no playable plan' });
       return closed(err.message);
@@ -547,8 +552,8 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     };
     if (o.automatic && s.attempts >= MAX_AUTOMATIC_ATTEMPTS) {
       await end(s, 'failed', { positionMs: o.positionMs });
-      const why = `The ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts of this playback are used up.`;
-      throw o.transient ? new ProblemError('STREAM_FAILED', why) : new ProblemError('NO_COMPATIBLE_PLAN', `${why} ${s.plan.reasons.map((r) => r.message).join('; ')}`);
+      if (o.transient) throw new ProblemError('STREAM_FAILED', `The ${MAX_AUTOMATIC_ATTEMPTS} automatic attempts of this playback are used up.`);
+      throw new ProblemError('NO_COMPATIBLE_PLAN', `I ${MAX_AUTOMATIC_ATTEMPTS} tentativi automatici di questa riproduzione sono esauriti. ${s.plan.reasons.map((r) => r.message).join('; ')}`);
     }
     const base = o.exclusions ?? s.exclusions;
     const fileId = o.fileId ?? s.plan.file.fileId;
@@ -677,7 +682,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
 
     const newOnes = [...pending.values()].filter((p) => p.isNew).length;
     if (sessions.size + newOnes >= opts.maxSessions) {
-      throw new ProblemError('SESSION_LIMIT_REACHED', `At most ${opts.maxSessions} playback session(s) at a time`, { activeSessions: [...sessions.values()].map(active) });
+      throw new ProblemError('SESSION_LIMIT_REACHED', opts.maxSessions === 1 ? 'Al massimo 1 riproduzione alla volta' : `Al massimo ${opts.maxSessions} riproduzioni alla volta`, { activeSessions: [...sessions.values()].map(active) });
     }
 
     // Explicit request first (hard), then the profile's last choice on the item (remembered, soft:
@@ -994,7 +999,7 @@ export function createSessionManager(opts: SessionManagerOptions, deps: SessionM
     const candidates = d.candidates.map((c) => ({ fileId: c.fileId, mode: c.mode, reasons: c.reasons.map((r) => r.message) }));
     if (d.ok) return { mode: d.plan.mode, fileId: d.plan.file.fileId, reasons: d.plan.reasons.map((r) => r.message), actions: explainActions(d.plan), candidates };
     const reasons = d.reasons.map((r) => r.message);
-    if (reasons.length === 0) reasons.push(item.files.length === 0 ? 'The item has no playable media file' : 'No file of the item is available');
+    if (reasons.length === 0) reasons.push(item.files.length === 0 ? 'Il titolo non ha un file riproducibile' : 'Nessun file del titolo è disponibile');
     return { mode: null, fileId: null, reasons, actions: {}, candidates };
   }
 

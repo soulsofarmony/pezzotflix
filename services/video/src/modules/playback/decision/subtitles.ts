@@ -171,7 +171,7 @@ export const subtitleWhenOff = (tracks: readonly SubtitleTrack[], caps: ClientCa
 
 export function servedReason(s: ServedSubtitle): PlanReason {
   const name = subtitleName(s.codec, s.language);
-  if (s.delivery === 'client_render') return reason('subtitle_client_render', 'subtitle', `Subtitles ${name} rendered by the client`);
-  const styleLost = s.codec === 'ass' || s.codec === 'ssa' ? ' (style lost)' : '';
-  return reason('subtitle_sidecar', 'subtitle', `Subtitles ${name} served as WebVTT${styleLost}`);
+  if (s.delivery === 'client_render') return reason('subtitle_client_render', 'subtitle', `Sottotitoli ${name} visualizzati dal client`);
+  const styleLost = s.codec === 'ass' || s.codec === 'ssa' ? ' (stile perso)' : '';
+  return reason('subtitle_sidecar', 'subtitle', `Sottotitoli ${name} serviti come WebVTT${styleLost}`);
 }

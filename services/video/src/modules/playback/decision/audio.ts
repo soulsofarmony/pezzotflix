@@ -142,11 +142,11 @@ export function audioLadder(a: AudioStreamFacts, caps: ClientCapabilities, exclu
 }
 
 function actionReasons(a: AudioStreamFacts, action: AudioAction): PlanReason[] {
-  if (action.kind === 'copy') return [reason('audio_copy', 'audio', `Audio ${audioName(a)} copied`)];
-  const why = aacWithPce(a) ? 'has no standard AAC channel configuration (PCE)' : 'is not decoded by the client';
-  const out = [reason('audio_converted', 'audio', `Audio ${audioName(a)} ${why}: converted to ${outputName(action)}`)];
+  if (action.kind === 'copy') return [reason('audio_copy', 'audio', `Audio ${audioName(a)} copiato senza conversione`)];
+  const why = aacWithPce(a) ? 'senza una configurazione dei canali AAC standard (PCE)' : 'non decodificato dal client';
+  const out = [reason('audio_converted', 'audio', `Audio ${audioName(a)} ${why}: convertito in ${outputName(action)}`)];
   if (action.channels < a.channels) {
-    out.push(reason('audio_downmixed', 'audio', `Audio ${channelsName(a.channels)} downmixed to ${channelsName(action.channels)} for ${codecName(action.codec)}`));
+    out.push(reason('audio_downmixed', 'audio', `Audio ${channelsName(a.channels)} ridotto a ${channelsName(action.channels)} per ${codecName(action.codec)}`));
   }
   return out;
 }
@@ -176,7 +176,7 @@ export function chooseAudio(
     if (step.action) {
       return { kind: 'ok', pick: { track, source: audioSourceOf(track), action: step.action, actionReasons: actionReasons(track, step.action), skipReasons } };
     }
-    skipReasons.push(reason('audio_unsupported', 'audio', `Audio ${audioName(track)}: no audio format the client plays`));
+    skipReasons.push(reason('audio_unsupported', 'audio', `Audio ${audioName(track)}: nessun formato audio riproducibile dal client`));
   }
   return { kind: 'unsupported', reasons: skipReasons };
 }

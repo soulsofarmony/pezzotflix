@@ -56,9 +56,9 @@ describe('UHD HEVC HDR10 + TrueHD 7.1 + PGS in the three browsers (doc 04 §4.1�
       { trackId: 's2', source: { kind: 'embedded', streamIndex: 2 }, codec: 'hdmv_pgs_subtitle', language: 'ita', forced: false, delivery: 'client_render', format: 'sup' },
     ]);
     expect(codeSet(d)).toEqual(new Set(['audio_converted', 'hdr_client_conversion', 'subtitle_client_render']));
-    expect(p.reasons.find((r) => r.code === 'hdr_client_conversion')?.message).toBe('HDR10 on an SDR display: conversion left to the browser');
+    expect(p.reasons.find((r) => r.code === 'hdr_client_conversion')?.message).toBe('HDR10 su display SDR: conversione lasciata al browser');
     expect(p.reasons.find((r) => r.code === 'audio_converted')?.message).toBe(
-      'Audio TrueHD 7.1 (eng) is not decoded by the client: converted to FLAC 7.1',
+      'Audio TrueHD 7.1 (eng) non decodificato dal client: convertito in FLAC 7.1',
     );
   });
 
@@ -73,7 +73,7 @@ describe('UHD HEVC HDR10 + TrueHD 7.1 + PGS in the three browsers (doc 04 §4.1�
   it('a non-browser client gets "left to the client" (P5)', () => {
     const caps = { ...googleTv(), displayHdr: false, audioTrackSelection: false };
     const p = plan(decide(input([uhdRemux()], caps)));
-    expect(p.reasons.find((r) => r.code === 'hdr_client_conversion')?.message).toBe('HDR10 on an SDR display: conversion left to the client');
+    expect(p.reasons.find((r) => r.code === 'hdr_client_conversion')?.message).toBe('HDR10 su display SDR: conversione lasciata al client');
   });
 });
 
@@ -227,7 +227,7 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
     expect(p.mode).toBe('direct_stream');
     expect(p.video).toMatchObject({ kind: 'copy', tag: 'hvc1', dolbyVision: 'keep_rpu' });
     expect(codeSet(d)).toEqual(new Set(['dv_direct_play_unmeasured', 'dv_p81_as_hdr10', 'hdr_client_conversion', 'audio_copy']));
-    expect(plan(d).reasons.find((r) => r.code === 'dv_p81_as_hdr10')?.message).toBe('Dolby Vision 8.1 served as HDR10 with hvc1, RPU kept');
+    expect(plan(d).reasons.find((r) => r.code === 'dv_p81_as_hdr10')?.message).toBe('Dolby Vision 8.1 servito come HDR10 con hvc1, RPU mantenuto');
   });
 
   it('the plan carries the ffprobe level and the HDR fallback for delivery (codec string, VIDEO-RANGE)', () => {
@@ -256,7 +256,7 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
     expect(d).toMatchObject({ ok: false, code: 'NO_COMPATIBLE_PLAN' });
     expect(codes(d)).toEqual(expect.arrayContaining(['dv_p5_transcode', 'transcode_limited']));
     expect(d.ok ? null : d.reasons.find((r) => r.code === 'transcode_limited')?.message).toBe(
-      'Dolby Vision profile 5 has no HDR10, HLG or SDR base layer: the software Transcode cannot convert it',
+      'Dolby Vision profilo 5 senza un livello base HDR10, HLG o SDR: la transcodifica software non può convertirlo',
     );
   });
 
@@ -297,7 +297,7 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
     const d = decide(input([uhdRemux()], caps));
     expect(d).toMatchObject({ ok: false, code: 'NO_COMPATIBLE_PLAN' });
     expect(codeSet(d)).toEqual(new Set(['video_codec_unsupported', 'transcode_limited']));
-    expect(d.ok ? [] : d.reasons.map((r) => r.message)).toContain('Source 3840×2160 above 1080p: a Transcode would be needed and is not available for it (P2)');
+    expect(d.ok ? [] : d.reasons.map((r) => r.message)).toContain('Sorgente 3840×2160 oltre 1080p: servirebbe una transcodifica, non disponibile a questa risoluzione (P2)');
   });
 
   it('HDR10 4K to a client without HDR → NO_COMPATIBLE_PLAN; HDR10 1080p → tone-mapped Transcode', () => {
@@ -323,8 +323,8 @@ describe('video (doc 04 §4.2, S2 H2/H3, H11, P2)', () => {
   });
 
   it.each([
-    ['disabled', 'A Transcode would be needed and is disabled (MAX_TRANSCODES = 0)'],
-    ['busy', 'A Transcode would be needed and every transcode slot is taken (P4)'],
+    ['disabled', 'Servirebbe una transcodifica, ma è disattivata (MAX_TRANSCODES = 0)'],
+    ['busy', 'Servirebbe una transcodifica, ma tutti i posti di transcodifica sono occupati (P4)'],
   ] as const)('Transcode %s (P4) → NO_COMPATIBLE_PLAN with transcode_disabled', (state, message) => {
     const d = decide(input([file(F1, facts([sdr1080({ codec: 'vc1' }), aac(1, 'ita')]))], chrome(), { constraints: { transcode: state, transcodeMaxBitrateBps: 20_000_000 } }));
     expect(d.ok).toBe(false);
@@ -384,7 +384,7 @@ describe('subtitles (doc 04 §3.1, §4.4, P3)', () => {
 
   it('ASS served as WebVTT says the style is lost', () => {
     const d = decide(input([withSubs()], edge(), { selection: { subtitle: pick('x:5e6f7a8b') } }));
-    expect(plan(d).reasons.find((r) => r.code === 'subtitle_sidecar')?.message).toBe('Subtitles ASS (ita) served as WebVTT (style lost)');
+    expect(plan(d).reasons.find((r) => r.code === 'subtitle_sidecar')?.message).toBe('Sottotitoli ASS (ita) serviti come WebVTT (stile perso)');
   });
 
   it('VobSub on a 1080p source is burned in: Transcode, cause burn_in', () => {
@@ -402,7 +402,7 @@ describe('subtitles (doc 04 §3.1, §4.4, P3)', () => {
     expect(d.ok && d.droppedSubtitleTrackId).toBe('s6');
     expect(p.mode).toBe('direct_stream');
     expect(p.subtitles.selected).toBeNull();
-    expect(p.reasons.find((r) => r.code === 'subtitle_dropped')?.message).toMatch(/^Subtitles VobSub \(fre\) cannot be shown: Source 3840×2160 above 1080p/);
+    expect(p.reasons.find((r) => r.code === 'subtitle_dropped')?.message).toMatch(/^Sottotitoli VobSub \(fre\) non visualizzabili: Sorgente 3840×2160 oltre 1080p/);
   });
 
   it('Direct Play with an embedded PGS serves the .sup separately in the browser', () => {
@@ -420,7 +420,7 @@ describe('subtitles (doc 04 §3.1, §4.4, P3)', () => {
     expect(d.ok && d.droppedSubtitleTrackId).toBe('x:0a0b0c0d');
     expect(p.mode).toBe('direct_play');
     expect(p.subtitles.selected).toBeNull();
-    expect(p.reasons.find((r) => r.code === 'subtitle_dropped')?.message).toMatch(/A sidecar image track \(\.sup\) cannot be burned in/);
+    expect(p.reasons.find((r) => r.code === 'subtitle_dropped')?.message).toMatch(/Una traccia immagine esterna \(\.sup\) non si può imprimere nel video/);
   });
 
   it('a client without a PGS renderer: PGS burned in on 1080p', () => {
@@ -508,7 +508,7 @@ describe('version choice (orchestrator 2026-11-05: no video transcode, then qual
   it('both Direct Stream: the higher quality wins (4K)', () => {
     const d = decide(input([hd(), uhd()], chrome()));
     expect(plan(d).file.fileId).toBe(F1);
-    expect(plan(d).reasons[0]).toEqual({ code: 'version_chosen', dimension: 'file', message: 'Version 2160p HEVC HDR10 chosen: higher quality than 1080p H.264' });
+    expect(plan(d).reasons[0]).toEqual({ code: 'version_chosen', dimension: 'file', message: 'Scelta la versione 2160p HEVC HDR10: qualità superiore a 1080p H.264' });
     expect(d.ok && d.candidates.map((c) => [c.fileId, c.mode])).toEqual([[F1, 'direct_stream'], [F2, 'direct_stream']]);
   });
 
@@ -516,7 +516,7 @@ describe('version choice (orchestrator 2026-11-05: no video transcode, then qual
     const d = decide(input([uhd(), hd([sdr1080(), aac(1, 'ita')])], chrome()));
     expect(plan(d).file.fileId).toBe(F1);
     expect(plan(d).mode).toBe('direct_stream');
-    expect(plan(d).reasons[0]?.message).toBe('Version 2160p HEVC HDR10 chosen: higher quality than 1080p H.264');
+    expect(plan(d).reasons[0]?.message).toBe('Scelta la versione 2160p HEVC HDR10: qualità superiore a 1080p H.264');
   });
 
   it('a client limited to 1080p: the 1080p Direct Play wins', () => {
@@ -534,7 +534,7 @@ describe('version choice (orchestrator 2026-11-05: no video transcode, then qual
     const d = decide(input([hevc1080, h264720], caps));
     expect(plan(d).file.fileId).toBe(F2);
     expect(plan(d).mode).toBe('direct_play');
-    expect(plan(d).reasons[0]?.message).toMatch(/^Version 720p H\.264 chosen: no video transcode, unlike 1080p HEVC/);
+    expect(plan(d).reasons[0]?.message).toMatch(/^Scelta la versione 720p H\.264: nessuna transcodifica del video, a differenza di 1080p HEVC/);
   });
 
   it('equal quality: the lighter mode breaks the tie', () => {
@@ -543,14 +543,14 @@ describe('version choice (orchestrator 2026-11-05: no video transcode, then qual
     const d = decide(input([twoAudio, oneAudio], chrome()));
     expect(plan(d).file.fileId).toBe(F2);
     expect(plan(d).mode).toBe('direct_play');
-    expect(plan(d).reasons[0]?.message).toBe('Version 1080p H.264 chosen: lighter mode than 1080p H.264');
+    expect(plan(d).reasons[0]?.message).toBe('Scelta la versione 1080p H.264: modalità più leggera di 1080p H.264');
   });
 
   it('the 4K version without a plan leaves the 1080p one', () => {
     const caps = { ...chrome(), video: chrome().video.filter((v) => v.codec !== 'hevc') };
     const d = decide(input([uhd(), hd()], caps));
     expect(plan(d).file.fileId).toBe(F2);
-    expect(plan(d).reasons[0]?.message).toBe('Version 1080p H.264 chosen: the only playable version');
+    expect(plan(d).reasons[0]?.message).toBe("Scelta la versione 1080p H.264: è l'unica versione riproducibile");
   });
 
   it('an explicit fileId restricts the candidates', () => {
@@ -565,7 +565,7 @@ describe('version choice (orchestrator 2026-11-05: no video transcode, then qual
   it('several files without a plan: reasons are labelled per version', () => {
     const caps = { ...chrome(), video: [] };
     const d = decide(input([uhd(), hd()], caps));
-    expect(d.ok ? [] : d.reasons.map((r) => r.message)).toContain('2160p HEVC HDR10: Source 3840×2160 above 1080p: a Transcode would be needed and is not available for it (P2)');
+    expect(d.ok ? [] : d.reasons.map((r) => r.message)).toContain('2160p HEVC HDR10: Sorgente 3840×2160 oltre 1080p: servirebbe una transcodifica, non disponibile a questa risoluzione (P2)');
   });
 });
 
@@ -684,7 +684,7 @@ describe('Dolby Vision on a native player without DV (E2, doc 04 §4.1–4.2)', 
     const caps = { ...chrome(), video: [...chrome().video, { codec: 'av1', profiles: ['main'], maxBitDepth: 10, maxWidth: 3840, maxHeight: 2160 }] };
     const p = plan(decide(input([file(F1, facts([dv(10, 1, { codec: 'av1', profile: 'Main' }), aac(1, 'ita')]))], caps)));
     expect(p.video).toMatchObject({ kind: 'copy', tag: null, dolbyVision: 'keep_rpu' });
-    expect(p.reasons.find((r) => r.code === 'dv_p81_as_hdr10')?.message).toBe('Dolby Vision 10.1 served as HDR10, RPU kept');
+    expect(p.reasons.find((r) => r.code === 'dv_p81_as_hdr10')?.message).toBe('Dolby Vision 10.1 servito come HDR10, RPU mantenuto');
   });
 });
 
@@ -695,7 +695,7 @@ describe('bitrate limit per mode (E3, doc 04 §4.5)', () => {
     const f = file(F1, facts([sdr1080(), aac(1, 'ita'), audio(2, { bitRate: 8_000_000 })], { bitRate: 25_000_000 }));
     const p = plan(decide(input([f], caps)));
     expect(p.mode).toBe('direct_stream');
-    expect(p.reasons.map((r) => r.message)).toContain('File bitrate 25 Mb/s above the client limit 20 Mb/s');
+    expect(p.reasons.map((r) => r.message)).toContain('Bitrate del file 25 Mb/s oltre il limite del client 20 Mb/s');
   });
 
   it('video and audio above the limit: Transcode with cause bitrate', () => {
@@ -703,7 +703,7 @@ describe('bitrate limit per mode (E3, doc 04 §4.5)', () => {
     const f = file(F1, facts([sdr1080({ bitRate: 12_000_000 }), aac(1, 'ita')]));
     const d = decide(input([f], caps));
     expect(plan(d).video).toMatchObject({ kind: 'transcode', causes: ['bitrate'] });
-    expect(d.ok ? d.plan.reasons.map((r) => r.message) : []).toContain('Video and audio bitrate 12.2 Mb/s above the client limit 10 Mb/s');
+    expect(d.ok ? d.plan.reasons.map((r) => r.message) : []).toContain('Bitrate di video e audio 12.2 Mb/s oltre il limite del client 10 Mb/s');
   });
 });
 
@@ -793,7 +793,7 @@ describe('gap cases', () => {
     const d = decide(input([f], chrome(), { selection: { subtitle: pick('s2') }, constraints: { transcode: 'busy', transcodeMaxBitrateBps: 20_000_000 } }));
     expect(plan(d).mode).toBe('direct_play');
     expect(d.ok && d.droppedSubtitleTrackId).toBe('s2');
-    expect(plan(d).reasons.map((r) => r.message).join(' ')).toContain('every transcode slot is taken');
+    expect(plan(d).reasons.map((r) => r.message).join(' ')).toContain('tutti i posti di transcodifica sono occupati');
   });
 
   it('a Transcode forced only by failures gets the cause excluded', () => {
@@ -811,7 +811,7 @@ describe('gap cases', () => {
     const caps = { ...chrome(), containers: ['mp4'], protocols: ['progressive'] };
     const d = decide(input([file(F1, facts([sdr1080(), aac(1, 'ita')]))], caps));
     expect(d.ok ? [] : d.reasons.map((r) => r.message)).toEqual(
-      expect.arrayContaining(['The client does not play HLS fMP4', 'MKV is not played directly by the client: remux to fMP4']),
+      expect.arrayContaining(['Il client non riproduce HLS fMP4', 'MKV non riprodotto direttamente dal client: remux in fMP4']),
     );
   });
 
@@ -859,11 +859,181 @@ describe('version ties (quality criteria in order)', () => {
     const lossless = file(F2, facts([sdr1080(), audio(1, { language: 'ita', channels: 6, channelLayout: '5.1(side)' })]));
     const d = decide(input([lossy, lossless], chrome()));
     expect(plan(d).file.fileId).toBe(F2);
-    expect(plan(d).reasons[0]?.message).toBe('Version 1080p H.264 chosen: higher quality than 1080p H.264');
+    expect(plan(d).reasons[0]?.message).toBe('Scelta la versione 1080p H.264: qualità superiore a 1080p H.264');
   });
 
   it('at equal everything else the higher video bitrate wins', () => {
     const at = (id: string, bitRate: number) => file(id, facts([sdr1080({ bitRate }), aac(1, 'ita')]));
     expect(winner(at(F1, 20_000_000), at(F2, 30_000_000))).toBe(F2);
+  });
+});
+
+describe('Italian messages: one case per reason code (F2b)', () => {
+  const single = () => file(F1, facts([sdr1080(), aac(1, 'ita')]));
+  const all = (d: Decision) => [...(d.ok ? d.plan.reasons : d.reasons), ...d.candidates.flatMap((c) => c.reasons)];
+  const noFlac = { ...chrome(), audio: chrome().audio.filter((a) => a.codec !== 'flac') };
+  const vobSub = () => file(F1, facts([sdr1080(), aac(1, 'ita'), sub(2, { codec: 'dvd_subtitle', language: 'fre' })]));
+  const decodeError = (e: Record<string, unknown>): PlanExclusion => ({ ...e, cause: 'client', error: 'MEDIA_ERR_DECODE' }) as PlanExclusion;
+  const high10 = () => file(F1, facts([sdr1080({ profile: 'High 10', bitDepth: 10 }), aac(1, 'ita')]));
+  const cases: [ReasonCode, () => Decision, string][] = [
+    ['direct_play', () => decide(input([single()], chrome())), "Riproduzione diretta: il file è servito così com'è"],
+    ['forced_mode', () => decide(input([single()], chrome(), { forceMode: 'direct_stream' })), 'Modalità forzata: Stream diretto (diagnostica)'],
+    [
+      'version_chosen',
+      () => decide(input([file(F1, facts([video(), aac(1, 'ita')])), file(F2, facts([sdr1080(), aac(1, 'ita')]))], chrome())),
+      'Scelta la versione 2160p HEVC HDR10: qualità superiore a 1080p H.264',
+    ],
+    ['container_unsupported', () => decide(input([single()], { ...chrome(), containers: ['mp4'] })), 'MKV non riprodotto direttamente dal client: remux in fMP4'],
+    [
+      'audio_track_selection',
+      () => decide(input([file(F1, facts([sdr1080(), aac(1, 'ita'), aac(2, 'eng')]))], chrome())),
+      '2 tracce audio: il client non sa scegliere la traccia dentro il file',
+    ],
+    [
+      'dv_direct_play_unmeasured',
+      () => decide(input([file(F1, facts([dv(8, 1), aac(1, 'ita')]))], chrome())),
+      'Dolby Vision profilo 8: niente riproduzione diretta su un client senza Dolby Vision',
+    ],
+    ['video_codec_unsupported', () => decide(input([high10()], chrome())), 'Video H.264 High 10 1920×1080 non decodificato dal client'],
+    [
+      'video_codec_unsupported',
+      () =>
+        decide(
+          input([file(F1, facts([sdr1080({ frameRate: 50 }), aac(1, 'ita')]))], {
+            ...chrome(),
+            video: [{ codec: 'h264', profiles: ['high'], maxBitDepth: 8, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 30 }],
+          }),
+        ),
+      'Video H.264 High 1920×1080 a 50 fps non decodificato dal client',
+    ],
+    [
+      'video_resolution_exceeded',
+      () => decide(input([single()], { ...chrome(), video: [{ codec: 'h264', profiles: ['high'], maxBitDepth: 8, maxWidth: 1280, maxHeight: 720 }] })),
+      'Video 1920×1080 oltre il massimo del client 1280×720',
+    ],
+    [
+      'video_bitrate_exceeded',
+      () => decide(input([file(F1, facts([sdr1080(), aac(1, 'ita')], { bitRate: 30_000_000 }))], { ...chrome(), limits: { maxBitrate: 10_000_000 } })),
+      'Bitrate del file 30 Mb/s oltre il limite del client 10 Mb/s',
+    ],
+    ['hdr_client_conversion', () => decide(input([uhdRemux()], chrome())), 'HDR10 su display SDR: conversione lasciata al browser'],
+    ['hdr_tonemap', () => decide(input([uhdRemux()], { ...chrome(), hdr: [] })), 'HDR10 non supportato dal client: serve il tone-mapping'],
+    ['dv_p81_as_hdr10', () => decide(input([file(F1, facts([dv(8, 1), aac(1, 'ita')]))], chrome())), 'Dolby Vision 8.1 servito come HDR10 con hvc1, RPU mantenuto'],
+    [
+      'dv_p7_remove_dovi',
+      () => decide(input([file(F1, facts([dv(7, 6), audio(1)]))], edge())),
+      'Dolby Vision profilo 7: livelli DV rimossi senza ricodifica, servito come HDR10 con hvc1 (provvisorio, H11)',
+    ],
+    ['dv_p5_transcode', () => decide(input([file(F1, facts([dv(5, 0), audio(1)]))], chrome())), 'Dolby Vision profilo 5 senza un livello base compatibile: serve una transcodifica'],
+    [
+      'dv_base_layer',
+      () => decide(input([file(F1, facts([dv(8, 1), audio(1)]))], googleTv())),
+      'Dolby Vision 8.1: il client riproduce il livello base HDR10 e ignora i livelli Dolby Vision',
+    ],
+    ['audio_copy', () => decide(input([file(F1, facts([sdr1080(), aac(1, 'ita'), aac(2, 'eng')]))], chrome())), 'Audio AAC 2.0 (ita) copiato senza conversione'],
+    ['audio_converted', () => decide(input([uhdRemux()], chrome())), 'Audio TrueHD 7.1 (eng) non decodificato dal client: convertito in FLAC 7.1'],
+    ['audio_downmixed', () => decide(input([uhdRemux()], noFlac)), 'Audio 7.1 ridotto a 5.1 per AAC'],
+    [
+      'audio_unsupported',
+      () => decide(input([file(F1, facts([sdr1080(), audio(1)]))], { ...chrome(), audio: [{ codec: 'ac3', maxChannels: 6 }] })),
+      'Audio TrueHD 7.1 (eng): nessun formato audio riproducibile dal client',
+    ],
+    [
+      'subtitle_client_render',
+      () => decide(input([uhdRemux()], chrome(), { prefs: prefs({ subtitleMode: 'always', subtitleLanguages: ['ita'] }) })),
+      'Sottotitoli PGS (ita) visualizzati dal client',
+    ],
+    [
+      'subtitle_sidecar',
+      () => decide(input([file(F1, facts([sdr1080(), aac(1, 'ita'), sub(2, { codec: 'subrip' })]))], chrome(), { selection: { subtitle: pick('s2') } })),
+      'Sottotitoli SubRip (ita) serviti come WebVTT',
+    ],
+    ['subtitle_burn_in', () => decide(input([vobSub()], edge(), { selection: { subtitle: pick('s2') } })), 'Sottotitoli VobSub (fre) impressi nel video: il client non sa visualizzarli'],
+    [
+      'subtitle_dropped',
+      () => decide(input([vobSub()], chrome(), { selection: { subtitle: pick('s2') }, constraints: { transcode: 'disabled', transcodeMaxBitrateBps: 20_000_000 } })),
+      'Sottotitoli VobSub (fre) non visualizzabili: Servirebbe una transcodifica, ma è disattivata (MAX_TRANSCODES = 0)',
+    ],
+    [
+      'transcode_limited',
+      () => decide(input([uhdRemux()], { ...firefox(), video: firefox().video.filter((v) => v.codec !== 'hevc') })),
+      'Sorgente 3840×2160 oltre 1080p: servirebbe una transcodifica, non disponibile a questa risoluzione (P2)',
+    ],
+    [
+      'transcode_disabled',
+      () => decide(input([high10()], chrome(), { constraints: { transcode: 'busy', transcodeMaxBitrateBps: 20_000_000 } })),
+      'Servirebbe una transcodifica, ma tutti i posti di transcodifica sono occupati (P4)',
+    ],
+    [
+      'format_excluded',
+      () => decide(input([single()], chrome(), { exclusions: [decodeError({ dimension: 'video', fileId: F1, mode: 'direct_play' })] })),
+      'Modalità Riproduzione diretta esclusa per questo file dopo un errore di riproduzione (video, MEDIA_ERR_DECODE)',
+    ],
+    [
+      'replanned_after_failure',
+      () => decide(input([single()], chrome(), { exclusions: [decodeError({ dimension: 'video', fileId: F1, mode: 'direct_play' })] })),
+      'Riproduzione ripianificata dopo un errore: 1 formato escluso',
+    ],
+    [
+      'file_unavailable',
+      () => decide(input([single(), { ...file(F2, facts([sdr1080(), aac(1, 'ita')])), available: false }], chrome())),
+      'Il file non è disponibile (mancante, o la sua cartella della libreria non è raggiungibile)',
+    ],
+  ];
+
+  it.each(cases)('%s', (code, run, message) => {
+    expect(all(run()).filter((r) => r.code === code).map((r) => r.message)).toContain(message);
+  });
+
+  it('the table covers every reason code', () => {
+    // ReasonCode is a type: this record fails to compile when a code is added to or removed from src/shared/playback-plan.ts.
+    const every: Record<ReasonCode, true> = {
+      direct_play: true,
+      forced_mode: true,
+      version_chosen: true,
+      container_unsupported: true,
+      audio_track_selection: true,
+      dv_direct_play_unmeasured: true,
+      video_codec_unsupported: true,
+      video_resolution_exceeded: true,
+      video_bitrate_exceeded: true,
+      hdr_client_conversion: true,
+      hdr_tonemap: true,
+      dv_p81_as_hdr10: true,
+      dv_p7_remove_dovi: true,
+      dv_p5_transcode: true,
+      dv_base_layer: true,
+      audio_copy: true,
+      audio_converted: true,
+      audio_downmixed: true,
+      audio_unsupported: true,
+      subtitle_client_render: true,
+      subtitle_sidecar: true,
+      subtitle_burn_in: true,
+      subtitle_dropped: true,
+      transcode_limited: true,
+      transcode_disabled: true,
+      format_excluded: true,
+      replanned_after_failure: true,
+      file_unavailable: true,
+    };
+    expect(new Set(cases.map(([c]) => c))).toEqual(new Set(Object.keys(every)));
+  });
+
+  it('the other exclusion messages: audio copy, audio conversion, subtitle treatment', () => {
+    const excluded = (f: PlayableFile, exclusions: PlanExclusion[]) =>
+      all(decide(input([f], chrome(), { exclusions, prefs: prefs({ subtitleMode: 'always', subtitleLanguages: ['ita'] }) })))
+        .filter((r) => r.code === 'format_excluded')
+        .map((r) => r.message);
+    expect(excluded(uhdRemux(), [{ dimension: 'audio', action: 'convert', codec: 'flac', cause: 'client', error: 'MEDIA_ERR_DECODE' }])).toContain(
+      'Audio FLAC escluso dopo un errore di riproduzione (MEDIA_ERR_DECODE)',
+    );
+    expect(excluded(uhdRemux(), [{ dimension: 'subtitle', trackId: 's2', delivery: 'client_render', fileId: F1, cause: 'client', error: 'PGS_LOAD_FAILED' }])).toContain(
+      'Traccia di sottotitoli s2 (visualizzata dal client) esclusa dopo un errore di riproduzione (PGS_LOAD_FAILED)',
+    );
+    const twoAac = file(F1, facts([sdr1080(), aac(1, 'ita'), aac(2, 'eng')]));
+    expect(excluded(twoAac, [{ dimension: 'audio', action: 'copy', codec: 'aac', profile: 'LC', cause: 'client', error: 'MEDIA_ERR_DECODE' }])).toContain(
+      "Copia dell'audio AAC esclusa dopo un errore di riproduzione (MEDIA_ERR_DECODE)",
+    );
   });
 });

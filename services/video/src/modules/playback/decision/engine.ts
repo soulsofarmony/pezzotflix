@@ -86,17 +86,17 @@ function checkVideoCopy(v: VideoStreamFacts, caps: ClientCapabilities): VideoCop
   const fit = videoFit(caps, v);
   if (!fit.ok) {
     if (fit.why === 'resolution') {
-      const max = fit.cap ? `${fit.cap.maxWidth ?? '?'}×${fit.cap.maxHeight ?? '?'}` : 'the client maximum';
-      blockers.push(reason('video_resolution_exceeded', 'video', `Video ${v.width}×${v.height} above the client maximum ${max}`));
+      const max = fit.cap ? ` ${fit.cap.maxWidth ?? '?'}×${fit.cap.maxHeight ?? '?'}` : '';
+      blockers.push(reason('video_resolution_exceeded', 'video', `Video ${v.width}×${v.height} oltre il massimo del client${max}`));
       causes.push('resolution');
     } else {
       const detail =
         fit.why === 'bit_depth'
-          ? ` at ${v.bitDepth ?? '?'} bit`
+          ? ` a ${v.bitDepth ?? '?'} bit`
           : fit.why === 'frame_rate'
-            ? ` at ${v.frameRate ?? '?'} fps`
+            ? ` a ${v.frameRate ?? '?'} fps`
             : '';
-      blockers.push(reason('video_codec_unsupported', 'video', `Video ${videoName(v)}${detail} is not decoded by the client`));
+      blockers.push(reason('video_codec_unsupported', 'video', `Video ${videoName(v)}${detail} non decodificato dal client`));
       causes.push('codec');
     }
   }
@@ -105,44 +105,44 @@ function checkVideoCopy(v: VideoStreamFacts, caps: ClientCapabilities): VideoCop
   // A native player (audioTrackSelection, the caps.ts proxy) without DV decodes the base layer of the
   // file and ignores the DV layers; browsers are not measured on that (S2 H3, doc 04 §4.1–4.2).
   const native = selectsTracks(caps);
-  const tag = v.codec === 'hevc' ? ' with hvc1' : '';
+  const tag = v.codec === 'hevc' ? ' con hvc1' : '';
   if (dv && clientPlaysDolbyVision(caps, dv.profile, dv.blCompatId)) {
     dolbyVision = 'keep_rpu';
   } else if (dv) {
     if (!native) {
-      directPlayBlockers.push(reason('dv_direct_play_unmeasured', 'video', `Dolby Vision profile ${dv.profile}: no Direct Play on a client without Dolby Vision`));
+      directPlayBlockers.push(reason('dv_direct_play_unmeasured', 'video', `Dolby Vision profilo ${dv.profile}: niente riproduzione diretta su un client senza Dolby Vision`));
     }
     const base = dvBase(v);
     if (base === null) {
-      blockers.push(reason('dv_p5_transcode', 'video', `Dolby Vision profile ${dv.profile} has no compatible base layer: it needs a Transcode`));
+      blockers.push(reason('dv_p5_transcode', 'video', `Dolby Vision profilo ${dv.profile} senza un livello base compatibile: serve una transcodifica`));
       causes.push('dv_p5');
       presented = 'SDR';
     } else if (!clientPresentsHdr(caps, base)) {
-      blockers.push(reason('hdr_tonemap', 'video', `Dolby Vision base layer ${base} is not presented by the client: it needs tone-mapping`));
+      blockers.push(reason('hdr_tonemap', 'video', `Livello base Dolby Vision ${base} non supportato dal client: serve il tone-mapping`));
       causes.push('hdr_tonemap');
       presented = 'SDR';
     } else {
       presented = base;
       if (native) {
         dolbyVision = 'keep_rpu';
-        both.push(reason('dv_base_layer', 'video', `Dolby Vision ${dv.profile}.${dv.blCompatId}: the client plays the ${base} base layer and ignores the Dolby Vision layers`));
+        both.push(reason('dv_base_layer', 'video', `Dolby Vision ${dv.profile}.${dv.blCompatId}: il client riproduce il livello base ${base} e ignora i livelli Dolby Vision`));
       } else if (dv.profile === 7 && v.codec === 'hevc') {
         dolbyVision = 'remove_dovi';
-        dsOnly.push(reason('dv_p7_remove_dovi', 'video', 'Dolby Vision profile 7: DV layers removed without re-encoding, served as HDR10 with hvc1 (provisional, H11)'));
+        dsOnly.push(reason('dv_p7_remove_dovi', 'video', 'Dolby Vision profilo 7: livelli DV rimossi senza ricodifica, servito come HDR10 con hvc1 (provvisorio, H11)'));
       } else {
         dolbyVision = 'keep_rpu';
-        dsOnly.push(reason('dv_p81_as_hdr10', 'video', `Dolby Vision ${dv.profile}.${dv.blCompatId} served as ${base}${tag}, RPU kept`));
+        dsOnly.push(reason('dv_p81_as_hdr10', 'video', `Dolby Vision ${dv.profile}.${dv.blCompatId} servito come ${base}${tag}, RPU mantenuto`));
       }
     }
   } else if (!clientPresentsHdr(caps, v.hdr)) {
-    blockers.push(reason('hdr_tonemap', 'video', `${v.hdr} is not presented by the client: it needs tone-mapping`));
+    blockers.push(reason('hdr_tonemap', 'video', `${v.hdr} non supportato dal client: serve il tone-mapping`));
     causes.push('hdr_tonemap');
     presented = 'SDR';
   }
   if (presented !== 'SDR' && presented !== 'DV' && blockers.every((b) => b.code !== 'hdr_tonemap') && displayIsSdr(caps)) {
     // P5: displayHdr false changes the reason only, never the plan.
     const who = isBrowser(caps) ? 'browser' : 'client';
-    both.push(reason('hdr_client_conversion', 'video', `${presented} on an SDR display: conversion left to the ${who}`));
+    both.push(reason('hdr_client_conversion', 'video', `${presented} su display SDR: conversione lasciata al ${who}`));
   }
   return { blockers, directPlayBlockers, causes, dolbyVision, presented, actionReasons: { direct_play: both, direct_stream: [...dsOnly, ...both] } };
 }
@@ -171,18 +171,18 @@ function checkTranscode(v: VideoStreamFacts, file: PlayableFile, input: DecideIn
   const { capabilities: caps, constraints } = input;
   const blockers: PlanReason[] = [];
   if (!isUpTo1080p(v)) {
-    blockers.push(reason('transcode_limited', 'video', `Source ${v.width}×${v.height} above 1080p: a Transcode would be needed and is not available for it (P2)`));
+    blockers.push(reason('transcode_limited', 'video', `Sorgente ${v.width}×${v.height} oltre 1080p: servirebbe una transcodifica, non disponibile a questa risoluzione (P2)`));
   }
   // The software Transcode tone-maps the base layer as HDR10/HLG/SDR; a DV base layer of no known format
   // (profile 5: IPTPQc2) would come out with wrong colours.
   if (v.hdr === 'DV' && dvBase(v) === null) {
-    blockers.push(reason('transcode_limited', 'video', `Dolby Vision profile ${v.dolbyVision?.profile ?? '?'} has no HDR10, HLG or SDR base layer: the software Transcode cannot convert it`));
+    blockers.push(reason('transcode_limited', 'video', `Dolby Vision profilo ${v.dolbyVision?.profile ?? '?'} senza un livello base HDR10, HLG o SDR: la transcodifica software non può convertirlo`));
   }
-  if (constraints.transcode === 'disabled') blockers.push(reason('transcode_disabled', 'video', 'A Transcode would be needed and is disabled (MAX_TRANSCODES = 0)'));
-  if (constraints.transcode === 'busy') blockers.push(reason('transcode_disabled', 'video', 'A Transcode would be needed and every transcode slot is taken (P4)'));
-  if (!hasProtocol(caps, 'hls-fmp4')) blockers.push(reason('container_unsupported', 'container', 'The client does not play HLS fMP4'));
+  if (constraints.transcode === 'disabled') blockers.push(reason('transcode_disabled', 'video', 'Servirebbe una transcodifica, ma è disattivata (MAX_TRANSCODES = 0)'));
+  if (constraints.transcode === 'busy') blockers.push(reason('transcode_disabled', 'video', 'Servirebbe una transcodifica, ma tutti i posti di transcodifica sono occupati (P4)'));
+  if (!hasProtocol(caps, 'hls-fmp4')) blockers.push(reason('container_unsupported', 'container', 'Il client non riproduce HLS fMP4'));
   const out = h264Output(caps, v.frameRate);
-  if (!out) blockers.push(reason('video_codec_unsupported', 'video', 'The client declares no H.264 decoder for a Transcode'));
+  if (!out) blockers.push(reason('video_codec_unsupported', 'video', 'Il client non dichiara un decoder H.264 per la transcodifica'));
   const excluded = modeExclusion(input.exclusions, file.fileId, 'transcode');
   if (excluded) blockers.push(reason('format_excluded', excluded.dimension, exclusionMessage(excluded)));
 
@@ -260,7 +260,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
   const { capabilities: caps, exclusions } = input;
   const facts = file.facts;
   const v = facts.streams.find((s): s is VideoStreamFacts => s.type === 'video' && !s.attachedPic);
-  if (!v) return { file, outcome: null, reasons: [reason('video_codec_unsupported', 'video', 'The file has no video stream')], droppedSubtitle: null };
+  if (!v) return { file, outcome: null, reasons: [reason('video_codec_unsupported', 'video', 'Il file non ha una traccia video')], droppedSubtitle: null };
 
   // Tracks.
   const intent = resolveSelection(file, input.files, input.selection);
@@ -284,8 +284,8 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
   const fileRate = facts.bitRate ?? (v.bitRate === null ? null : v.bitRate + audioTotalBps(facts));
   const dsRate = videoRate === null ? null : videoRate + servedAudioBps(pick);
   const over = (rate: number | null): rate is number => limit !== undefined && rate !== null && rate > limit;
-  const dpBitrate = over(fileRate) ? [reason('video_bitrate_exceeded', 'video', `File bitrate ${mbps(fileRate)} above the client limit ${mbps(limit!)}`)] : [];
-  const dsBitrate = over(dsRate) ? [reason('video_bitrate_exceeded', 'video', `Video and audio bitrate ${mbps(dsRate)} above the client limit ${mbps(limit!)}`)] : [];
+  const dpBitrate = over(fileRate) ? [reason('video_bitrate_exceeded', 'video', `Bitrate del file ${mbps(fileRate)} oltre il limite del client ${mbps(limit!)}`)] : [];
+  const dsBitrate = over(dsRate) ? [reason('video_bitrate_exceeded', 'video', `Bitrate di video e audio ${mbps(dsRate)} oltre il limite del client ${mbps(limit!)}`)] : [];
 
   // Subtitle treatment: burn-in needs a Transcode, so it depends on whether one is possible.
   const selectedServed = choice ? (servedAll.find((s) => s.trackId === choice.track.trackId) ?? null) : null;
@@ -295,7 +295,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
     const src = choice.track.source;
     if (burnBlock) burnDrop = exclusionMessage(burnBlock);
     // sub2video needs the image track in the video's input: a sidecar .sup cannot be burned (delivery refuses it).
-    else if (src.kind === 'sidecar' && src.format === 'sup') burnDrop = 'A sidecar image track (.sup) cannot be burned in';
+    else if (src.kind === 'sidecar' && src.format === 'sup') burnDrop = 'Una traccia immagine esterna (.sup) non si può imprimere nel video';
     else if (tc.blockers.length > 0) burnDrop = tc.blockers.map((b) => b.message).join('; ');
   }
   const treatment = (mode: DeliveryMode): SubtitleTreatment => {
@@ -305,22 +305,22 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
     return burnDrop === null ? { kind: 'burn' } : { kind: 'drop', why: burnDrop };
   };
   const subName = choice ? subtitleName(choice.track.codec, choice.track.language) : '';
-  const burnBlocker = reason('subtitle_burn_in', 'subtitle', `Subtitles ${subName} cannot be rendered by the client: burn-in needs a Transcode`);
+  const burnBlocker = reason('subtitle_burn_in', 'subtitle', `Sottotitoli ${subName} non visualizzabili dal client: per imprimerli nel video serve una transcodifica`);
 
   // Direct Play.
   const dp: PlanReason[] = [];
-  if (!hasProtocol(caps, 'progressive')) dp.push(reason('container_unsupported', 'container', 'The client does not play progressive files'));
+  if (!hasProtocol(caps, 'progressive')) dp.push(reason('container_unsupported', 'container', 'Il client non riproduce file in download progressivo'));
   if (!clientPlaysContainer(caps, facts.container)) {
-    dp.push(reason('container_unsupported', 'container', `${containerName(facts.container)} is not played directly by the client: remux to fMP4`));
+    dp.push(reason('container_unsupported', 'container', `${containerName(facts.container)} non riprodotto direttamente dal client: remux in fMP4`));
   }
   const nAudio = audioStreams(facts).length;
   if (nAudio > 1 && !selectsTracks(caps)) {
-    dp.push(reason('audio_track_selection', 'container', `${nAudio} audio tracks: the client cannot choose the track inside the container`));
+    dp.push(reason('audio_track_selection', 'container', `${nAudio} tracce audio: il client non sa scegliere la traccia dentro il file`));
   }
   dp.push(...copy.blockers, ...copy.directPlayBlockers, ...dpBitrate);
   if (pick && pick.action.kind !== 'copy') dp.push(...pick.actionReasons.filter((r) => r.code === 'audio_converted'));
   if (pick && pick.action.kind === 'copy' && facts.container === 'matroska' && !selectsTracks(caps) && !MKV_DIRECT_PLAY_AUDIO.has(audioToken(pick.track))) {
-    dp.push(reason('container_unsupported', 'container', `${codecName(pick.track.codec)} audio in MKV: Direct Play not measured in the browser, remux to fMP4`));
+    dp.push(reason('container_unsupported', 'container', `Audio ${codecName(pick.track.codec)} in MKV: riproduzione diretta non verificata nel browser, remux in fMP4`));
   }
   dp.push(...audioBlockers);
   if (treatment('direct_play').kind === 'burn') dp.push(burnBlocker);
@@ -329,7 +329,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
 
   // Direct Stream.
   const ds: PlanReason[] = [];
-  if (!hasProtocol(caps, 'hls-fmp4')) ds.push(reason('container_unsupported', 'container', 'The client does not play HLS fMP4'));
+  if (!hasProtocol(caps, 'hls-fmp4')) ds.push(reason('container_unsupported', 'container', 'Il client non riproduce HLS fMP4'));
   ds.push(...copy.blockers, ...dsBitrate, ...audioBlockers);
   if (treatment('direct_stream').kind === 'burn') ds.push(burnBlocker);
   const dsExcluded = modeExclusion(exclusions, file.fileId, 'direct_stream');
@@ -341,7 +341,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
   const blockers: Record<DeliveryMode, PlanReason[]> = { direct_play: dp, direct_stream: ds, transcode: tx };
   const modes: DeliveryMode[] = input.forceMode ? [input.forceMode] : ['direct_play', 'direct_stream', 'transcode'];
   const mode = modes.find((m) => blockers[m].length === 0);
-  const forced = input.forceMode ? [reason('forced_mode', 'file', `Mode forced to ${modeName(input.forceMode)} (diagnostics)`)] : [];
+  const forced = input.forceMode ? [reason('forced_mode', 'file', `Modalità forzata: ${modeName(input.forceMode)} (diagnostica)`)] : [];
   if (!mode) {
     // The heavier modes explain the failure; Direct Play's own blockers are added when Direct Stream
     // does not already cover them. An audio conversion is not a failure cause.
@@ -355,7 +355,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
 
   // Reasons: why the lighter modes did not work, then what the chosen mode does.
   const reasons: PlanReason[] = [...forced];
-  if (mode === 'direct_play') reasons.push(reason('direct_play', 'file', 'Direct Play: the file is served as is'));
+  if (mode === 'direct_play') reasons.push(reason('direct_play', 'file', "Riproduzione diretta: il file è servito così com'è"));
   for (const m of ['direct_play', 'direct_stream'] as const) if (!input.forceMode && MODE_RANK[m] < MODE_RANK[mode]) reasons.push(...blockers[m]);
   if (mode !== 'transcode') reasons.push(...copy.actionReasons[mode]);
   if (pick) reasons.push(...pick.skipReasons);
@@ -375,11 +375,11 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
     reasons.push(servedReason(t.served));
   } else if (t.kind === 'burn') {
     subtitles = { selected: { trackId: choice.track.trackId, source: choice.track.source, codec: choice.track.codec, delivery: 'burned' }, served };
-    reasons.push(reason('subtitle_burn_in', 'subtitle', `Subtitles ${subName} burned into the video: the client cannot render them`));
+    reasons.push(reason('subtitle_burn_in', 'subtitle', `Sottotitoli ${subName} impressi nel video: il client non sa visualizzarli`));
   } else {
     subtitles = { selected: null, served };
     droppedSubtitle = choice.explicit ? choice.track.trackId : null;
-    reasons.push(reason('subtitle_dropped', 'subtitle', `Subtitles ${subName} cannot be shown: ${t.why}`));
+    reasons.push(reason('subtitle_dropped', 'subtitle', `Sottotitoli ${subName} non visualizzabili: ${t.why}`));
   }
   reasons.push(...skippedSub);
 
@@ -425,7 +425,7 @@ function evaluateFile(file: PlayableFile, input: DecideInput): FileEvaluation {
     // H.264 8-bit output cannot carry HDR: any HDR source is tone-mapped.
     const toneMap = v.hdr === 'SDR' ? 'none' : 'to_sdr';
     if (toneMap === 'to_sdr' && !reasons.some((r) => r.code === 'hdr_tonemap')) {
-      reasons.push(reason('hdr_tonemap', 'video', `${v.hdr} tone-mapped to SDR for the H.264 Transcode`));
+      reasons.push(reason('hdr_tonemap', 'video', `${v.hdr} convertito in SDR (tone-mapping) per la transcodifica H.264`));
     }
     const share = Math.min(1, (tc.width * tc.height) / (TRANSCODE_MAX_WIDTH * TRANSCODE_MAX_HEIGHT));
     let maxBitrateBps = Math.max(1_000_000, Math.round(input.constraints.transcodeMaxBitrateBps * share));
@@ -493,11 +493,11 @@ function compareOutcomes(a: FileEvaluation, b: FileEvaluation): number {
 }
 
 function whyChosen(a: Outcome, b: Outcome | undefined): string {
-  if (!b) return 'the only playable version';
-  if (transcodes(a) !== transcodes(b)) return `no video transcode, unlike ${b.label}`;
-  if (compareQuality(a, b) !== 0) return `higher quality than ${b.label}`;
-  if (a.plan.mode !== b.plan.mode) return `lighter mode than ${b.label}`;
-  return `same quality and mode as ${b.label}`;
+  if (!b) return "è l'unica versione riproducibile";
+  if (transcodes(a) !== transcodes(b)) return `nessuna transcodifica del video, a differenza di ${b.label}`;
+  if (compareQuality(a, b) !== 0) return `qualità superiore a ${b.label}`;
+  if (a.plan.mode !== b.plan.mode) return `modalità più leggera di ${b.label}`;
+  return `stessa qualità e modalità di ${b.label}`;
 }
 
 const byFileId = (a: { fileId: string }, b: { fileId: string }): number => (a.fileId < b.fileId ? -1 : a.fileId > b.fileId ? 1 : 0);
@@ -507,7 +507,7 @@ export function decide(input: DecideInput): Decision {
   const available = pool.filter((f) => f.available);
   const unavailable: CandidateOutcome[] = pool
     .filter((f) => !f.available)
-    .map((f) => ({ fileId: f.fileId, mode: null, reasons: [reason('file_unavailable', 'file', 'The file is not available (missing, or its library root is offline)')] }));
+    .map((f) => ({ fileId: f.fileId, mode: null, reasons: [reason('file_unavailable', 'file', 'Il file non è disponibile (mancante, o la sua cartella della libreria non è raggiungibile)')] }));
   if (available.length === 0) return { ok: false, code: 'MEDIA_UNAVAILABLE', reasons: [], candidates: unavailable };
 
   const evals = available.map((f) => evaluateFile(f, input));
@@ -517,7 +517,7 @@ export function decide(input: DecideInput): Decision {
   ].sort(byFileId);
   const header: PlanReason[] = [];
   if (input.exclusions.length > 0) {
-    header.push(reason('replanned_after_failure', 'file', `Re-planned after a playback failure: ${input.exclusions.length} format(s) excluded`));
+    header.push(reason('replanned_after_failure', 'file', `Riproduzione ripianificata dopo un errore: ${input.exclusions.length === 1 ? '1 formato escluso' : `${input.exclusions.length} formati esclusi`}`));
   }
 
   const playable = evals.filter((e) => e.outcome !== null).sort(compareOutcomes);
@@ -534,7 +534,7 @@ export function decide(input: DecideInput): Decision {
 
   const plan = winner.outcome.plan;
   if (available.length > 1 && input.fileId === undefined) {
-    header.push(reason('version_chosen', 'file', `Version ${winner.outcome.label} chosen: ${whyChosen(winner.outcome, playable[1]?.outcome ?? undefined)}`));
+    header.push(reason('version_chosen', 'file', `Scelta la versione ${winner.outcome.label}: ${whyChosen(winner.outcome, playable[1]?.outcome ?? undefined)}`));
   }
   plan.reasons = uniqueReasons([...header, ...plan.reasons]);
   return { ok: true, plan, candidates, droppedSubtitleTrackId: winner.droppedSubtitle };

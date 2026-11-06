@@ -1039,7 +1039,7 @@ export interface components {
             itemId?: components["schemas"]["Id"];
             fileId?: components["schemas"]["Id"];
             mode: components["schemas"]["DeliveryMode"];
-            /** @description Human-readable reasons for the chosen mode (doc 04 §3). */
+            /** @description Human-readable reasons for the chosen mode, in Italian for the viewer (doc 04 §3), e.g. "HDR10 su display SDR: conversione lasciata al browser". */
             reasons: string[];
             stream: {
                 /** @description Data-plane locator (relative). Never build it client-side. */

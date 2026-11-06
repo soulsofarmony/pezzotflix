@@ -84,7 +84,7 @@ describe('startPlayback', () => {
         { title: null, startMs: 300_000, endMs: 9_840_000 },
       ],
     });
-    expect(s.reasons).toContain('HDR10 on an SDR display: conversion left to the browser');
+    expect(s.reasons).toContain('HDR10 su display SDR: conversione lasciata al browser');
     expect(s.tracks.audio.map((t: any) => [t.id, t.selected, t.switchWithoutRestart])).toEqual([
       ['s1', false, false],
       ['s2', true, false],
@@ -138,7 +138,7 @@ describe('startPlayback', () => {
     const caps = { ...firefox(), video: firefox().video.filter((v) => v.codec !== 'hevc') };
     const r = await start({ itemId: ITEM, capabilities: caps });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('above 1080p: a Transcode would be needed');
+    expect(r.body.detail).toContain('oltre 1080p: servirebbe una transcodifica');
     expect(h.delivery.calls).toEqual([]);
   });
 
@@ -175,7 +175,7 @@ describe('limits (doc 04 §7, P4)', () => {
     const second = await start({ itemId: ITEM_HD, subtitleTrackId: 's2' }, 't2');
     expect(second.status).toBe(201);
     expect(second.body.mode).toBe('direct_play'); // burn-in impossible: dropped, playback goes on
-    expect(second.body.reasons.join(' ')).toContain('every transcode slot is taken');
+    expect(second.body.reasons.join(' ')).toContain('tutti i posti di transcodifica sono occupati');
   });
 
   it('MAX_TRANSCODES 0: a Transcode-only file gets 422 transcode_disabled', async () => {
@@ -201,7 +201,7 @@ describe('delivery outcomes at start (ADR 0003 D7, D8)', () => {
     expect(first).toMatchObject({ op: 'start', sessionId: S1 });
     expect(second).toMatchObject({ op: 'start', sessionId: S1 });
     expect(h.delivery.starts()[1]?.audio?.action).toMatchObject({ codec: 'aac', channels: 6 });
-    expect(r.body.reasons[0]).toBe('Re-planned after a playback failure: 1 format(s) excluded');
+    expect(r.body.reasons[0]).toBe('Riproduzione ripianificata dopo un errore: 1 formato escluso');
   });
 
   it('STREAM_FAILED without an exclusion: heavier mode for that file', async () => {
@@ -215,7 +215,7 @@ describe('delivery outcomes at start (ADR 0003 D7, D8)', () => {
     for (let i = 0; i < 4; i++) h.delivery.next.push({ ok: false, code: 'STREAM_FAILED', failure: failure({ suspect: 'audio' }) });
     const r = await start({ itemId: ITEM_HD });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('the 3 automatic attempts are used up');
+    expect(r.body.detail).toContain('i 3 tentativi automatici sono esauriti');
     expect(h.delivery.starts()).toHaveLength(4);
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
     expect((await start({ itemId: ITEM_HD })).status).toBe(201); // slot released
@@ -336,7 +336,7 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     const id = (await start({ itemId: ITEM, subtitleTrackId: 's3' })).body.sessionId;
     const r = await fail(id, { suspect: 'subtitle', error: 'PGS_LOAD_FAILED' });
     expect(r.body.tracks.subtitles.some((t: any) => t.selected)).toBe(false);
-    expect(r.body.reasons.join(' ')).toContain('Subtitles PGS (ita) cannot be shown');
+    expect(r.body.reasons.join(' ')).toContain('Sottotitoli PGS (ita) non visualizzabili');
     expect(h.delivery.starts()[1]?.subtitles.served.map((s) => s.trackId)).toEqual(['s4']);
     // Track ids are per file: the exclusion is pinned to the file it failed on.
     expect(h.delivery.starts()[1]?.exclusions).toEqual([
@@ -355,7 +355,7 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     const id = (await start({ itemId: ITEM })).body.sessionId;
     const r = await fail(id, { suspect: 'video' });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('above 1080p');
+    expect(r.body.detail).toContain('oltre 1080p');
     expect(h.delivery.ops()).toEqual(['start direct_stream', 'stop st1 stopped']);
     expect(h.events.at(-1)?.payload.reason).toBe('failed');
     expect((await h.callProblem('POST', `${SESSIONS}/${id}/failure`, { positionMs: 0, error: 'x' })).status).toBe(410);
@@ -368,7 +368,7 @@ describe('reportPlaybackFailure (doc 04 §8, ADR 0003 D7)', () => {
     expect((await fail(id, { suspect: 'audio' })).status).toBe(200); // attempt 3
     const r = await fail(id, { suspect: 'audio' });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('The 3 automatic attempts of this playback are used up');
+    expect(r.body.detail).toContain('I 3 tentativi automatici di questa riproduzione sono esauriti');
     expect(h.delivery.starts()).toHaveLength(4);
     // The formats excluded so far, one per attempt: the copy at start, then FLAC, then AAC.
     expect(h.delivery.starts()[3]?.exclusions.map((e) => [e.dimension, 'action' in e ? `${e.action}:${e.codec}` : '', e.cause])).toEqual([
@@ -452,7 +452,7 @@ describe('changeTracks and changeVersion (doc 04 §6.3)', () => {
     const id = (await start({ itemId: ITEM })).body.sessionId;
     const r = await tracks(id, { subtitleTrackId: 's5' });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('Subtitles VobSub (fre) cannot be shown');
+    expect(r.body.detail).toContain('Sottotitoli VobSub (fre) non visualizzabili');
     expect(h.delivery.ops()).toEqual(['start direct_stream']);
   });
 
@@ -504,15 +504,15 @@ describe('explainPlaybackDecision without a plan (doc 03 §6)', () => {
     const r = await explain({ itemId: ITEM, capabilities: caps });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ mode: null, fileId: null, actions: {} });
-    expect(r.body.reasons.join(' ')).toContain('above 1080p');
+    expect(r.body.reasons.join(' ')).toContain('oltre 1080p');
     expect(r.body.candidates).toEqual([{ fileId: F1, mode: null, reasons: r.body.reasons }]);
   });
 
   it('200 when no file is available, the unavailable file listed', async () => {
     h.catalog.items.set(ITEM_HD, hd({ files: [file(F2, hd().files[0]!.facts, false)] }));
     const r = await explain({ itemId: ITEM_HD });
-    expect(r.body).toMatchObject({ mode: null, fileId: null, reasons: ['No file of the item is available'] });
-    expect(r.body.candidates).toEqual([{ fileId: F2, mode: null, reasons: ['The file is not available (missing, or its library root is offline)'] }]);
+    expect(r.body).toMatchObject({ mode: null, fileId: null, reasons: ['Nessun file del titolo è disponibile'] });
+    expect(r.body.candidates).toEqual([{ fileId: F2, mode: null, reasons: ['Il file non è disponibile (mancante, o la sua cartella della libreria non è raggiungibile)'] }]);
   });
 });
 
@@ -740,7 +740,7 @@ describe('re-plan robustness (S1, S2, S4, S6, m1–m12)', () => {
     });
     const r = await tracks(id, { subtitleTrackId: 's2' });
     expect(r.status).toBe(422);
-    expect(r.body.detail).toContain('cannot be shown');
+    expect(r.body.detail).toContain('non visualizzabili');
   });
 
   it('m10: a failing event bus never replaces the outcome', async () => {
@@ -1033,7 +1033,7 @@ describe('sessions waiting without a stream (S3 follow-ups)', () => {
     h.delivery.next.push({ ok: false, code: 'STREAM_FAILED', failure: failure({ class: 'format', suspect: 'video' }) }); // 4K: no heavier mode
     const r = await tracks(id, { subtitleTrackId: 's5' });
     expect(r).toMatchObject({ status: 422, body: { code: 'NO_COMPATIBLE_PLAN' } });
-    expect(r.body.detail).toContain('The session was closed');
+    expect(r.body.detail).toContain('La sessione è stata chiusa');
     expect(r.body.sessionClosed).toBe(true);
     expect((await h.call('listActiveSessions', 'GET', SESSIONS)).body.sessions).toEqual([]);
     expect((await tracks(id, {})).status).toBe(410);
