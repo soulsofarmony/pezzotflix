@@ -10,7 +10,11 @@ health:
         content:
           application/json:
             schema: { $ref: '../components/schemas.yaml#/Health' }
-      '503': { $ref: '../components/responses.yaml#/Problem' }
+      '503':
+        description: Not ready (the database does not answer); the body says which part failed.
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/Health' }
 serverInfo:
   get:
     operationId: getServerInfo

@@ -167,7 +167,9 @@ export function createResolver(deps: ResolverDeps) {
     }
     const episodes = parsed.episodes ?? [];
     if (!episodes.length) {
-      throw new ProblemError('CONFLICT', `the file name has no episode number: link it to an episode (link_item) instead of a ${kind}`);
+      // The request asks for something this file cannot take: a validation error on the action, not a state conflict.
+      const message = `the file name has no episode number: link it to an episode (link_item) instead of a ${kind}`;
+      throw new ProblemError('VALIDATION_FAILED', message, { errors: [{ path: 'body/action', message }] });
     }
     const seasonId = kind === 'series' ? cat.ensureSeason(workId, parsed.season ?? 1).itemId : workId;
     const ids = episodes.map((n) => cat.ensureEpisode(seasonId, n).itemId);

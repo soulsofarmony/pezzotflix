@@ -12,6 +12,7 @@ import { notImplemented, ProblemError } from './problem.ts';
 export const SPEC_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'contract', 'dist', 'openapi.json');
 
 const MEDIA_PREFIX = '/media/';
+const HEALTH_PATH = '/video/healthz';
 
 function decodePath(url: string): string {
   try {
@@ -64,6 +65,11 @@ export async function buildServer(opts: ServerOptions): Promise<FastifyInstance>
     // close() must not wait for media bodies a paused client holds open (delivery cuts its own too).
     forceCloseConnections: true,
     ajv: { customOptions: { strict: false, removeAdditional: false, coerceTypes: 'array', useDefaults: true } },
+  });
+
+  // Health checks come every 10 s (Caddy) and 30 s (Docker): their requests are logged only from warn up.
+  app.addHook('onRoute', (route) => {
+    if (route.url === HEALTH_PATH) route.logLevel = 'warn';
   });
 
   // Session resources are never cached, errors (400 included) too (ADR 0003 D10).

@@ -725,6 +725,40 @@ export interface components {
                 [key: string]: "online" | "offline";
             };
         };
+        ServerInfo: {
+            name: string;
+            version: string;
+            apiVersions: string[];
+            features: {
+                transcode: boolean;
+                directStream: boolean;
+            };
+            ingest: {
+                running: boolean;
+                queued: number;
+                needsReview: number;
+            };
+            providers: {
+                /** @enum {string} */
+                name: "tmdb" | "wikidata";
+                /** @enum {string} */
+                status: "ok" | "not_configured" | "degraded" | "invalid_credentials" | "disabled";
+                attribution?: string;
+            }[];
+        };
+        Event: {
+            seq: number;
+            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
+            type: string;
+            at: number;
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        EventPage: {
+            events: components["schemas"]["Event"][];
+            nextCursor: string;
+        };
         /**
          * @description Opaque, stable id (UUIDv7). Clients never build ids.
          * @example 01936f0e-7b2a-7c3d-9e4f-5a6b7c8d9e0f
@@ -760,40 +794,6 @@ export interface components {
             sessionClosed?: boolean;
             /** @description SESSION_EXPIRED (410) on a session call: why the session closed. Open set, unknown values must be tolerated: the reasons of playback.session_terminated (expired, terminated, failed, item_removed) plus stopped (StopPlayback) and shutdown (the service was stopping). A client whose stream answers 404/410 asks the control plane once and does not start again on terminated, failed or item_removed. Absent on 404 (the server does not know the session, e.g. after a restart). */
             reason?: string;
-        };
-        ServerInfo: {
-            name: string;
-            version: string;
-            apiVersions: string[];
-            features: {
-                transcode: boolean;
-                directStream: boolean;
-            };
-            ingest: {
-                running: boolean;
-                queued: number;
-                needsReview: number;
-            };
-            providers: {
-                /** @enum {string} */
-                name: "tmdb" | "wikidata";
-                /** @enum {string} */
-                status: "ok" | "not_configured" | "degraded" | "invalid_credentials" | "disabled";
-                attribution?: string;
-            }[];
-        };
-        Event: {
-            seq: number;
-            /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
-            type: string;
-            at: number;
-            payload: {
-                [key: string]: unknown;
-            };
-        };
-        EventPage: {
-            events: components["schemas"]["Event"][];
-            nextCursor: string;
         };
         ProfilePrefs: {
             /** @description Ordered ISO 639-2/B or 639-1 codes, e.g. ["ita", "eng"]. */
@@ -1303,7 +1303,15 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
-            503: components["responses"]["Problem"];
+            /** @description Not ready (the database does not answer); the body says which part failed. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
         };
     };
     getServerInfo: {

@@ -284,6 +284,8 @@ export interface CatalogItemRef {
   seasonNumber: number | null;
   episodeNumber: number | null;
   editionLabel: string | null;
+  /** Extras only; optional so fakes may leave it out. */
+  extraType?: ExtraType | null;
   title: string;
 }
 

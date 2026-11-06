@@ -5,6 +5,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Db } from '../../db/index.ts';
 import type { JobTypeSpec, ModuleFactory, PeriodicTask } from '../../app/module.ts';
 import { newId } from '../../shared/ids.ts';
+import { JOB_INTERRUPTED_ERROR, JOB_INTERRUPTED_REQUEUED } from '../../shared/job-types.ts';
 import type { JobStats } from '../../shared/ports.ts';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -82,8 +83,30 @@ export function createJobRunner(args: {
   let stopped = false;
   let started = false;
 
-  // Jobs left 'running' by a crash are re-queued at startup.
-  db.$client.prepare("UPDATE job SET state = 'queued', updated_at = ? WHERE state = 'running'").run(now());
+  // Jobs left 'running' by a crash are re-queued at startup, marked in last_error. A job that kills
+  // the process (out of memory, a native crash) would otherwise run again at every start, for ever:
+  // one found interrupted again, with its attempts used up, fails. One interruption alone may be a
+  // stop that outlasted Docker's grace period. The interrupted attempts count.
+  db.$client.transaction(() => {
+    const interrupted = db.$client.prepare("SELECT id, type, attempts, last_error AS lastError FROM job WHERE state = 'running'").all() as {
+      id: string;
+      type: string;
+      attempts: number;
+      lastError: string | null;
+    }[];
+    const requeue = db.$client.prepare("UPDATE job SET state = 'queued', last_error = ?, updated_at = ? WHERE id = ?");
+    const giveUp = db.$client.prepare("UPDATE job SET state = 'failed', last_error = ?, updated_at = ? WHERE id = ?");
+    for (const job of interrupted) {
+      const max = jobTypes.get(job.type)?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+      const again = job.lastError?.startsWith(JOB_INTERRUPTED_REQUEUED) ?? false;
+      if (job.attempts < max || !again) {
+        requeue.run(`${JOB_INTERRUPTED_REQUEUED} (attempt ${job.attempts})`, now(), job.id);
+        continue;
+      }
+      giveUp.run(`${JOB_INTERRUPTED_ERROR} (${job.attempts} of ${max}): the service stopped while it ran, twice in a row`, now(), job.id);
+      log.warn({ jobId: job.id, jobType: job.type, attempts: job.attempts }, 'job interrupted again on its last attempt: failed');
+    }
+  })();
 
   const claim = db.$client.prepare(
     `UPDATE job SET state = 'running', attempts = attempts + 1, updated_at = @now

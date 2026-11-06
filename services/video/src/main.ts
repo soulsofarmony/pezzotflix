@@ -6,9 +6,9 @@ import { closeDb, openDb } from './db/index.ts';
 import { createJobRunner } from './modules/jobs/index.ts';
 
 const config = loadConfig();
-const db = await openDb({ path: config.dbPath, backupDir: config.backupDir });
-
 const log = createLogger(config.LOG_LEVEL);
+const db = await openDb({ path: config.dbPath, backupDir: config.backupDir, log: log.child({ module: 'db' }) });
+
 const comp = compose({ config, db, log });
 const app = await buildServer({
   logger: log,

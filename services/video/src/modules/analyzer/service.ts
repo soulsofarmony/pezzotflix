@@ -12,10 +12,11 @@ import {
   type AnalyzerProbePayload,
   type DeliveryKeyframeIndexPayload,
   type IdentifierIdentifyPayload,
+  JOB_INTERRUPTED_ERROR,
   JOB_TYPES,
 } from '../../shared/job-types.ts';
 import { type MediaFacts, type SidecarSubtitleFacts, sidecarTrackId, type StreamFacts } from '../../shared/media-facts.ts';
-import { resolveInsideRoot } from '../../shared/media-path.ts';
+import { resolveRealInsideRoot } from '../../shared/media-path.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
 import { ANALYZER_VERSION, hasHdr10PlusSideData, mapFacts, mayCarryHdr10Plus, type MappedProbe, type OtherStream } from './facts.ts';
 import type { FfprobeOutput, ProbeRunner } from './ffprobe.ts';
@@ -206,7 +207,8 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
     // The scan that sees the root online again re-enqueues the files still waiting for analysis.
     if (row.rootStatus === 'offline') return void ctx.log.info({ fileId }, 'probe skipped: root offline');
 
-    const abs = resolveInsideRoot(row.mountPath, row.relPath);
+    // Links followed: a folder swapped for a link after the scan must not lead ffprobe out of the root.
+    const abs = await resolveRealInsideRoot(row.mountPath, row.relPath);
     const st = await stat(abs);
     if (!st.isFile()) throw new Error(`not a regular file: ${row.relPath}`);
     const raw = await runner.probe(abs, ctx.signal);
@@ -224,7 +226,8 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
       await probeFile(fileId, ctx);
     } catch (err) {
       if (!ctx.signal.aborted && ctx.attempt >= maxAttempts) {
-        // The scan does not retry it: the file stays 'discovered' until it changes or the job is retried.
+        // The file stays 'discovered': the daily sweep (requeueFailedProbes) tries again, as do a change
+        // of the file and RetryJob.
         ctx.log.error({ fileId, attempts: ctx.attempt, err: errText(err) }, 'probe failed for good');
       }
       throw err;
@@ -257,5 +260,35 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
     return n;
   }
 
-  return { probe, requeueOutdated };
+  // Files still waiting for their first analysis whose probe job failed for good, on online roots,
+  // with no probe queued or running. The job table is read only (as metadata's sweep does). The
+  // probe goes under the scan's key for the current mtime; when the job holding that key is one the
+  // runner failed because the service stopped during it twice in a row, it is left alone: it may
+  // bring the process down.
+  const failedProbes = db.$client
+    .prepare(
+      `SELECT f.id, f.mtime_ms AS mtimeMs FROM media_file f JOIN library_root r ON r.id = f.root_id
+       WHERE f.state = 'discovered' AND r.status = 'online'
+         AND EXISTS (SELECT 1 FROM job j WHERE j.type = @type AND j.state = 'failed' AND json_extract(j.payload, '$.fileId') = f.id)
+         AND NOT EXISTS (SELECT 1 FROM job j WHERE j.type = @type AND j.state IN ('queued', 'running') AND json_extract(j.payload, '$.fileId') = f.id)
+         AND NOT EXISTS (SELECT 1 FROM job j WHERE j.idempotency_key = 'probe:' || f.id || ':' || f.mtime_ms
+                           AND j.state = 'failed' AND j.last_error LIKE @interrupted)
+       ORDER BY f.id`,
+    );
+
+  /**
+   * Enqueues the probe again, with the key the scan uses, for files whose probe failed for good: a
+   * share that was slow or a file still being copied gets a new try each day. Returns how many.
+   */
+  function requeueFailedProbes(): number {
+    let n = 0;
+    const rows = failedProbes.all({ type: JOB_TYPES.analyzerProbe, interrupted: `${JOB_INTERRUPTED_ERROR}%` }) as { id: string; mtimeMs: number }[];
+    for (const { id, mtimeMs } of rows) {
+      const payload: AnalyzerProbePayload = { fileId: id };
+      if (jobs().enqueue({ type: JOB_TYPES.analyzerProbe, payload, priority: REANALYZE_PRIORITY, idempotencyKey: `probe:${id}:${mtimeMs}` })) n++;
+    }
+    return n;
+  }
+
+  return { probe, requeueOutdated, requeueFailedProbes };
 }

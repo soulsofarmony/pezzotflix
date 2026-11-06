@@ -329,8 +329,8 @@ describe('admin API', () => {
       // A series without episode numbers in the name cannot take the file.
       const bare = seedFile(h.db, serie, 'Dark/bonus.mkv', 'dark', { state: 'needs_review' });
       const bareCase = seedCase(h.db, bare, { reason: 'no_title', parsed: { kind: 'movie', title: null } });
-      const conflict = await h.call('resolveCase', 'POST', `/video/api/v1/admin/cases/${bareCase}/resolve`, { action: 'link_item', itemId: series });
-      expect(conflict.status).toBe(409);
+      const refused = await h.call('resolveCase', 'POST', `/video/api/v1/admin/cases/${bareCase}/resolve`, { action: 'link_item', itemId: series });
+      expect([refused.status, refused.body.code, refused.body.errors?.[0]?.path]).toEqual([400, 'VALIDATION_FAILED', 'body/action']);
       expect((await h.call('resolveCase', 'POST', `/video/api/v1/admin/cases/${bareCase}/resolve`, { action: 'link_item', itemId: 'nope' })).status).toBe(404);
       expect((await h.call('resolveCase', 'POST', `/video/api/v1/admin/cases/${bareCase}/resolve`, { action: 'link_item' })).status).toBe(400);
     });
@@ -368,7 +368,8 @@ describe('admin API', () => {
       const before = { items: count('catalog_item'), search: count('catalog_search'), ids: count('external_id'), jobs: count('job'), events: count('domain_event') };
       // The series is created, then the file (no episode number) cannot be placed below it: rollback.
       const r = await h.call('resolveCase', 'POST', `/video/api/v1/admin/cases/${caseId}/resolve`, { action: 'link_candidate', candidate: { provider: 'wikidata', id: 'Q24300155' } });
-      expect(r.status).toBe(409);
+      // What the request asks cannot be done with this file: a 400 on the action (the client shows it there).
+      expect([r.status, r.body.code, r.body.errors]).toEqual([400, 'VALIDATION_FAILED', [{ path: 'body/action', message: expect.stringMatching(/no episode number/) }]]);
       expect({ items: count('catalog_item'), search: count('catalog_search'), ids: count('external_id'), jobs: count('job'), events: count('domain_event') }).toEqual(before);
       expect(caseState(caseId)).toBe('needs_review');
       expect(fileState(file)).toBe('needs_review');

@@ -132,6 +132,8 @@ export interface RootScanSummary {
   discCases: number;
   unchanged: number;
   unstable: number;
+  /** Size unchanged but the fingerprint could not be read: left as it was, read again next scan. */
+  unverified: number;
   unreadableDirs: number;
   symlinks: number;
   unsafe: number;
@@ -153,6 +155,7 @@ const emptySummary = (root: RootRow, status: 'online' | 'offline'): RootScanSumm
   discCases: 0,
   unchanged: 0,
   unstable: 0,
+  unverified: 0,
   unreadableDirs: 0,
   symlinks: 0,
   unsafe: 0,
@@ -193,6 +196,16 @@ interface Duplicate {
   mtimeMs: number;
   /** Set when the duplicate was walked in this scan. */
   entry: WalkEntry | null;
+}
+
+/** A known file whose path now holds other content (fingerprint differs): a swap may move it. */
+interface Vacated {
+  root: RootRow;
+  summary: RootScanSummary;
+  file: KnownFile;
+  entry: WalkEntry;
+  /** Fingerprint of the content now at file.relPath. */
+  fingerprint: string;
 }
 
 export interface ScannerDeps {
@@ -321,11 +334,21 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
     return caseStateOf(fileId) === 'ignored' ? 'ignored' : 'needs_review';
   };
 
+  const onlyAutoLinks = (fileId: string): boolean => {
+    const links = db.select({ origin: mediaLink.origin }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).all();
+    return links.length > 0 && links.every((l) => l.origin === 'auto');
+  };
+
   /** State of a file back from 'missing' (doc 01 §6.1): 'missing' overwrote it, the evidence did not. */
   const reviveState = (fileId: string, disc: DiscKind | null, t: number, summary: RootScanSummary): FileState => {
     if (disc) return ensureDiscCase(fileId, disc, t, summary);
-    if (hasLink(fileId)) return 'identified';
     const caseState = caseStateOf(fileId);
+    if (hasLink(fileId)) {
+      // New content still waiting for its identification (the old auto links are kept until then):
+      // back to 'analyzed', where the identifier's pending sweep picks it up again.
+      const relinking = caseState === 'pending' && onlyAutoLinks(fileId) && currentOf(fileId)?.hasFacts === true;
+      return relinking ? 'analyzed' : 'identified';
+    }
     if (caseState === 'ignored') return 'ignored';
     if (caseState === 'needs_review') return 'needs_review';
     return currentOf(fileId)?.hasFacts ? 'analyzed' : 'discovered';
@@ -444,8 +467,66 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
       }
     }
 
+    // Swaps and rotations: a changed path whose new content is the stored content of another changed
+    // path of this scan (two mislabelled files renamed into each other's place). The rows move with
+    // their content, so links, cases and decisions follow it (doc 01 §6.1). A row moves only into a
+    // path whose own row moves too: what is kept are cycles, written in one op.
+    const vacated = new Map<string, Vacated>();
+    for (const p of plans) {
+      for (const { file, entry } of p.diff.changed) {
+        if (entry.disc || isGone(file.state) || !file.fingerprint) continue;
+        const fp = fpOf(p.root.id, entry.relPath);
+        if (fp && fp !== file.fingerprint) vacated.set(file.id, { root: p.root, summary: p.summary, file, entry, fingerprint: fp });
+      }
+    }
+    const vacatedByStoredFp = new Map<string, Vacated[]>();
+    for (const v of vacated.values()) vacatedByStoredFp.set(v.file.fingerprint!, [...(vacatedByStoredFp.get(v.file.fingerprint!) ?? []), v]);
+    const swapInto = new Map<string, string>(); // file id of the row at a path -> file id of the row moving there
+    const swapping = new Set<string>();
+    for (const v of vacated.values()) {
+      const sources = (vacatedByStoredFp.get(v.fingerprint) ?? []).filter((s) => s.file.id !== v.file.id && !swapping.has(s.file.id));
+      const from = sources.find((s) => s.root.id === v.root.id) ?? sources[0];
+      if (!from) continue;
+      swapInto.set(v.file.id, from.file.id);
+      swapping.add(from.file.id);
+    }
+    for (let pruned = true; pruned; ) {
+      pruned = false;
+      for (const [at, from] of swapInto) {
+        if (swapping.has(at)) continue;
+        swapInto.delete(at);
+        swapping.delete(from);
+        pruned = true;
+      }
+    }
+    if (swapInto.size) {
+      const swaps = [...swapInto].map(([at, from]) => ({ to: vacated.get(at)!, row: vacated.get(from)!.file }));
+      for (const { to } of swaps) to.summary.moved++;
+      ops.push(() => {
+        // Every row leaves its path first ((root, path) is unique); a dot folder is never walked.
+        for (const { row } of swaps) db.update(mediaFile).set({ relPath: `.pezzotflix-swap/${row.id}` }).where(eq(mediaFile.id, row.id)).run();
+        for (const { to, row } of swaps) {
+          db.update(mediaFile)
+            .set({
+              rootId: to.root.id,
+              relPath: to.entry.relPath,
+              sizeBytes: to.entry.sizeBytes,
+              mtimeMs: to.entry.mtimeMs,
+              fingerprint: to.fingerprint,
+              facts: locationFacts(to.root.name, to.entry.relPath),
+              missingSince: null,
+              updatedAt: t,
+            })
+            .where(eq(mediaFile.id, row.id))
+            .run();
+          writeSidecars(row.id, parseSidecars(to.entry.relPath, to.entry.sidecars), true);
+          afterRelocation(row.id, to.entry.mtimeMs);
+        }
+      });
+    }
+
     // Copy, then delete: a gone row takes over a newer, undecided row with its content (any root).
-    const leaving = new Set(plans.flatMap((p) => p.diff.gone.map((f) => f.id)));
+    const leaving = new Set([...plans.flatMap((p) => p.diff.gone.map((f) => f.id)), ...swapping]);
     const walked = new Map<string, Map<string, WalkEntry>>(plans.map((p) => [p.root.id, new Map(p.walk.entries.map((e) => [e.relPath, e]))]));
     const absorbed = new Set<string>();
     const transfers = new Map<string, Duplicate>();
@@ -549,10 +630,17 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
       }
 
       for (const { file, entry } of diff.changed) {
-        if (absorbed.has(file.id)) continue;
+        if (absorbed.has(file.id) || swapping.has(file.id)) continue;
         const wasGone = isGone(file.state);
-        if (wasGone) summary.revived++;
         const disc = entry.disc;
+        if (!disc && entry.sizeBytes === file.sizeBytes && file.fingerprint !== null && fpOf(root.id, entry.relPath) === null) {
+          // The fingerprint read failed (file busy or locked, a share that hiccuped): a touch or new
+          // content, unknown. The row stays as it is; its stored mtime still differs, so the next
+          // scan reads the fingerprint again. Resetting it would cost the file its auto links.
+          summary.unverified++;
+          continue;
+        }
+        if (wasGone) summary.revived++;
         if (disc) {
           summary.changed++;
           const fingerprint = isDiscFolder(disc) ? null : fpOf(root.id, entry.relPath);
@@ -588,7 +676,9 @@ export function createScanner({ db, now, log, jobs, events, stableAfterMs }: Sca
         }
         summary.changed++;
         ops.push(() => {
-          // New content: probed and identified again (the identifier keeps manual links, doc 01 §5.1).
+          // New content at the same path: probed and identified again. Back to 'discovered', then
+          // 'analyzed', a linked file tells the identifier that its auto links were made for the old
+          // content: it drops them and identifies the file again, keeping manual links (doc 01 §5.1).
           db.update(mediaFile)
             .set({ sizeBytes: entry.sizeBytes, mtimeMs: entry.mtimeMs, fingerprint, state: 'discovered', missingSince: null, updatedAt: t })
             .where(eq(mediaFile.id, file.id))

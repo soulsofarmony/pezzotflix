@@ -409,8 +409,9 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState }: Cat
     if (q.kind) {
       where.push('i.kind = @kind');
       params.kind = q.kind;
-    } else if (q.continueWatching !== true) {
-      // Browsing lists works; Continue watching lists what is played (movies, episodes, extras).
+    } else if (q.continueWatching !== true && q.inWatchlist !== true) {
+      // Browsing lists works; Continue watching lists what is played (movies, episodes, extras) and
+      // the watchlist whatever the profile added (an extra, an episode).
       where.push("i.kind IN ('movie', 'series')");
     }
     if (q.category) {

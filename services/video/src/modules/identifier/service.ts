@@ -3,7 +3,7 @@
 // and the catalog items through CatalogWritePort. Owns media_link (auto) and identification_case.
 // Idempotent: a linked file, an owner decision (ignored/resolved) and a manual link are never
 // touched; a renamed file in review is identified again and its case updated, not duplicated.
-import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { z } from 'zod';
 import type { JobContext } from '../../app/module.ts';
@@ -24,6 +24,7 @@ import type {
   WorkInput,
 } from '../../shared/ports.ts';
 import type { KindMode, ScoredCandidate } from './matcher.ts';
+import { normalizeTitle } from './normalize.ts';
 import { type ParsedPath, parsePath, type RootHint } from './parser.ts';
 import { type CaseReason, DEFAULT_RESOLVERS, type Evidence, NO_PROVIDER_RETRY_MS, type Resolver, runChain, type WorkQuery } from './resolvers.ts';
 
@@ -139,6 +140,21 @@ export function kindModeOf(parsed: ParsedPath, hint: RootHint): KindMode {
   return hint === 'series' ? 'blocked' : 'filter';
 }
 
+/** The item folder a parse names for its work: a movie's or episode's workFolder, an extra's owner folder. */
+const itemFolderOf = (p: ParsedPath): string | null => (p.kind === 'extra' ? p.extraOf?.folder || null : p.workFolder);
+
+/**
+ * A sibling file counts for `self` only if it names the same item folder and the same normalised
+ * title: two films of one year in "Che (2008)/" ("Che - L'argentino (2008)", "Che - Guerriglia
+ * (2008)") are not versions of each other, and an extra there is the folder's, not one of theirs.
+ * Two movies must not have different years either (a folder without a year can hold "Alien (1979)"
+ * and "Alien (2019)").
+ */
+export function sameItemFolder(sibling: ParsedPath, self: ParsedPath, folder: string): boolean {
+  if (itemFolderOf(sibling) !== folder || normalizeTitle(sibling.title) !== normalizeTitle(self.title)) return false;
+  return !(sibling.kind === 'movie' && self.kind === 'movie' && sibling.year !== null && self.year !== null && sibling.year !== self.year);
+}
+
 export function createIdentifier(deps: IdentifierDeps) {
   const { db, now, events, catalog, metadata, lang } = deps;
   const resolvers = deps.resolvers ?? DEFAULT_RESOLVERS;
@@ -191,7 +207,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       .where(eq(mediaFile.id, file.id))
       .get();
     if (!cur || cur.state === 'removed' || cur.state === 'ignored') return 'settled';
-    if (hasLink(file.id)) return 'settled';
+    if (hasLink(file.id) && !relinkable(file.id)) return 'settled';
     const c = caseOf(file.id);
     if (c?.state === 'ignored' || c?.state === 'resolved') return 'settled';
     if (cur.relPath !== file.relPath || cur.analyzedAt !== file.analyzedAt) return 'changed';
@@ -206,11 +222,40 @@ export function createIdentifier(deps: IdentifierDeps) {
     }
   }
 
+  const linksOfFile = (fileId: string) => db.select({ itemId: mediaLink.itemId, origin: mediaLink.origin }).from(mediaLink).where(eq(mediaLink.fileId, fileId)).all();
+  const stateNow = (fileId: string) => db.select({ state: mediaFile.state }).from(mediaFile).where(eq(mediaFile.id, fileId)).get()?.state;
+
+  /**
+   * New content at the same path. A linked file is 'identified', except when the library saw its
+   * content change: it put the file back to 'discovered' and the analyzer moved it to 'analyzed'. Its
+   * auto links describe the old content: without a manual link, the file is identified again. The
+   * links are replaced when the new result is written (replaceAutoLinks), not before: while the
+   * providers are down the file stays where it was.
+   */
+  function relinkable(fileId: string): boolean {
+    const links = linksOfFile(fileId);
+    return links.length > 0 && links.every((l) => l.origin === 'auto') && stateNow(fileId) === 'analyzed';
+  }
+
+  /** Links the file to itemIds; its other auto links go, in the caller's transaction (manual links stay, doc 01 §5.1). */
+  function replaceAutoLinks(fileId: string, itemIds: readonly string[], confidence: number, log: FastifyBaseLogger): void {
+    const keep = new Set(itemIds);
+    const stale = [...new Set(linksOfFile(fileId).filter((l) => l.origin === 'auto' && !keep.has(l.itemId)).map((l) => l.itemId))];
+    if (stale.length) {
+      db.delete(mediaLink).where(and(eq(mediaLink.fileId, fileId), eq(mediaLink.origin, 'auto'), inArray(mediaLink.itemId, stale))).run();
+      for (const itemId of stale) events().publish('library.item_updated', { itemId, fileId, reason: 'media_unlinked' });
+      log.info({ fileId, items: stale }, 'content changed: the auto links of the old content replaced');
+    }
+    insertLinks(fileId, itemIds, confidence);
+  }
+
   /** Decisions that need no parsing nor provider. Returns true when the job is done. */
   function precheck(file: FileRow, log: FastifyBaseLogger): boolean {
     return tx(() => {
-      if (hasLink(file.id)) {
-        // An existing link (auto or manual) is never replaced automatically (doc 01 §5.1).
+      if (hasLink(file.id) && !relinkable(file.id)) {
+        // New content under a manual link: the owner's link stays, the auto ones go.
+        if (stateNow(file.id) === 'analyzed') replaceAutoLinks(file.id, [], 1, log);
+        // Otherwise an existing link (auto or manual) is never replaced automatically (doc 01 §5.1).
         setState(file.id, 'identified');
         return true;
       }
@@ -238,7 +283,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       const first = twins[0];
       if (!first) return false;
       const itemIds = twins.filter((tw) => tw.fileId === first.fileId).map((tw) => tw.itemId);
-      insertLinks(file.id, itemIds, 1);
+      replaceAutoLinks(file.id, itemIds, 1, log);
       upsertCase(file.id, 'auto_matched', null, { ...parsePath(file.relPath, file.hint), copyOf: first.fileId }, []);
       setState(file.id, 'identified');
       for (const itemId of new Set(itemIds)) events().publish('library.item_updated', { itemId, fileId: file.id, reason: 'media_linked' });
@@ -249,16 +294,26 @@ export function createIdentifier(deps: IdentifierDeps) {
 
   // ---------------------------------------------------------------- planning (async: providers)
 
-  /** One work below this folder of the root, from the links of the files already identified there. */
-  function siblingWork(file: FileRow, folder: string, kind: WorkKind, directOnly: boolean): string | null {
+  /**
+   * One work of this item folder, from the links of the files already identified there. Only files
+   * that name the same item folder count (parser workFolder / extraOf.folder): two movies in one
+   * collection folder, or a movie with no year next to a remake, never become versions of each other.
+   */
+  function siblingWork(file: FileRow, parsed: ParsedPath, folder: string, kind: WorkKind, directOnly: boolean): string | null {
+    if (!folder) return null;
     const rows = db.$client
       .prepare(
-        `SELECT DISTINCT l.item_id AS itemId FROM media_link l JOIN media_file f ON f.id = l.file_id
+        `SELECT DISTINCT f.rel_path AS relPath, l.item_id AS itemId FROM media_link l JOIN media_file f ON f.id = l.file_id
          WHERE f.root_id = @root AND f.id <> @file AND substr(f.rel_path, 1, length(@prefix)) = @prefix
            AND (@direct = 0 OR instr(substr(f.rel_path, length(@prefix) + 1), '/') = 0)`,
       )
-      .all({ root: file.rootId, file: file.id, prefix: `${folder}/`, direct: directOnly ? 1 : 0 }) as { itemId: string }[];
-    const works = new Set(rows.map((r) => catalog().findAncestor(r.itemId, kind)).filter((x): x is string => x !== null));
+      .all({ root: file.rootId, file: file.id, prefix: `${folder}/`, direct: directOnly ? 1 : 0 }) as { relPath: string; itemId: string }[];
+    const works = new Set(
+      rows
+        .filter((r) => sameItemFolder(parsePath(r.relPath, file.hint), parsed, folder))
+        .map((r) => catalog().findAncestor(r.itemId, kind))
+        .filter((x): x is string => x !== null),
+    );
     return works.size === 1 ? ([...works][0] ?? null) : null;
   }
 
@@ -307,7 +362,7 @@ export function createIdentifier(deps: IdentifierDeps) {
   /** The movie the other versions in this item folder are linked to, if they agree on one of the same edition. */
   function siblingMovie(file: FileRow, parsed: ParsedPath): string | null {
     if (!parsed.workFolder) return null;
-    const itemId = siblingWork(file, parsed.workFolder, 'movie', true);
+    const itemId = siblingWork(file, parsed, parsed.workFolder, 'movie', true);
     if (!itemId) return null;
     const edition = (label: string | null | undefined) => (label ?? '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
     return edition(catalog().getItem(itemId)?.editionLabel) === edition(parsed.edition) ? itemId : null;
@@ -326,7 +381,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       const season = parsed.season ?? 1;
       const episodes = parsed.episodes ?? [];
       const target = (series: WorkTarget): Target => ({ type: 'episodes', series, season, episodes, episodeTitle: parsed.episodeTitle });
-      const sibling = parsed.workFolder ? siblingWork(file, parsed.workFolder, 'series', false) : null;
+      const sibling = parsed.workFolder ? siblingWork(file, parsed, parsed.workFolder, 'series', false) : null;
       if (sibling) return { type: 'link', target: target({ itemId: sibling }), confidence: 1, candidates: [], evidence: { resolver: 'sibling' } };
       const w = await resolveWork(parsed, file.hint, 'series', facts, false, finalAttempt);
       return w.type === 'work' ? { type: 'link', target: target(w.work), confidence: w.confidence, candidates: w.candidates, evidence: w.evidence } : w;
@@ -335,7 +390,7 @@ export function createIdentifier(deps: IdentifierDeps) {
     const extra = { extraType: parsed.extraType ?? 'other', title: parsed.extraTitle ?? 'Extra', numberIfTaken: parsed.extraTitleIsLabel } as const;
     const owner = parsed.extraOf;
     if (!owner) return { type: 'link', target: { type: 'extra', parent: null, ...extra }, confidence: 1, candidates: [], evidence: { resolver: 'parser', rule: 'orphan_extra' } };
-    const sibling = siblingWork(file, owner.folder, owner.kind, owner.kind === 'movie');
+    const sibling = siblingWork(file, parsed, owner.folder, owner.kind, owner.kind === 'movie');
     if (sibling) {
       return { type: 'link', target: { type: 'extra', parent: { work: { itemId: sibling }, season: owner.season }, ...extra }, confidence: 1, candidates: [], evidence: { resolver: 'sibling' } };
     }
@@ -350,7 +405,7 @@ export function createIdentifier(deps: IdentifierDeps) {
    * Catalog writes of a target; returns the playable items to link. `announced` tells whether the
    * catalog already published an item event for it (added or updated) in this transaction.
    */
-  function materialize(target: Target, facts: MediaFacts | null): { itemId: string; announced: boolean }[] {
+  function materialize(fileId: string, target: Target, facts: MediaFacts | null): { itemId: string; announced: boolean }[] {
     const cat = catalog();
     const t = now();
     const work = (w: WorkTarget): { itemId: string; announced: boolean } => {
@@ -394,17 +449,23 @@ export function createIdentifier(deps: IdentifierDeps) {
       const owner = work(target.parent.work);
       parentId = target.parent.season === null ? owner.itemId : cat.ensureSeason(owner.itemId, target.parent.season).itemId;
     }
+    // New content of an extra already linked (a re-encode, a fixed header): the same item, not a second one.
+    const previous = linksOfFile(fileId)
+      .filter((l) => l.origin === 'auto')
+      .map((l) => cat.getItem(l.itemId))
+      .find((i) => i?.kind === 'extra' && i.parentId === parentId && i.extraType === target.extraType);
+    if (previous) return [{ itemId: previous.id, announced: fileFields(previous.id, null) }];
     const extra = cat.createExtra({ parentId, extraType: target.extraType, title: target.title, numberIfTaken: target.numberIfTaken, fetchedAt: t });
     fileFields(extra.itemId, null);
     return [{ itemId: extra.itemId, announced: true }];
   }
 
-  function writeLinked(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'link' }>, facts: MediaFacts | null): Eligibility {
+  function writeLinked(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'link' }>, facts: MediaFacts | null, log: FastifyBaseLogger): Eligibility {
     return tx(() => {
       const e = eligible(file);
       if (e !== 'ok') return e;
-      const items = materialize(p.target, facts);
-      insertLinks(file.id, items.map((i) => i.itemId), p.confidence);
+      const items = materialize(file.id, p.target, facts);
+      replaceAutoLinks(file.id, items.map((i) => i.itemId), p.confidence, log);
       upsertCase(file.id, 'auto_matched', null, { ...parsed, evidence: p.evidence }, p.candidates);
       setState(file.id, 'identified');
       // A new file on an existing item (another copy, a sibling episode) is still news for clients.
@@ -413,10 +474,12 @@ export function createIdentifier(deps: IdentifierDeps) {
     });
   }
 
-  function writeReview(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'review' }>): Eligibility {
+  function writeReview(file: FileRow, parsed: ParsedPath, p: Extract<Plan, { type: 'review' }>, log: FastifyBaseLogger): Eligibility {
     return tx(() => {
       const e = eligible(file);
       if (e !== 'ok') return e;
+      // New content that matches nothing sure: the old content's auto links go with the review.
+      replaceAutoLinks(file.id, [], 0, log);
       const { caseId, changed } = upsertCase(file.id, 'needs_review', p.reason, { ...parsed, evidence: p.evidence }, p.candidates);
       setState(file.id, 'needs_review');
       if (changed) events().publish('identification.needs_review', { caseId, fileId: file.id, reason: p.reason });
@@ -424,7 +487,10 @@ export function createIdentifier(deps: IdentifierDeps) {
     });
   }
 
-  /** A provider failed: the case stays pending (never needs_review, ADR 0007 point 4). */
+  /**
+   * A provider failed: the case stays pending (never needs_review, ADR 0007 point 4). A file whose
+   * content changed keeps its old links meanwhile.
+   */
   function writePending(file: FileRow, parsed: ParsedPath, detail: string): Eligibility {
     return tx(() => {
       const e = eligible(file);
@@ -456,7 +522,7 @@ export function createIdentifier(deps: IdentifierDeps) {
       if (writePending(file, parsed, p.detail) === 'changed') throw changedMeanwhile();
       throw new RetryLaterError(p.detail, p.retryAfterMs);
     }
-    const written = p.type === 'link' ? writeLinked(file, parsed, p, facts) : writeReview(file, parsed, p);
+    const written = p.type === 'link' ? writeLinked(file, parsed, p, facts, log) : writeReview(file, parsed, p, log);
     if (written === 'changed') throw changedMeanwhile();
     if (written === 'settled') return void log.info({ fileId }, 'identify result dropped: the file was linked, ignored or removed meanwhile');
     log.info({ fileId, outcome: p.type === 'link' ? 'auto_matched' : 'needs_review', reason: p.type === 'review' ? p.reason : undefined, resolver: p.evidence.resolver }, 'file identified');

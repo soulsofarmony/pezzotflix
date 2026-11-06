@@ -1,6 +1,6 @@
 // Analyzer writes (media_file, media_stream, chapter, identify job) with a fake ffprobe runner: no
 // ffprobe or media needed. The probed file is a small dummy in a temp folder.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -241,6 +241,25 @@ describe('analyzer.probe', () => {
     expect(probes).toBe(0);
   });
 
+  it('refuses a path that leaves the root through a link (a folder swapped for one after the scan)', async (t) => {
+    const outside = mkdtempSync(join(tmpdir(), 'pzf-outside-'));
+    const link = join(dir, 'Escape (2020)');
+    try {
+      writeFileSync(join(outside, 'Escape (2020).mkv'), 'outside the library');
+      try {
+        symlinkSync(outside, link, 'junction'); // a junction on Windows needs no privilege; a symlink elsewhere
+      } catch (err) {
+        t.skip(`cannot create a link here: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      insertFile({ relPath: 'Escape (2020)/Escape (2020).mkv' });
+      await expect(analyzer().probe({ fileId: 'f1' }, ctx())).rejects.toThrow(/escapes its root through a link/);
+      expect(probes).toBe(0);
+    } finally {
+      rmSync(link, { force: true, recursive: true });
+      rmSync(outside, { force: true, recursive: true });
+    }
+  });
+
   it('rejects an invalid payload', async () => {
     await expect(analyzer().probe({ file: 'f1' }, ctx())).rejects.toThrow();
   });
@@ -305,5 +324,53 @@ describe('analyzer.requeueOutdated (ANALYZER_VERSION bump)', () => {
     expect(jobs().filter((j) => j.type === 'identifier.identify')).toEqual([]);
     db.$client.prepare("UPDATE job SET state = 'done'").run();
     expect(analyzer().requeueOutdated()).toBe(0);
+  });
+});
+
+describe('analyzer.requeueFailedProbes (daily)', () => {
+  const addFile = (id: string, root: string, state: string) =>
+    db.$client
+      .prepare('INSERT INTO media_file (id, root_id, rel_path, size_bytes, mtime_ms, state, created_at, updated_at) VALUES (?, ?, ?, 11, 7, ?, 0, 0)')
+      .run(id, root, `${id}.mkv`, state);
+  const probeJob = (fileId: string, key: string, state: string, lastError = 'ffprobe exit 1') => {
+    enqueueJob(db, 0, { type: 'analyzer.probe', payload: { fileId }, idempotencyKey: key });
+    db.$client.prepare('UPDATE job SET state = ?, attempts = 3, last_error = ? WHERE idempotency_key = ?').run(state, state === 'failed' ? lastError : null, key);
+  };
+  const probeJobs = () =>
+    db.$client.prepare("SELECT idempotency_key AS key, state, attempts FROM job WHERE type = 'analyzer.probe' ORDER BY idempotency_key").all();
+
+  it('queues again the files still waiting whose probe failed for good, on online roots, once', () => {
+    insertFile(); // f1, discovered, mtime 1
+    db.$client.prepare("INSERT INTO library_root (id, name, mount_path, hint, status, created_at) VALUES ('r2', 'Off', '/x', 'movies', 'offline', 0)").run();
+    probeJob('f1', 'probe:f1:1', 'failed');
+    addFile('f2', 'r1', 'discovered');
+    probeJob('f2', 'probe:f2:7', 'failed', 'interrupted on its last attempt (3 of 3): the service stopped while it ran'); // may kill the process
+    addFile('f3', 'r1', 'discovered');
+    probeJob('f3', 'probe:f3:5', 'failed'); // an older version of the file failed…
+    probeJob('f3', 'probe:f3:7', 'queued'); // …the current one is queued
+    addFile('f4', 'r2', 'discovered'); // offline root
+    probeJob('f4', 'probe:f4:7', 'failed');
+    addFile('f5', 'r1', 'needs_review'); // analysed since
+    probeJob('f5', 'probe:f5:7', 'failed');
+    addFile('f6', 'r1', 'discovered'); // failed under an older mtime: queued under the current one
+    probeJob('f6', 'probe:f6:3', 'failed');
+    addFile('f7', 'r1', 'discovered'); // a real failure before, but the current key's job may kill the process
+    probeJob('f7', 'probe:f7:3', 'failed');
+    probeJob('f7', 'probe:f7:7', 'failed', 'interrupted on its last attempt (3 of 3): the service stopped while it ran, twice in a row');
+
+    expect(analyzer().requeueFailedProbes()).toBe(2);
+    expect(probeJobs()).toEqual([
+      { key: 'probe:f1:1', state: 'queued', attempts: 0 },
+      { key: 'probe:f2:7', state: 'failed', attempts: 3 },
+      { key: 'probe:f3:5', state: 'failed', attempts: 3 },
+      { key: 'probe:f3:7', state: 'queued', attempts: 3 },
+      { key: 'probe:f4:7', state: 'failed', attempts: 3 },
+      { key: 'probe:f5:7', state: 'failed', attempts: 3 },
+      { key: 'probe:f6:3', state: 'failed', attempts: 3 },
+      { key: 'probe:f6:7', state: 'queued', attempts: 0 },
+      { key: 'probe:f7:3', state: 'failed', attempts: 3 },
+      { key: 'probe:f7:7', state: 'failed', attempts: 3 },
+    ]);
+    expect(analyzer().requeueFailedProbes()).toBe(0); // queued already
   });
 });

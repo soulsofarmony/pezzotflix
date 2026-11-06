@@ -441,6 +441,16 @@ describe('with a ProfileStatePort', () => {
     expect(await get('watched=true')).toEqual([lib.br2049]);
     expect(await get('watched=false')).not.toContain(lib.br2049);
     expect(await get('inWatchlist=true')).toEqual([lib.dark]);
+    // The watchlist lists what the profile added, of any kind: an extra too.
+    const states = port.getStates.bind(port);
+    port.getStates = (p, ids) => {
+      const out = states(p, ids);
+      if (ids.includes(lib.trailer)) out.set(lib.trailer, { watched: false, progressPercent: 0, inWatchlist: true });
+      return out;
+    };
+    expect(await get('inWatchlist=true')).toEqual([lib.dark, lib.trailer]);
+    expect(await get('inWatchlist=false')).not.toContain(lib.trailer); // browsing: works only
+    port.getStates = states;
     expect(await get('continueWatching=true&sort=last_played&order=desc')).toEqual([lib.dune, lib.ep2]);
     expect((await get('sort=last_played&order=desc')).slice(0, 3)).toEqual([lib.dark, lib.dune, lib.br2049]);
     // Paging the in-memory path uses the same keyset.

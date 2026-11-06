@@ -232,6 +232,7 @@ export function createCatalogWriter({ db, now, events, tmdbMaxAgeMs, jobs, log }
     seasonNumber: catalogItem.seasonNumber,
     episodeNumber: catalogItem.episodeNumber,
     editionLabel: catalogItem.editionLabel,
+    extraType: catalogItem.extraType,
     title: catalogItem.title,
   };
 

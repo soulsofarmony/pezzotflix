@@ -29,6 +29,15 @@ export const JOB_TYPES = {
  */
 export const KEYFRAME_INDEX_URGENT_PRIORITY = 0;
 
+/**
+ * Start of job.last_error for a job the runner failed at start because the service stopped during
+ * its last attempt twice in a row (it may kill the process). Sweeps that retry failed jobs skip these.
+ */
+export const JOB_INTERRUPTED_ERROR = 'interrupted on its last attempt';
+
+/** Start of job.last_error for a job re-queued at start because the service stopped while it ran. */
+export const JOB_INTERRUPTED_REQUEUED = 'interrupted, queued again';
+
 export interface LibraryScanPayload {
   rootId?: string;
 }

@@ -300,6 +300,74 @@ describe('library scan', () => {
     expect(h.progress()).toMatchObject([{ changed: 1, touched: 0 }]);
   });
 
+  it('two files swapped in place move with their content: links follow it, nothing is probed again', async () => {
+    const root = tempDir();
+    const A = 'Alien (1979)/Alien (1979).mkv';
+    const B = 'Aliens (1986)/Aliens (1986).mkv';
+    const C = 'Prometheus (2012)/Prometheus (2012).mkv';
+    writeFile(root, A, Buffer.alloc(5000, 1));
+    writeFile(root, B, Buffer.alloc(7000, 2));
+    writeFile(root, C, Buffer.alloc(9000, 3));
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
+    await h.scan();
+    const [a, b, c] = [A, B, C].map((p) => h.file(p)?.id);
+    for (const id of [a, b, c]) {
+      h.analyzed(id);
+      h.link(id);
+    }
+    const linkOf = (id: string | undefined) => h.db.$client.prepare('SELECT item_id FROM media_link WHERE file_id = ?').pluck().get(id);
+    const items = [a, b, c].map(linkOf);
+    h.allJobsDone();
+
+    // The owner swaps the names of A and B (they were mislabelled).
+    renameSync(abs(root, A), abs(root, `${A}.tmp`));
+    renameSync(abs(root, B), abs(root, A));
+    renameSync(abs(root, `${A}.tmp`), abs(root, B));
+    await h.scan();
+    expect(h.files().map((f) => [f.rel_path, f.id, f.state])).toEqual([
+      [A, b, 'identified'],
+      [B, a, 'identified'],
+      [C, c, 'identified'],
+    ]);
+    expect([a, b, c].map(linkOf)).toEqual(items);
+    expect(factsOf(h.byId(a))?.location).toEqual({ rootName: 'Film', relPath: B });
+    expect(h.progress()).toMatchObject([{ moved: 2, changed: 0 }]);
+    expect(h.queuedProbes()).toEqual([]);
+    expect(h.queuedIdentifies()).toEqual([]);
+
+    // A three-way rotation is a set of moves too.
+    for (const [from, to] of [[A, `${A}.tmp`], [C, A], [B, C], [`${A}.tmp`, B]] as const) renameSync(abs(root, from), abs(root, to));
+    await h.scan();
+    expect(h.files().map((f) => [f.rel_path, f.id])).toEqual([
+      [A, c],
+      [B, b],
+      [C, a],
+    ]);
+    expect(h.queuedProbes()).toEqual([]);
+  });
+
+  it('new content that a file still holds elsewhere is a copy, not a move', async () => {
+    const root = tempDir();
+    const A = 'Alien (1979)/Alien (1979).mkv';
+    const B = 'Aliens (1986)/Aliens (1986).mkv';
+    writeFile(root, A, Buffer.alloc(5000, 1));
+    writeFile(root, B, Buffer.alloc(7000, 2));
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
+    await h.scan();
+    const [a, b] = [A, B].map((p) => h.file(p)?.id);
+    for (const id of [a, b]) h.analyzed(id);
+    h.allJobsDone();
+
+    writeFile(root, A, Buffer.alloc(7000, 2)); // B copied over A; B stays
+    await h.scan();
+    expect(h.files().map((f) => [f.rel_path, f.id, f.state])).toEqual([
+      [A, a, 'discovered'],
+      [B, b, 'analyzed'],
+    ]);
+    expect(h.progress()).toMatchObject([{ moved: 0, changed: 1 }]);
+    expect(h.queuedProbes().map((j) => j.payload.fileId)).toEqual([a]);
+  });
+
   it('a file back from missing gets its state back from links and cases', async () => {
     const root = tempDir();
     const away = tempDir();
@@ -327,6 +395,36 @@ describe('library scan', () => {
     // Only the file that never got facts is probed again.
     expect(h.queuedProbes().map((j) => j.payload.fileId)).toEqual([ids.Fresh]);
     expect(h.queuedIdentifies()).toEqual([]);
+  });
+
+  it('a file back from missing keeps a re-identification that was still pending', async () => {
+    const root = tempDir();
+    const away = tempDir();
+    const names = ['Relinking', 'Settled', 'Manual'];
+    for (const name of names) writeFile(root, `Gone/${name} (2001).mkv`);
+    writeFile(root, 'Keep (2000)/Keep (2000).mkv');
+    const h = await harness([{ name: 'Film', path: root, hint: 'movies' }]);
+    await h.scan();
+    const ids = Object.fromEntries(names.map((n) => [n, h.file(`Gone/${n} (2001).mkv`)?.id]));
+    for (const n of names) h.analyzed(ids[n]);
+    h.exec("INSERT INTO catalog_item (id, kind, title, sort_title, added_at, updated_at) VALUES ('old', 'movie', 'Old', 'old', 0, 0)");
+    const decided = (n: string, origin: 'auto' | 'manual', caseState: 'pending' | 'auto_matched', fileState: string) => {
+      h.exec("INSERT INTO media_link (id, file_id, item_id, origin, created_at) VALUES (?, ?, 'old', ?, 0)", `l-${n}`, ids[n], origin);
+      h.exec('INSERT INTO identification_case (id, file_id, state, created_at, updated_at) VALUES (?, ?, ?, 0, 0)', `c-${n}`, ids[n], caseState);
+      h.exec('UPDATE media_file SET state = ? WHERE id = ?', fileState, ids[n]);
+    };
+    // New content, identified again while the providers were down: old auto links kept, case pending.
+    decided('Relinking', 'auto', 'pending', 'analyzed');
+    decided('Settled', 'auto', 'auto_matched', 'identified');
+    decided('Manual', 'manual', 'pending', 'identified');
+    h.allJobsDone();
+
+    renameSync(abs(root, 'Gone'), join(away, 'Gone'));
+    await h.scan();
+    expect(names.map((n) => h.byId(ids[n])?.state)).toEqual(names.map(() => 'missing'));
+    renameSync(join(away, 'Gone'), abs(root, 'Gone'));
+    await h.scan();
+    expect(names.map((n) => h.byId(ids[n])?.state)).toEqual(['analyzed', 'identified', 'identified']);
   });
 
   it('recognises a file that reappears in another root as the missing one', async () => {

@@ -35,7 +35,7 @@ async function setup() {
   }
   const db = await openDb({ path: ':memory:' });
   cleanup.push(() => closeDb(db));
-  const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: root, LIBRARY_ROOTS: JSON.stringify([{ name: 'Film', path: root, hint: 'movies' }]) });
+  const config = loadConfig({ NODE_ENV: 'test', DATA_DIR: '/nonexistent', LIBRARY_ROOTS: JSON.stringify([{ name: 'Film', path: root, hint: 'movies' }]) });
   const comp = compose({ config, db, log, factories: [createEventsModule, createJobsModule, libraryModule({ stableAfterMs: 0 })] });
   for (const m of comp.modules) await m.start?.();
   const runner = createJobRunner({ db, log, jobTypes: comp.jobTypes, periodic: comp.periodic });

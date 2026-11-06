@@ -7,6 +7,8 @@
 // sends them here.
 import type { ExtraType } from '../../shared/ports.ts';
 import type { WorkKind } from '../../shared/metadata.ts';
+import { ratio, tokenSortRatio } from './fuzz.ts';
+import { normalizeTitle } from './normalize.ts';
 
 export type RootHint = 'movies' | 'series' | 'mixed';
 export type ParsedKind = 'movie' | 'episode' | 'extra' | 'disc';
@@ -47,9 +49,16 @@ export interface ParsedPath {
   extraTitle: string | null;
   /** extraTitle is a type label: numbered when a sibling extra already uses it. */
   extraTitleIsLabel: boolean;
-  /** Owner of an extra; null for an orphan extra and for every other kind. */
+  /**
+   * Owner of an extra; null for an orphan extra and for every other kind. folder is '' when the
+   * owner comes from the extra's own name (a Plex suffix outside its item folder).
+   */
   extraOf: ExtraOwner | null;
-  /** Root-relative folder of the work (movie folder, series folder), if the path has one. */
+  /**
+   * Root-relative item folder of the work (movie folder, series folder), or null when the file is not
+   * in one: a folder counts only if it names the same work as the file (standard §3.1, §4), so a
+   * collection or genre folder ("Sci-fi/", "Miniserie/") is never one. Files sharing it share the work.
+   */
   workFolder: string | null;
   /** Kind of work the file can be linked to: from the structure first, then the hint (§2). */
   workKind: WorkKind;
@@ -110,6 +119,10 @@ const MAX_EPISODE_RANGE = 20;
 /** Names without identity: MakeMKV and disc dumps, placeholders. */
 const JUNK_STEM = /^(?:BDMV_DISC\d+_t\d+|(?:[\p{L}\p{N}]+_)+t\d{2,3}|title_t\d+|\d{4,6}|test|nuovo_file.*|new_file.*|video\d*|untitled.*)$/iu;
 
+/**
+ * Names of a cut, or of a different picture (black and white): an edition, a separate item (standard
+ * §3.2), wherever the word sits. The first that matches wins.
+ */
 const EDITIONS: readonly [string, string][] = [
   [String.raw`extended director'?s cut`, "Extended Director's Cut"],
   [String.raw`director'?s definitive cut`, "Director's Definitive Cut"],
@@ -122,15 +135,19 @@ const EDITIONS: readonly [string, string][] = [
   [String.raw`black (?:and|&) chrome(?: edition)?`, 'Black and Chrome'],
   [String.raw`black (?:and|&) white`, 'Black & White'],
   [String.raw`unrated|uncut`, 'Unrated'],
-  [String.raw`remastered`, 'Remastered'],
-  [String.raw`imax`, 'IMAX'],
-  [String.raw`criterion(?: collection)?`, 'Criterion'],
   [String.raw`versione integrale`, 'Versione Integrale'],
   [String.raw`versione estesa`, 'Versione estesa'],
   [String.raw`edizione speciale`, 'Edizione speciale'],
   [String.raw`versione cinematografica`, 'Theatrical'],
 ];
-const EDITION_RE = EDITIONS.map(([p, label]) => [new RegExp(String.raw`(?<![\p{L}\p{N}_'])(?:${p})(?![\p{L}\p{N}_'])`, 'iu'), label] as const);
+/**
+ * Words that only describe the release, like the technical tokens: a file named with them is a version
+ * of its item (standard §3.1), never an edition. They still end the title.
+ */
+const RELEASE_WORDS: readonly string[] = [String.raw`remastered`, String.raw`imax`, String.raw`criterion(?: collection)?`];
+const editionWord = (p: string): RegExp => new RegExp(String.raw`(?<![\p{L}\p{N}_'])(?:${p})(?![\p{L}\p{N}_'])`, 'iu');
+const EDITION_RE = EDITIONS.map(([p, label]) => [editionWord(p), label] as const);
+const RELEASE_RE = editionWord(RELEASE_WORDS.join('|'));
 
 // The title ends at the first technical token. A bare "ma" is not one (Italian for "but"): "DTS-HD MA"
 // is caught by "dts-hd" already.
@@ -233,6 +250,8 @@ export function parseName(name: string): ParsedName {
         break;
       }
     }
+    const release = out.edition === null ? RELEASE_RE.exec(raw) : null;
+    if (release && release.index > 0) cut = Math.min(cut, release.index);
   }
   for (const m of raw.matchAll(PART)) {
     if (m.index === 0) continue;
@@ -245,6 +264,74 @@ export function parseName(name: string): ParsedName {
   if (tech) cut = Math.min(cut, tech.index);
   out.title = stripTitle(raw.slice(0, cut)) || null;
   return out;
+}
+
+const idsAgree = (a: IdTags, b: IdTags): boolean =>
+  (['tmdb', 'imdb', 'tvdb'] as const).every((k) => a[k] === null || b[k] === null || a[k] === b[k]);
+
+const hasId = (ids: IdTags): boolean => ids.tmdb !== null || ids.imdb !== null || ids.tvdb !== null;
+
+/** Same year when both have one, no conflicting id tag. */
+const noConflict = (a: ParsedName, b: ParsedName): boolean =>
+  (a.year === null || b.year === null || a.year === b.year) && idsAgree(a.ids, b.ids);
+
+/** Two names of the same work: same normalised title, same year when both have one, no conflicting id tag. */
+function sameWorkName(a: ParsedName, b: ParsedName): boolean {
+  if (!a.title || !b.title || normalizeTitle(a.title) !== normalizeTitle(b.title)) return false;
+  return noConflict(a, b);
+}
+
+/** A folder named as an item: a title with a year or an id tag ("Dune (2021)"). "Alien/" and "Sci-fi/" are not. */
+const itemLike = (d: ParsedName): boolean => d.title !== null && !d.junk && (d.year !== null || hasId(d.ids));
+
+/** One normalised title goes on from the other after a word or " - " ("che l argentino" from "che"). */
+const extendsTitle = (longer: string, shorter: string): boolean => shorter !== '' && longer.startsWith(`${shorter} `);
+
+/**
+ * The name's title goes on from the item folder's after a word or " - " ("Il Signore degli Anelli -
+ * La Compagnia dell'Anello" in "Il Signore degli Anelli (2001)/"), with no conflicting year or id.
+ */
+function extendsItemFolder(name: ParsedName, folder: ParsedName): boolean {
+  return itemLike(folder) && noConflict(name, folder) && extendsTitle(normalizeTitle(name.title), normalizeTitle(folder.title));
+}
+
+/**
+ * Below this similarity (the matcher's normalisation and fuzz, without its number penalty) a title is
+ * clearly not its folder's: a name in another language. A closer one may be another film of the saga
+ * ("Aliens" in "Alien (1979)/"), and with the folder's year the folder's film would win the match
+ * (0.55·s + 0.35 + 0.1 reaches the auto threshold 0.8 from s ≈ 0.64).
+ */
+export const BORROW_YEAR_MAX_SIMILARITY = 0.6;
+
+/**
+ * The year of a folder that is not the file's item folder, for a name without one: only when the
+ * titles clearly differ ("Le Iene (1992)/Reservoir Dogs", "Il Trono di Spade (2011)/Game of Thrones -
+ * S01E01"). A title that resembles the folder's, or goes on from it ("Aliens", "Alien 3", "CSI -
+ * Miami"), may be another work: it keeps no year, and the matcher's rule for names without one applies.
+ */
+function borrowedYear(name: ParsedName, folder: ParsedName): number | null {
+  if (name.year !== null || folder.year === null || folder.junk || !idsAgree(name.ids, folder.ids)) return null;
+  const n = normalizeTitle(name.title);
+  const f = normalizeTitle(folder.title);
+  if (n === '' || f === '' || extendsTitle(n, f) || extendsTitle(f, n)) return null;
+  return Math.max(ratio(n, f), tokenSortRatio(n, f)) / 100 < BORROW_YEAR_MAX_SIMILARITY ? folder.year : null;
+}
+
+/**
+ * The name starts with a folder name closed by its year or a tag: "Dune (2021) - 2160p" in
+ * "Dune (2021)/" (standard §3.1). Without the closing bracket the rest may still be title:
+ * "Il Signore degli Anelli - Le due torri" in "Il Signore degli Anelli/" is another work.
+ */
+function startsWithFolder(name: string, folder: string): boolean {
+  const f = nfc(folder).trim().toLowerCase();
+  return /[)\]}]$/u.test(f) && nfc(name).trim().toLowerCase().startsWith(f);
+}
+
+/** The folder is the item folder of the work this name (file stem, or the part before a suffix) names. */
+function namesSameWork(name: string, parsed: ParsedName, folder: string): boolean {
+  const d = parseName(folder);
+  if (!d.title || d.junk) return false;
+  return startsWithFolder(name, folder) || sameWorkName(parsed, d);
 }
 
 interface SeasonDir {
@@ -362,12 +449,20 @@ export function parsePath(relPath: string, hint: RootHint): ParsedPath {
   const dirs = allDirs.slice(skip);
   const folderPath = (i: number): string => allDirs.slice(0, skip + i + 1).join('/');
 
-  // A season folder between the item folder and the extra makes it a season extra (standard §5).
-  const seasonBetween = (from: number, to: number): SeasonDir | null =>
-    dirs.slice(from, to).map(seasonOfDir).find((s) => s !== null && (s.standard || hint !== 'movies')) ?? null;
+  const isSeasonDir = (d: string | undefined): SeasonDir | null => {
+    const s = d === undefined ? null : seasonOfDir(d);
+    return s !== null && (s.standard || hint !== 'movies') ? s : null;
+  };
+  /** Index of the item folder an extra in dirs[0..end) hangs from, past one season folder (standard §5), and that season. */
+  const ownerOf = (end: number): { index: number; season: SeasonDir | null } => {
+    const season = isSeasonDir(dirs[end - 1]);
+    return { index: season ? end - 2 : end - 1, season };
+  };
+  // The innermost item folder owns the extra ("Alien Saga/Alien (1979)/Extras/…" is Alien's).
   const owned = (out: ParsedPath, end: number): ParsedPath => {
-    const season = seasonBetween(1, end);
-    return withOwner(out, dirs[0] ?? '', folderPath(0), season ? 'series' : hintKind(hint), season?.number ?? null);
+    const { index, season } = ownerOf(end);
+    if (index < 0) return { ...out, warnings: ['orphan_extra'] };
+    return withOwner(out, dirs[index] ?? '', folderPath(index), season ? 'series' : hintKind(hint), season?.number ?? null);
   };
 
   // Extras: a typed folder anywhere below the item folder, a Plex suffix, or a bare "trailer".
@@ -385,8 +480,17 @@ export function parsePath(relPath: string, hint: RootHint): ParsedPath {
   if (suffix) {
     const extraType = SUFFIX_TYPE[(suffix[1] ?? '').toLowerCase()] ?? 'other';
     const out: ParsedPath = { ...res, kind: 'extra', extraType, extraTitle: EXTRA_LABELS[extraType], extraTitleIsLabel: true };
-    if (dirs.length) return owned(out, dirs.length);
-    const owner = parseName(stem.slice(0, suffix.index));
+    const prefix = stem.slice(0, suffix.index);
+    const owner = parseName(prefix);
+    // An item folder owns its extras whatever their names ("Avatar (2009)/Teaser-trailer.mkv"), unless
+    // the name has a year or an id of another work. "Sci-fi/" is no item folder: "Alien (1979)-trailer"
+    // there is Alien's by its own name.
+    const folder = dirs[ownerOf(dirs.length).index];
+    const ownsIt = (dir: string): boolean => {
+      const d = parseName(dir);
+      return !owner.title || namesSameWork(prefix, owner, dir) || (itemLike(d) && noConflict(owner, d));
+    };
+    if (folder !== undefined && ownsIt(folder)) return owned(out, dirs.length);
     if (!owner.title) return { ...out, warnings: ['orphan_extra'] };
     return { ...out, title: owner.title, year: owner.year, edition: owner.edition, ids: owner.ids, workKind: hintKind(hint), extraOf: { folder: '', kind: hintKind(hint), season: null } };
   }
@@ -406,16 +510,24 @@ export function parsePath(relPath: string, hint: RootHint): ParsedPath {
   const structural = ep.season !== null || seasonDir !== null;
   const isEpisode = ep.episodes !== null && (structural || hint === 'series');
   if (isEpisode && ep.episodes) {
-    // The series folder holds the season folder ("Altro/Dark (2017)/Season 01"); without one it is
-    // the first folder, unless that one is already a season folder.
-    const isSeasonDir = (d: string): boolean => {
-      const s = seasonOfDir(d);
-      return s !== null && (s.standard || hint !== 'movies');
-    };
-    const seasonIdx = dirs.findLastIndex(isSeasonDir);
-    const idx = seasonIdx > 0 ? seasonIdx - 1 : seasonIdx === -1 && dirs.length > 0 ? 0 : -1;
-    const seriesIdx = idx >= 0 && seasonOfDir(dirs[idx] ?? '') === null ? idx : -1;
-    const p = seriesIdx >= 0 ? parseName(dirs[seriesIdx] ?? '') : parseName(ep.before);
+    // The series folder holds the season folder ("Altro/Dark (2017)/Season 01"). Without one it is
+    // the file's folder, only if that names the same series as the file ("Miniserie/Chernobyl (2019)
+    // - S01E01.mkv" has none) or the file names no series ("Dark (2017)/S01E01.mkv"). A longer title
+    // is another series as far as the path can tell ("CSI (2000)/CSI - Miami - S01E01.mkv").
+    const seasonIdx = dirs.findLastIndex((d) => isSeasonDir(d) !== null);
+    const name = parseName(ep.before);
+    const parent = dirs.length - 1;
+    const seriesIdx =
+      seasonIdx > 0
+        ? seasonOfDir(dirs[seasonIdx - 1] ?? '') === null
+          ? seasonIdx - 1
+          : -1
+        : seasonIdx === -1 && parent >= 0 && seasonOfDir(dirs[parent] ?? '') === null && (!name.title || namesSameWork(ep.before, name, dirs[parent] ?? ''))
+          ? parent
+          : -1;
+    // Any other name keeps its own title, and the folder's year only when the titles clearly differ.
+    const yearOnly = seriesIdx < 0 && seasonIdx === -1 && parent >= 0 ? borrowedYear(name, parseName(dirs[parent] ?? '')) : null;
+    const p = seriesIdx >= 0 ? parseName(dirs[seriesIdx] ?? '') : { ...name, year: name.year ?? yearOnly };
     const fromStem = extractTags(stem).ids;
     let season = ep.season;
     const warnings: ParseWarning[] = [];
@@ -442,22 +554,34 @@ export function parsePath(relPath: string, hint: RootHint): ParsedPath {
     };
   }
 
-  // Movie: name from the file, completed from (or replaced by) the item folder.
+  // Movie: name from the file, completed from (or replaced by) its item folder: the file's own
+  // folder, when that names the same work (standard §3.1), or when the file's title goes on from it
+  // with the same year of its own. A collection or genre folder does not. Any other name keeps its
+  // own title, and the folder's year only when the titles clearly differ (borrowedYear): "Aliens" in
+  // "Alien (1979)/" stays without a year.
   const f = parseName(stem);
-  const d = dirs.length ? parseName(dirs[0] ?? '') : null;
+  const parent = dirs.length - 1;
+  const folderName = dirs[parent];
+  const pd = folderName === undefined ? null : parseName(folderName);
   const useFolder = f.junk || !f.title;
+  const ownFolder =
+    folderName !== undefined && (useFolder || namesSameWork(stem, f, folderName) || (f.year !== null && f.year === pd?.year && extendsItemFolder(f, pd)));
+  const d = ownFolder ? pd : null;
   const title = useFolder ? (d?.title ?? null) : f.title;
-  const year = useFolder ? (d?.year ?? null) : (f.year ?? d?.year ?? null);
+  const year = useFolder ? (d?.year ?? null) : (f.year ?? d?.year ?? (pd ? borrowedYear(f, pd) : null));
   const part = f.part;
+  // A cut named by the file ("Amadeus (1984) - Director's Cut") is an edition even in the plain item
+  // folder; release words ("Dune (2021) - 2160p IMAX") make a version (parseName).
+  const edition = f.edition ?? d?.edition ?? null;
   return {
     ...res,
     kind: 'movie',
     title,
     year,
-    edition: f.edition ?? d?.edition ?? null,
+    edition,
     part,
     ids: mergeIds(f.ids, d?.ids ?? emptyIds()),
-    workFolder: dirs.length ? folderPath(0) : null,
+    workFolder: d?.title ? folderPath(parent) : null,
     // A single file without episode numbers can only be a movie; in a series root the hint and the
     // structure disagree, which the matcher turns into kind_mismatch (standard §2).
     workKind: 'movie',

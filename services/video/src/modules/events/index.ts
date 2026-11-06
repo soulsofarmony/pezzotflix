@@ -13,6 +13,11 @@ export const createEventsModule: ModuleFactory = ({ db, now }) => {
     db.insert(domainEvent).values({ type, payload, createdAt: now() }).run();
   };
 
+  const issuedUpTo = (): number => {
+    const row = db.$client.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'domain_event'").get() as { seq: number } | undefined;
+    return row?.seq ?? 0;
+  };
+
   const encode = (seq: number) => `e${seq}`;
   const decode = (cursor: string): number => {
     const m = /^e(\d+)$/.exec(cursor);
@@ -27,13 +32,15 @@ export const createEventsModule: ModuleFactory = ({ db, now }) => {
       listEvents: async (req): Promise<Ok<'listEvents'>> => {
         const { query } = typed<'listEvents'>(req);
         const limit = query.limit ?? 50;
-        if (!query.cursor) {
-          const last = db.$client.prepare('SELECT max(seq) AS s FROM domain_event').get() as { s: number | null };
-          return { events: [], nextCursor: encode(last.s ?? 0) };
-        }
+        const issued = issuedUpTo();
+        if (!query.cursor) return { events: [], nextCursor: encode(issued) };
         const after = decode(query.cursor);
-        const oldest = db.$client.prepare('SELECT min(seq) AS s FROM domain_event').get() as { s: number | null };
-        if (after > 0 && oldest.s !== null && after < oldest.s - 1) throw new ProblemError('CURSOR_EXPIRED');
+        // The oldest event still kept; with every event pruned, the next one to come.
+        const oldest = (db.$client.prepare('SELECT min(seq) AS s FROM domain_event').get() as { s: number | null }).s ?? issued + 1;
+        if (after > 0 && after < oldest - 1) throw new ProblemError('CURSOR_EXPIRED');
+        // A cursor past the highest seq ever issued (AUTOINCREMENT keeps it in sqlite_sequence, pruning
+        // included) comes from another database, e.g. one restored from a backup: the client resyncs.
+        if (after > issued) throw new ProblemError('CURSOR_EXPIRED', 'cursor ahead of the server: resync from the start');
         const rows = db.select().from(domainEvent).where(gt(domainEvent.seq, after)).orderBy(asc(domainEvent.seq)).limit(limit).all();
         const next = rows.length ? rows[rows.length - 1]!.seq : after;
         return {

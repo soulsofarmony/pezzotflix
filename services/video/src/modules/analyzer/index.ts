@@ -28,13 +28,16 @@ export function analyzerModule(options: AnalyzerModuleOptions = {}): ModuleFacto
       jobs: { [JOB_TYPES.analyzerProbe]: { concurrency: 1, maxAttempts: PROBE_MAX_ATTEMPTS, handler: analyzer.probe } },
       periodic: [
         {
-          // At start after an upgrade; daily, for files whose root was offline or whose probe failed.
+          // At start and daily: files analysed by an older analyzer (an upgrade; a root that was
+          // offline at the last run), and files whose probe failed for good, which nothing else retries.
           name: 'analyzer.reanalyze_outdated',
           everyMs: DAY_MS,
           runAtStart: true,
           run: () => {
             const n = analyzer.requeueOutdated();
             if (n) ctx.log.info({ queued: n }, 'files from an older analyzer queued for re-analysis');
+            const failed = analyzer.requeueFailedProbes();
+            if (failed) ctx.log.info({ queued: failed }, 'files whose probe failed queued for another try');
           },
         },
       ],

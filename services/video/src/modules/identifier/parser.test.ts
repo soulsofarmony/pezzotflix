@@ -54,8 +54,26 @@ function mismatches(entry: CorpusEntry): string[] {
 // Sidecars, samples and system folders are filtered by the library (modules/library), not parsed here.
 const ownedByLibrary = (e: CorpusEntry) => e.exp.kind === 'sidecar' || e.exp.kind === 'ignore';
 
+/**
+ * Where the product follows the library standard instead of the S4 labels: Remastered and IMAX only
+ * describe the release, so the file is a version of the plain item (standard §3.1), not an edition.
+ * Cut names stay editions (§3.2). Every other expected field of these entries is still checked.
+ */
+const RELEASE_WORD_NOT_EDITION = new Set(['T07', 'E09', 'H03']);
+/**
+ * A file whose title goes on from its folder's ("Band of Brothers - Fratelli al fronte"), or resembles
+ * it ("Cosmos A Spacetime Odyssey" in "Cosmos - Odissea nello spazio (2014)/", fuzz above 0.6), may be
+ * another work: it borrows no year from the folder, and goes to the matcher without one.
+ */
+const NO_BORROWED_YEAR = new Set(['I03', 'C05']);
+const withStandard = (e: CorpusEntry): CorpusEntry => {
+  if (RELEASE_WORD_NOT_EDITION.has(e.id)) return { ...e, exp: { ...e.exp, edition: null } };
+  if (NO_BORROWED_YEAR.has(e.id)) return { ...e, exp: { ...e.exp, year: null } };
+  return e;
+};
+
 describe('parser on the S4 corpus and holdout', () => {
-  const entries = corpus.filter((e) => !ownedByLibrary(e));
+  const entries = corpus.filter((e) => !ownedByLibrary(e)).map(withStandard);
 
   it('covers the whole fixture', () => {
     expect(corpus).toHaveLength(159);
@@ -120,6 +138,70 @@ describe('library standard examples (check_standard.py)', () => {
     ['movie in a series root (hint vs structure)', 'Planet Earth (2006)/Planet Earth (2006).mkv', 'series', { kind: 'movie', workKind: 'movie', structural: false }],
     ['NFD name is NFC', 'Léon (1994)/Léon (1994).mkv', 'movies', { title: 'Léon' }],
     ['generic folder dropped', 'misc/Heat (1995)/Heat (1995).mkv', 'movies', { title: 'Heat', workFolder: 'misc/Heat (1995)' }],
+  ];
+
+  it.each(cases)('%s', (_label, path, hint, expected) => {
+    expect(parsePath(path, hint)).toMatchObject(expected);
+  });
+});
+
+describe('item folders and editions (standard §3.1, §3.2, §4, §5)', () => {
+  type Case = [label: string, path: string, hint: RootHint, expected: Partial<ParsedPath>];
+  const cases: Case[] = [
+    ['a genre folder is not an item folder', 'Sci-fi/Aliens (1986) - 2160p.mkv', 'movies', { title: 'Aliens', year: 1986, workFolder: null }],
+    ['a collection folder is not one', "Il Signore degli Anelli/Il Signore degli Anelli - Le due torri (2002).mkv", 'movies', { title: 'Il Signore degli Anelli - Le due torri', workFolder: null }],
+    ['a folder named like another film is not one', 'Alien/Alien 3 (1992).mkv', 'movies', { title: 'Alien 3', year: 1992, workFolder: null }],
+    ['a folder of the same title without a year is one', 'Alien/Alien (1979).mkv', 'movies', { title: 'Alien', year: 1979, workFolder: 'Alien' }],
+    ['a folder of the same title gives the year', 'Alien (1979)/Alien.mkv', 'movies', { title: 'Alien', year: 1979, workFolder: 'Alien (1979)' }],
+    ['the innermost folder is the item folder', 'Alien Saga/Alien (1979)/Alien (1979).mkv', 'movies', { title: 'Alien', workFolder: 'Alien Saga/Alien (1979)' }],
+    ['a folder of another year is not one', 'Alien (2019)/Alien (1979).mkv', 'movies', { year: 1979, workFolder: null }],
+    ['a release name in its folder', 'Matrix (1999)/The.Matrix.1999.2160p.UHD.mkv', 'movies', { title: 'The Matrix', year: 1999, workFolder: 'Matrix (1999)' }],
+    ['a translated name has no item folder', 'Gli Intoccabili (1987)/The Untouchables (1987) 2160p UHD.mkv', 'movies', { title: 'The Untouchables', workFolder: null }],
+    ['a translated name without a year borrows the folder year', 'Le Iene (1992)/Reservoir Dogs.mkv', 'movies', { title: 'Reservoir Dogs', year: 1992, workFolder: null }],
+    ['a translated pair stays two names of their own', 'Le Iene (1992)/Reservoir Dogs (1992).mkv', 'movies', { title: 'Reservoir Dogs', year: 1992, workFolder: null }],
+    ['a translation too close to its folder title borrows nothing (fuzz 0.61)', 'Gli Intoccabili (1987)/The Untouchables.mkv', 'movies', { title: 'The Untouchables', year: null, workFolder: null }],
+    ['a similar title may be a sequel: no year', 'Alien (1979)/Aliens.mkv', 'movies', { title: 'Aliens', year: null, workFolder: null }],
+    ['a similar title in a saga folder: no year', 'Alien Saga (1979)/Aliens.mkv', 'movies', { title: 'Aliens', year: null, workFolder: null }],
+    ['a plural of the folder title: no year', 'Predator (1987)/Predators.mkv', 'movies', { title: 'Predators', year: null, workFolder: null }],
+    ['a longer title without a year of its own: no year', 'Alien (1979)/Alien 3.mkv', 'movies', { title: 'Alien 3', year: null, workFolder: null }],
+    ["a longer title that is not similar still borrows nothing", "Star Wars (1977)/Star Wars - L'Impero colpisce ancora.mkv", 'movies', { year: null, workFolder: null }],
+    ['a longer title with the folder year is in its item folder', "Il Signore degli Anelli (2001)/Il Signore degli Anelli - La Compagnia dell'Anello (2001) - Extended.mkv", 'movies', { title: "Il Signore degli Anelli - La Compagnia dell'Anello", year: 2001, edition: 'Extended', workFolder: 'Il Signore degli Anelli (2001)' }],
+    ['a longer title of another year is not in it', 'Alien (1979)/Alien 3 (1992).mkv', 'movies', { title: 'Alien 3', year: 1992, workFolder: null }],
+    ['a MakeMKV name takes its folder', 'Film/Barry Lyndon (1975)/title_t00.mkv', 'movies', { title: 'Barry Lyndon', year: 1975, workFolder: 'Film/Barry Lyndon (1975)' }],
+    ['version suffix: IMAX describes the release', 'Dune (2021)/Dune (2021) - 2160p IMAX.mkv', 'movies', { title: 'Dune', edition: null, workFolder: 'Dune (2021)' }],
+    ['version suffix: Remastered describes the release', 'Alien (1979)/Alien (1979) - Remastered 2160p.mkv', 'movies', { edition: null, workFolder: 'Alien (1979)' }],
+    ['a release word is no edition outside an item folder either', 'Sci-fi/Interstellar (2014) IMAX.mkv', 'movies', { title: 'Interstellar', year: 2014, edition: null }],
+    ['a release word ends the title', 'Ritorno al futuro REMASTERED.mkv', 'movies', { title: 'Ritorno al futuro', edition: null }],
+    ['a cut in the suffix is an edition: Unrated', 'Alien (1979)/Alien (1979) - 4K Unrated.mkv', 'movies', { edition: 'Unrated', workFolder: 'Alien (1979)' }],
+    ["a cut in the suffix is an edition: Director's Cut", "Amadeus (1984)/Amadeus (1984) - Director's Cut.mkv", 'movies', { title: 'Amadeus', edition: "Director's Cut", workFolder: 'Amadeus (1984)' }],
+    ['a cut wins over a release word', 'Nuovo Cinema Paradiso (1988)/Nuovo Cinema Paradiso (1988) - Remastered Versione Integrale.mkv', 'movies', { edition: 'Versione Integrale' }],
+    ['a cut in the file wins over the folder edition', 'Blade Runner (1982) {edition-Final Cut}/Blade Runner (1982) - Theatrical.mkv', 'movies', { edition: 'Theatrical', workFolder: 'Blade Runner (1982) {edition-Final Cut}' }],
+    ['edition from the folder tag', 'Blade Runner (1982) {edition-Final Cut}/Blade Runner (1982) - 2160p.mkv', 'movies', { title: 'Blade Runner', edition: 'Final Cut' }],
+    ['edition from the folder name', 'Gladiator Extended/Gladiator.Remastered.1080p.mkv', 'movies', { title: 'Gladiator', edition: 'Extended' }],
+    ['edition from the file tag', 'Dune (2021)/Dune (2021) {edition-IMAX} - 2160p.mkv', 'movies', { edition: 'IMAX' }],
+    ['edition word outside an item folder', "Sci-fi/Alien (1979) Director's Cut.mkv", 'movies', { title: 'Alien', edition: "Director's Cut", workFolder: null }],
+    ['edition word without any folder', "Amadeus (1984) - Director's Cut.mkv", 'movies', { edition: "Director's Cut" }],
+    ['episodes of a shared folder: no series folder', 'Miniserie/Chernobyl (2019) - S01E01.mkv', 'series', { title: 'Chernobyl', year: 2019, workFolder: null }],
+    ['episode in its series folder', 'Chernobyl (2019)/Chernobyl (2019) - S01E01.mkv', 'series', { title: 'Chernobyl', workFolder: 'Chernobyl (2019)' }],
+    ['episode without a series name takes its folder', 'Dark (2017)/S01E01.mkv', 'series', { title: 'Dark', year: 2017, workFolder: 'Dark (2017)' }],
+    ['innermost series folder without a season folder', 'Altro/Dark (2017)/Dark - S01E01.mkv', 'series', { title: 'Dark', year: 2017, workFolder: 'Altro/Dark (2017)' }],
+    ['a longer series title keeps its own name, without a year', 'Band of Brothers (2001)/Band of Brothers - Fratelli al fronte - S01E01.mkv', 'series', { title: 'Band of Brothers - Fratelli al fronte', year: null, workFolder: null }],
+    ['a longer series title after a word', 'The Office (2005)/The.Office.US.S01E01.mkv', 'series', { title: 'The Office US', year: null, workFolder: null }],
+    ['a spin-off in its franchise folder is not that series', 'CSI (2000)/CSI - Miami - S01E01.mkv', 'series', { title: 'CSI - Miami', year: null, workFolder: null }],
+    ['a spin-off with "&" in the title', 'Law & Order (1990)/Law & Order - Special Victims Unit - S01E01.mkv', 'series', { title: 'Law & Order - Special Victims Unit', year: null, workFolder: null }],
+    ['a spin-off after a word', 'Doctor Who (2005)/Doctor Who Confidential - S01E01.mkv', 'series', { title: 'Doctor Who Confidential', year: null, workFolder: null }],
+    ['a spin-off without a year of its own', 'Star Trek (1966)/Star Trek - The Next Generation - S01E01.mkv', 'series', { title: 'Star Trek - The Next Generation', year: null, workFolder: null }],
+    ['a longer title of another year is another series', 'Star Trek (1966)/Star Trek - The Next Generation (1987) - S01E01.mkv', 'series', { title: 'Star Trek - The Next Generation', year: 1987, workFolder: null }],
+    ['a yearless folder is not extended', 'Il Signore degli Anelli/Il Signore degli Anelli - Le due torri - S01E01.mkv', 'series', { workFolder: null }],
+    ['another title of the series keeps only the folder year', 'Il Trono di Spade (2011)/Game of Thrones - S01E01.mkv', 'series', { title: 'Game of Thrones', year: 2011, workFolder: null }],
+    ['extra of the innermost item folder', 'Alien Saga/Alien (1979)/Extras/Making of.mkv', 'movies', { kind: 'extra', title: 'Alien', year: 1979, extraOf: { folder: 'Alien Saga/Alien (1979)', kind: 'movie', season: null } }],
+    ['Plex suffix outside its item folder: owner by name', 'Sci-fi/Alien (1979)-trailer.mkv', 'movies', { kind: 'extra', title: 'Alien', year: 1979, workFolder: null, extraOf: { folder: '', kind: 'movie', season: null } }],
+    ['Plex suffix with a name of its own: the item folder owns it', 'Avatar (2009)/Arrival-deleted.mkv', 'movies', { kind: 'extra', extraType: 'deleted-scene', title: 'Avatar', year: 2009, extraOf: { folder: 'Avatar (2009)', kind: 'movie', season: null } }],
+    ['Plex suffix "Teaser-trailer" in its item folder', 'Avatar (2009)/Teaser-trailer.mkv', 'movies', { kind: 'extra', extraType: 'trailer', title: 'Avatar', extraOf: { folder: 'Avatar (2009)', kind: 'movie', season: null } }],
+    ['Plex suffix with a name of its own in a season folder', 'Dark (2017)/Season 01/Teaser-trailer.mkv', 'series', { kind: 'extra', title: 'Dark', extraOf: { folder: 'Dark (2017)', kind: 'series', season: 1 } }],
+    ['Plex suffix naming another year: owner by name', 'Avatar (2009)/Alien (1979)-trailer.mkv', 'movies', { kind: 'extra', title: 'Alien', year: 1979, extraOf: { folder: '', kind: 'movie', season: null } }],
+    ['Plex suffix in a yearless folder of another name: owner by name', 'Alien Saga/Aliens-trailer.mkv', 'movies', { kind: 'extra', title: 'Aliens', extraOf: { folder: '', kind: 'movie', season: null } }],
+    ['season extra without a series folder is an orphan', 'Season 01/Extras/Recap.mkv', 'series', { kind: 'extra', extraOf: null, warnings: ['orphan_extra'] }],
   ];
 
   it.each(cases)('%s', (_label, path, hint, expected) => {

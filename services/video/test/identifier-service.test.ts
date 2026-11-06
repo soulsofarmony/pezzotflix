@@ -273,6 +273,216 @@ describe('idempotency', () => {
   });
 });
 
+describe('item folders: only the folder of the work shares it (library standard §3.1, §4, §5)', () => {
+  const alien = cand({ id: 'Q103569', title: 'Alien', years: [1979], ids: { tmdb: '348' } });
+  const aliens = cand({ id: 'Q104814', title: 'Aliens - Scontro finale', original: ['Aliens'], years: [1986], ids: { tmdb: '679' } });
+  const alien3 = cand({ id: 'Q105031', title: 'Alien³', original: ['Alien 3'], years: [1992], ids: { tmdb: '8077' } });
+  const fellowship = cand({ id: 'Q127367', title: "Il Signore degli Anelli - La Compagnia dell'Anello", years: [2001] });
+  const towers = cand({ id: 'Q164963', title: 'Il Signore degli Anelli - Le due torri', years: [2002] });
+  const chernobyl = cand({ id: 'Q60737716', kind: 'series', title: 'Chernobyl', years: [2019] });
+  const bob = cand({ id: 'Q4108', kind: 'series', title: 'Band of Brothers', years: [2001] });
+  const csi = cand({ id: 'Q1', kind: 'series', title: 'CSI - Scena del crimine', original: ['CSI: Crime Scene Investigation'], aliases: ['CSI'], years: [2000] });
+  const csiMiami = cand({ id: 'Q2', kind: 'series', title: 'CSI: Miami', years: [2002] });
+  const cheArg = cand({ id: 'Q3', title: "Che - L'argentino", original: ['Che: Part One'], years: [2008] });
+  const cheGue = cand({ id: 'Q4', title: 'Che - Guerriglia', original: ['Che: Part Two'], years: [2008] });
+  const TABLE = {
+    csi: [csi, csiMiami],
+    'csi - miami': [csiMiami, csi],
+    "che - l'argentino": [cheArg, cheGue],
+    'che - guerriglia': [cheGue, cheArg],
+    alien: [alien, aliens],
+    aliens: [aliens, alien],
+    'alien 3': [alien3, alien],
+    "il signore degli anelli - la compagnia dell'anello": [fellowship, towers],
+    'il signore degli anelli - le due torri': [towers, fellowship],
+    chernobyl: [chernobyl],
+    'band of brothers': [bob],
+    dune: [dune],
+  };
+  beforeEach(() => {
+    metadata = wikidata(TABLE);
+  });
+  const titleOf = (fileId: string) => item(linksOf(fileId)[0]?.item_id ?? '')?.title;
+  const resolverOf = (fileId: string) => (caseOf(fileId)?.parsed.evidence as { resolver?: string } | undefined)?.resolver;
+
+  it.each([
+    ['a genre folder', 'Sci-fi/Alien (1979) - 2160p.mkv', 'Sci-fi/Aliens (1986) - 2160p.mkv', 'Alien', 'Aliens - Scontro finale'],
+    ['a collection folder', "Il Signore degli Anelli/Il Signore degli Anelli - La Compagnia dell'Anello (2001).mkv", 'Il Signore degli Anelli/Il Signore degli Anelli - Le due torri (2002).mkv', "Il Signore degli Anelli - La Compagnia dell'Anello", 'Il Signore degli Anelli - Le due torri'],
+    ['a folder named like the first film', 'Alien/Alien (1979).mkv', 'Alien/Alien 3 (1992).mkv', 'Alien', 'Alien³'],
+  ])('two movies in %s stay two works', async (_label, first, second, title1, title2) => {
+    const a = file('movies', first);
+    const b = file('movies', second);
+    await identify(a);
+    await identify(b);
+    expect([titleOf(a), titleOf(b)]).toEqual([title1, title2]);
+    expect(resolverOf(b)).toBe('wikidata');
+  });
+
+  it('versions in their item folder still share the work, a release word (IMAX, Remastered) in the suffix included', async () => {
+    const a = file('movies', 'Dune (2021)/Dune (2021) - 1080p.mkv');
+    await identify(a);
+    const n = searches();
+    const b = file('movies', 'Dune (2021)/Dune (2021) - 2160p IMAX.mkv');
+    const c = file('movies', 'Dune (2021)/Dune.2021.Remastered.2160p.mkv');
+    await identify(b);
+    await identify(c);
+    expect(searches()).toBe(n);
+    expect(new Set([a, b, c].map((f) => linksOf(f)[0]?.item_id)).size).toBe(1);
+    expect([resolverOf(b), resolverOf(c)]).toEqual(['sibling', 'sibling']);
+    expect(countItems('movie')).toBe(1);
+  });
+
+  it('a cut named in the file suffix is its own item, even in the plain item folder', async () => {
+    const a = file('movies', 'Dune (2021)/Dune (2021) - 1080p.mkv');
+    const b = file('movies', "Dune (2021)/Dune (2021) - Director's Cut.mkv");
+    const c = file('movies', 'Dune (2021)/Dune.2021.Extended.Edition.2160p.mkv');
+    for (const f of [a, b, c]) await identify(f);
+    const items = [a, b, c].map((f) => linksOf(f)[0]?.item_id ?? '');
+    expect(new Set(items).size).toBe(3);
+    expect(items.map((id) => one<{ e: string | null }>('SELECT edition_label AS e FROM catalog_item WHERE id = ?', id)?.e)).toEqual([null, "Director's Cut", 'Extended']);
+    expect(countItems('movie')).toBe(3);
+  });
+
+  it('an extra with a name of its own in an item folder belongs to that folder', async () => {
+    const movie = file('movies', 'Alien Saga/Alien (1979)/Alien (1979).mkv');
+    await identify(movie);
+    const n = searches();
+    const teaser = file('movies', 'Alien Saga/Alien (1979)/Teaser-trailer.mkv');
+    const deleted = file('movies', 'Alien Saga/Alien (1979)/Aliens-deleted.mkv');
+    await identify(teaser);
+    await identify(deleted);
+    expect(searches()).toBe(n);
+    for (const f of [teaser, deleted]) {
+      expect(item(linksOf(f)[0]!.item_id)).toMatchObject({ kind: 'extra', parent_id: linksOf(movie)[0]?.item_id });
+      expect(resolverOf(f)).toBe('sibling');
+    }
+  });
+
+  it('a spin-off in its franchise folder is never linked to the folder series', async () => {
+    const e1 = file('series', 'CSI (2000)/CSI (2000) - S01E01.mkv');
+    const e2 = file('series', 'CSI (2000)/CSI - Miami - S01E01.mkv');
+    await identify(e1);
+    await identify(e2);
+    const seriesOf = (f: string) => item(item(linksOf(f)[0]!.item_id)!.parent_id!)!.parent_id!;
+    expect([item(seriesOf(e1))?.title, item(seriesOf(e2))?.title]).toEqual(['CSI - Scena del crimine', 'CSI: Miami']);
+    expect(resolverOf(e2)).toBe('wikidata');
+  });
+
+  it('two films of one year in a base-title folder stay two works, and an extra there is not theirs', async () => {
+    const a = file('movies', "Che (2008)/Che - L'argentino (2008).mkv");
+    const b = file('movies', 'Che (2008)/Che - Guerriglia (2008).mkv');
+    await identify(a);
+    await identify(b);
+    expect([titleOf(a), titleOf(b)]).toEqual(["Che - L'argentino", 'Che - Guerriglia']);
+    expect(resolverOf(b)).toBe('wikidata');
+    const trailer = file('movies', 'Che (2008)/Trailers/Trailer.mkv');
+    await identify(trailer);
+    expect(linksOf(trailer)).toEqual([]);
+    expect(caseOf(trailer)?.state).toBe('needs_review');
+  });
+
+  it('a sequel without a year in the first film folder is not matched to that film', async () => {
+    const first = file('movies', 'Alien (1979)/Alien (1979).mkv');
+    const sequel = file('movies', 'Alien (1979)/Aliens.mkv');
+    await identify(first);
+    await identify(sequel);
+    expect(titleOf(first)).toBe('Alien');
+    // Without the folder's year the two candidates are too close: review, never a silent Alien.
+    expect(linksOf(sequel)).toEqual([]);
+    expect(caseOf(sequel)).toMatchObject({ state: 'needs_review', reason: 'ambiguous' });
+  });
+
+  it('episodes of different series in a shared folder never borrow each other’s series, even after a manual fix', async () => {
+    const ch = file('series', 'Miniserie/Chernobyl (2019) - S01E01.mkv');
+    // The owner resolved Chernobyl by hand.
+    const cat = catalog();
+    const series = cat.upsertWork({ kind: 'series', editionLabel: null, externalIds: { wikidata: 'Q60737716' }, fields: [{ source: 'manual', fetchedAt: T0, values: { title: 'Chernobyl' } }] }).itemId;
+    const ep = cat.ensureEpisode(cat.ensureSeason(series, 1).itemId, 1).itemId;
+    db.$client.prepare("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('l1', ?, ?, 'manual', NULL, 0)").run(ch, ep);
+    const b = file('series', 'Miniserie/Band of Brothers (2001) - S01E01.mkv');
+    await identify(b);
+    expect(linksOf(b)[0]?.item_id).not.toBe(ep);
+    expect(item(item(item(linksOf(b)[0]!.item_id)!.parent_id!)!.parent_id!)?.title).toBe('Band of Brothers');
+    expect(caseOf(b)?.parsed).toMatchObject({ title: 'Band of Brothers', year: 2001, workFolder: null, evidence: { resolver: 'wikidata' } });
+  });
+
+  it('an extra in a nested layout belongs to its innermost item folder', async () => {
+    const movie = file('movies', 'Alien Saga/Alien (1979)/Alien (1979).mkv');
+    const other = file('movies', 'Alien Saga/Aliens (1986)/Aliens (1986).mkv');
+    await identify(movie);
+    await identify(other);
+    const n = searches();
+    const making = file('movies', 'Alien Saga/Alien (1979)/Extras/Making of.mkv');
+    const trailer = file('movies', 'Sci-fi/Aliens (1986)-trailer.mkv');
+    await identify(making);
+    await identify(trailer);
+    expect(item(linksOf(making)[0]!.item_id)).toMatchObject({ kind: 'extra', parent_id: linksOf(movie)[0]?.item_id, title: 'Making of' });
+    expect(resolverOf(making)).toBe('sibling');
+    expect(searches()).toBe(n + 1); // the Plex-suffix trailer outside its folder is identified by its own name
+    expect(item(linksOf(trailer)[0]!.item_id)).toMatchObject({ kind: 'extra', parent_id: linksOf(other)[0]?.item_id });
+  });
+});
+
+describe('new content at the same path', () => {
+  it('drops the auto links made for the old content and identifies the file again; manual links stay', async () => {
+    const cat = catalog();
+    const old = cat.upsertWork({ kind: 'movie', editionLabel: null, externalIds: { wikidata: 'Q1' }, fields: [{ source: 'manual', fetchedAt: T0, values: { title: 'Old' } }] }).itemId;
+    const kept = cat.upsertWork({ kind: 'movie', editionLabel: null, externalIds: { wikidata: 'Q2' }, fields: [{ source: 'manual', fetchedAt: T0, values: { title: 'Kept' } }] }).itemId;
+    const link = db.$client.prepare('INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES (?, ?, ?, ?, NULL, 0)');
+    // The library saw new content: back to discovered, then the analyzer moved it to analyzed.
+    const auto = file('movies', 'Dune (2021)/Dune (2021).mkv', { state: 'analyzed' });
+    link.run('la', auto, old, 'auto');
+    const manual = file('copy', 'Dune (2021)/Dune (2021).mkv', { state: 'analyzed' });
+    link.run('lm', manual, kept, 'manual');
+    events = [];
+    await identify(auto);
+    await identify(manual);
+    expect(item(linksOf(auto)[0]!.item_id)?.title).toBe('Dune');
+    expect(linksOf(auto)).toHaveLength(1);
+    expect(events).toContainEqual({ type: 'library.item_updated', payload: { itemId: old, fileId: auto, reason: 'media_unlinked' } });
+    expect(linksOf(manual)).toEqual([{ item_id: kept, origin: 'manual', confidence: null }]);
+    expect([stateOf(auto), stateOf(manual)]).toEqual(['identified', 'identified']);
+  });
+
+  it('keeps the old links until a new result is written: a provider outage changes nothing', async () => {
+    const old = catalog().upsertWork({ kind: 'movie', editionLabel: null, externalIds: { wikidata: 'Q1' }, fields: [{ source: 'manual', fetchedAt: T0, values: { title: 'Old' } }] }).itemId;
+    const f = file('movies', 'Dune (2021)/Dune (2021).mkv', { state: 'analyzed' });
+    db.$client.prepare("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('la', ?, ?, 'auto', 1, 0)").run(f, old);
+    metadata = fakeMetadata({ wikidata: { search: () => ({ status: 'unavailable' }) } });
+    await expect(identify(f)).rejects.toBeInstanceOf(RetryLaterError);
+    expect(linksOf(f)).toEqual([{ item_id: old, origin: 'auto', confidence: 1 }]);
+    expect([stateOf(f), caseOf(f)?.state]).toEqual(['analyzed', 'pending']);
+    expect(events.filter((e) => e.payload.reason === 'media_unlinked')).toEqual([]);
+
+    metadata = wikidata();
+    await identify(f);
+    expect(linksOf(f).map((l) => item(l.item_id)?.title)).toEqual(['Dune']);
+    expect(stateOf(f)).toBe('identified');
+    expect(events).toContainEqual({ type: 'library.item_updated', payload: { itemId: old, fileId: f, reason: 'media_unlinked' } });
+  });
+
+  it('a link to the same work is kept as it is', async () => {
+    const f = file('movies', 'Dune (2021)/Dune (2021).mkv');
+    await identify(f);
+    const [link] = linksOf(f);
+    db.$client.prepare("UPDATE media_file SET state = 'analyzed' WHERE id = ?").run(f); // new content, same film
+    events = [];
+    await identify(f);
+    expect(linksOf(f)).toEqual([link]);
+    expect(events.filter((e) => e.payload.reason === 'media_unlinked')).toEqual([]);
+    expect(stateOf(f)).toBe('identified');
+  });
+
+  it('an identified file keeps its auto links (re-analysis, a second run)', async () => {
+    const f = file('movies', 'Dune (2021)/Dune (2021).mkv', { state: 'identified' });
+    const old = catalog().upsertWork({ kind: 'movie', editionLabel: null, externalIds: { wikidata: 'Q1' }, fields: [{ source: 'manual', fetchedAt: T0, values: { title: 'Old' } }] }).itemId;
+    db.$client.prepare("INSERT INTO media_link (id, file_id, item_id, origin, confidence, created_at) VALUES ('la', ?, ?, 'auto', 1, 0)").run(f, old);
+    await identify(f);
+    expect(linksOf(f)).toEqual([{ item_id: old, origin: 'auto', confidence: 1 }]);
+    expect(searches()).toBe(0);
+  });
+});
+
 describe('changes while the providers answer', () => {
   let clock: number;
   const runJobs = async (fileId: string) => {
