@@ -123,7 +123,7 @@ Il formato preciso e il metodo di rilevamento per piattaforma sono in `04-playba
 | `StopPlayback` | sessione, posizione finale | Chiude il ViewingRecord, aggiorna WatchState (soglia del 90%, Domain Model D3) e libera le risorse. **Idempotente** |
 | `ListActiveSessions` | — | Sessioni attive (per la gestione e per l'errore di limite raggiunto) |
 
-Una sessione senza heartbeat oltre un timeout viene **chiusa dal server**, che salva l'ultima posizione nota.
+Una sessione senza heartbeat oltre un timeout (`SESSION_TIMEOUT_S`, 150 s da F2) viene **chiusa dal server**, che salva l'ultima posizione nota.
 
 ### 4.3 PlaybackSession (risposta)
 

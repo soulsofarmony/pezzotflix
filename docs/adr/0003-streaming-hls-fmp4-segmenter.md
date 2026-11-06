@@ -289,7 +289,7 @@
   - hls.js 1.7.4 nei tre browser con `negative_cts_offsets` (`trun` v1) e l'offset costante. Se fallisce, si toglie il flag e il client compensa lo spostamento con lo stesso `timelineOffsetMs`;
   - `timelineOffsetMs` dopo un riavvio, confrontato con il PTS originale;
   - libpgs su un `.sup` in streaming;
-  - **WebVTT che cresce con `<track>`:** non è verificato che il browser aggiunga i cue mentre la risposta cresce. Ripiego: `fetch` + `VTTCue`;
+  - **WebVTT che cresce con `<track>`:** non è verificato che il browser aggiunga i cue mentre la risposta cresce. Ripiego: `fetch` + `VTTCue`. **Da F2 il web client usa il ripiego per ogni traccia che cresce**, perché un `<track>` rimosso non interrompe con certezza la sua risposta, che resta aperta per gran parte del film e su HTTP/1.1 occupa una delle 6 connessioni;
   - giunzione audio fra segmenti di esecuzioni diverse: sovrapposizione o buco fino a un frame audio, da misurare;
   - l'E-AC-3 7.1 copiato verso Edge.
 - **Da rivedere:**

@@ -221,6 +221,20 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 - una stringa di `stream.mimeType` che `isTypeSupported` rifiuta prima dell'avvio (§5, I6);
 - **l'audio che sparisce senza errore** nel Direct Play (MKV o MP4 progressivo). Se dopo qualche secondo di riproduzione `webkitAudioDecodedByteCount` resta a 0 (Chromium) o `mozHasAudio` è false (Firefox), il client segnala la dimensione audio. Le due proprietà non sono standard: se mancano, il client non segnala. In MSE Chromium dà già un errore fatale. L'AAC con PCE in Firefox non si vede da questi segnali (S2, c5): lo previene solo il controllo del server dopo l'encoder (§4.3).
 
+**Precisazioni decise in F2** (2026-11-06, dopo la revisione finale; orchestratore su delega):
+- **Tentativi esauriti:** rispondono `500 STREAM_FAILED`, con "Riprova". `NO_COMPATIBLE_PLAN` resta solo quando nessuna modalità esiste.
+- **File sparito durante una ripianificazione automatica** (disco o NAS staccato): il server chiude la sessione e risponde `503 MEDIA_UNAVAILABLE` con `sessionClosed`, senza `Retry-After`. Il client mostra "il file non è raggiungibile", senza ripetere. Un `503 MEDIA_UNAVAILABLE` senza `sessionClosed` (servizio in chiusura, gateway col servizio giù) resta transitorio.
+- **Sessione chiusa vista dal data plane:**
+  - il `410 SESSION_EXPIRED` porta il motivo della chiusura (`reason`: expired, terminated, failed, item_removed, stopped, shutdown);
+  - dopo un `404`/`410` del data plane il client chiede una volta al control plane perché. Riparte da solo solo per expired, stopped, shutdown o motivo ignoto. Con terminated (un altro dispositivo ha usato "Interrompi l'altra"), failed o item_removed mostra il motivo e non riparte, così non contende il posto all'altro dispositivo;
+  - un errore di rete fatale di hls.js senza codice interroga la playlist: `410`/`404` riparte, `5xx` ripianifica, `2xx` ricarica una volta, nessuna risposta mostra "connessione persa".
+- **Errori del data plane:** un `5xx` diverso da `503` è definitivo al primo errore, senza i sei tentativi di hls.js (circa 31 s). Il `503` resta ripetuto, perché vuol dire "non ancora pronto".
+- **Il client libera il posto:**
+  - ferma la sessione quando rinuncia (dialog di errore, rete, tentativi esauriti), quando si esce dal player e su `pagehide`, in ogni fase tranne terminated, expired e stopped;
+  - un nuovo avvio aspetta al più 3 s lo stop della sessione che sostituisce, poi lo rimanda e parte.
+- **Timeout della sessione: 150 s** (`SESSION_TIMEOUT_S`, prima 60). Chrome ed Edge eseguono i timer circa una volta al minuto in una scheda nascosta da più di 5 minuti, e un film in pausa in background scadeva.
+- **Profilo di una sessione:** ogni chiamata su una sessione usa il token del profilo che l'ha avviata, anche un riavvio automatico. Un cambio di profilo in un'altra scheda non sposta progressi e stato di visione.
+
 ---
 
 ## 9. Evoluzioni previste (non MVP)

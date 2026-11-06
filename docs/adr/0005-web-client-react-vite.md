@@ -140,7 +140,7 @@ Scartati: Lit e web component scritti a mano (tutto da scrivere), Preact (compat
      - `switchWithoutRestart` riguarda solo lo stream; una traccia `availability: growing` si sceglie in locale, senza `ChangeTracks`, e si mostra "in preparazione";
      - `availability` arriva nelle tracce della sessione (`StartPlayback`, `ChangeTracks`); il passaggio a `complete` arriva con l'evento `playback.subtitle_ready` `{sessionId, trackId, availability}` su `listEvents`, che il poller interroga ogni 5 s a pagina visibile e ogni 15 s a pagina nascosta con una sessione attiva (`reportProgress` risponde 204 senza corpo);
      - a quel punto, se la traccia è scelta, il client rilegge l'URL (`loadFromUrl` per i PGS, un `<track>` nuovo per il WebVTT);
-     - il WebVTT che cresce con `<track>` è da verificare in F1c, con il ripiego `fetch` più `VTTCue`;
+     - il WebVTT che cresce con `<track>` è da verificare in F1c, con il ripiego `fetch` più `VTTCue`. **Da F2 il ripiego è la via normale per le tracce che crescono:** il `fetch` si interrompe con certezza al cambio di traccia. Il client tiene una `TextTrack` per etichetta e lingua, riusata dai caricamenti successivi;
    - **timeline:**
      - a ogni `INIT_PTS_FOUND`, `timelineOffsetMs = initPTS·1000/timescale − stream.mediaTimestampOffsetMs` (0 in Direct Play);
      - `positionMs = currentTime·1000 + timelineOffsetMs` per progress, resume, capitoli e PGS;
@@ -148,6 +148,11 @@ Scartati: Lit e web component scritti a mano (tutto da scrivere), Preact (compat
    - **avvio:** `503 STREAM_PREPARING` su `StartPlayback` mostra "in preparazione" e ripete dopo `Retry-After`, per al più 60 s;
    - **heartbeat:** `reportProgress` ogni `heartbeatIntervalMs` (10 s se manca);
    - **uscita:** `stopPlayback` con `fetch` `keepalive` su `pagehide`.
+   - **Aggiornamento F2 (2026-11-06):**
+     - il player ferma la sessione anche quando rinuncia (dialog di errore) e su `pagehide` in ogni fase non terminale; un nuovo avvio aspetta al più 3 s quello stop;
+     - ogni sessione tiene il token del profilo che l'ha avviata, anche nei riavvii automatici; un `401` cancella il profilo salvato solo se riguarda il token salvato;
+     - nelle pagine fuori dal player, un errore transitorio (`502`/`503`/`504`, nessuna risposta) si ripete finché la pagina è aperta, rispettando `Retry-After` (fra 1 e 30 s). I dati già in cache restano a schermo e il messaggio è "il servizio non risponde";
+     - gli eventi della libreria e i cambi dello stato di visione invalidano tutta la famiglia di query `['item']`, una volta per pagina di eventi; un cambio di profilo in un'altra scheda azzera la cache.
 5. **Stile, i18n, accessibilità:**
    - CSS Modules e token CSS, tema scuro, font di sistema, icone SVG inline;
    - catalogo dei messaggi italiano tipizzato e `Intl` in `it-IT`, nessuna libreria finché la lingua è una sola;
