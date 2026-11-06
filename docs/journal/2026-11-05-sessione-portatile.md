@@ -31,28 +31,37 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `712a7af` | Diario e checklist aggiornati |
 | `5da30a8` | **Richieste dal web client:** titolo della serie sugli episodi, riga "prossimo episodio" in Home, motivi di `session_terminated`, campo "sessione chiusa" sul 422, stato di visione che segue un file ricollegato (migrazione 0003), `ANALYZER_VERSION` a 2 con nuova analisi dei file vecchi |
 | `5acca04` | **F1b.4**, sottotitoli interni al file e transcode software fino a 1080p. Estrazione in due passaggi con passo regolato dal servizio (con ffmpeg 8 `-readrate` restava dietro la riproduzione), cache con file parziali, burn-in PGS e testo, tone-map HDR, deinterlacciamento, riavvii del transcode identici all'esecuzione da 0. Corretta anche una corsa allo spegnimento di F1b.3. Due revisioni approfondite, tre giri di correzioni, due riletture. 1561 test video, 366 web |
+| `8466e7e` | Diario e checklist aggiornati |
+| `f80caf5` | **Motivi di riproduzione in italiano** per chi guarda (`decision/reasons.ts`), con i nomi delle modalità del player |
+| `5808b1e` | **F2a**, stack in Compose: immagine del gateway con il web client, health check attivo e `503` in JSON quando il Video Service non risponde, una sola rete `platform` (quella `internal` bloccava Wikidata e TMDB). Test end-to-end: setup dello stack, smoke via API (Direct Play con Range, Direct Stream e ripresa, sottotitoli PGS e WebVTT, Transcode) e test nei browser su Chromium, Chrome, Edge e Firefox: 74 passati, 20 saltati per codec o sample mancanti. Misure sul bind mount (ADR 0003, decisione 12). Nel web client: nomi accessibili, "Riprendi da" subito dopo il player, scorciatoie attive all'apertura del player. 1592 test video, 371 web |
 
 ## 2. In corso
 
+- **Revisione finale di F2** (cinque revisori: sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione). Rilievi più gravi, verificati con una riproduzione:
+  - film diversi in una cartella comune ("Saga", "Sci-fi") collegati tutti al primo riconosciuto;
+  - una migrazione che ricostruisce una tabella cancellerebbe progressi e stato di visione (le cascate restano attive dentro la transazione);
+  - nessun backup giornaliero del database, e una copia completa a ogni avvio, mai cancellata;
+  - token delle sessioni nei log del gateway.
+
+  Correzioni in corso, in quattro filoni paralleli: server, riproduzione, web client, deploy ed e2e.
 - **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non riesce a rispondere all'iPad, probabilmente per l'indirizzo Wi‑Fi privato, che cambia.
 
 ## 3. Prossimi passi
 
-1. **F2**: stack in Compose, test end-to-end Playwright (riproduzione, streaming, regressione di S2, accessibilità) sui sample, revisione approfondita finale, correzioni.
+1. **F2**: integrare le correzioni della revisione finale e ripetere i test end-to-end su uno stack nuovo.
 2. Report finale per il proprietario.
 
 ## 4. Lacune note, da riprendere
 
 - **Nessun timeout sulle chiamate a Stream Delivery**: un avvio che si blocca ferma anche gli avvii successivi dello stesso profilo. Oggi lo limita il timeout di avvio di Delivery; servirà quando Delivery andrà in un container separato.
 - **Conteggio degli avvii bloccati in memoria**: si azzera al riavvio del servizio.
-- **Motivi della sessione in inglese** (`decision/reasons.ts`): vanno tradotti in italiano in F2.
 - **Riproduzione e stato di visione:**
   - "ultima visione" ignora i segni manuali;
   - un 422 su `reportPlaybackFailure` non porta il campo "sessione chiusa";
   - un segno manuale dopo un completamento non si vede;
   - nel web client la tolleranza "già posizionato" è di 6 s.
 - **Sottotitoli (F1b.4):**
-  - **Limite di lettura:** vale in media. All'inizio di ogni passaggio la lettura va avanti di 30–46 s di media alla massima velocità; da misurare in F2 sul bind mount reale.
+  - **Limite di lettura:** vale in media. All'inizio di ogni passaggio la lettura va avanti di 30–46 s di media alla massima velocità. Misurato in F2a: il costo su un seek in Direct Stream è di circa 20–40 ms, trascurabile.
   - **Estrazione all'ingest:** il job (`SUBTITLE_PREEXTRACT`) non c'è.
   - **Spazio:** i file di lavoro non contano nel limite della cache.
   - **Burn-in di un sottotitolo testuale interno al file:**
@@ -65,6 +74,14 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
   - un DV con base ignota dà `NO_COMPATIBLE_PLAN`;
   - l'HDR 1080p60 con tone-map è misurato solo a 24 fps (85 fps di codifica).
 - **Spegnimento:** ora aspetta gli avvii in corso; uno bloccato su un mount di rete appeso lo ritarda (Docker poi chiude il container).
+- **Ingest (revisione F2):**
+  - un file la cui identificazione aspetta un provider (Wikidata e TMDB irraggiungibili) non compare nel catalogo finché un provider risponde. Lo standard (§7.1) e il doc 02 §3.5 dicono che resta visibile col titolo dal nome del file: servirà un item provvisorio, sostituito poi dall'identificazione;
+  - un file sparito resta `missing` per sempre: manca il passaggio a `removed` (doc 01 §6.1) e un'azione "dimentica il file" nell'admin.
+- **F2a, browser e codec:**
+  - su questo portatile Edge e Firefox non hanno HEVC (manca probabilmente l'estensione HEVC di Windows, a pagamento): il 4K e il flusso principale si provano solo in Chromium e Chrome;
+  - per circa 0,5 s dopo l'avvio Firefox dice di decodificare HEVC anche senza decoder: un link aperto in quella finestra dichiarerebbe HEVC, fallirebbe e ripianificherebbe;
+  - le stringhe dei codec in Direct Play sono approssimate: Long Test risulta `hvc1.2.4.L153.B0` invece di `hvc1.2.4.H153.90` (High tier), come dice invece il Direct Stream. Può contare per i client nativi;
+  - mancano i sample c4 (Opus 5.1) e c7 (AAC 5.1).
 - **Flag di revisione dei metadata** non salvato (ADR 0007 §2/§3): per ora solo un warning nel log.
 - **Autore e licenza delle immagini Commons** non salvati: serve una migrazione della tabella `artwork`.
 - **Job:** manutenzione dell'identifier e dei metadata scrive direttamente sulla tabella dei job; va sostituito da una funzione della porta `JobQueuePort`.

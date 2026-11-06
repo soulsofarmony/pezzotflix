@@ -26,7 +26,7 @@ MKV locali → Video Service in container → indicizzazione → catalogo → we
 
 ### 1.2 Fuori dal primo slice (dopo, nello stesso codice)
 
-- Transcode software per sorgenti fino a 1080p (P2). Il Decision Engine lo prevede già; lo Stream Delivery restituisce `NO_COMPATIBLE_PLAN` finché non c'è.
+- Transcode software per sorgenti fino a 1080p (P2): fatto in F1b.4, dentro l'MVP.
 - Arricchimento TMDB: l'adapter c'è, si attiva quando esiste `TMDB_READ_TOKEN` (ADR 0007).
 - Upload dell'artwork, watchlist, history UI, eventi push, app TV.
 
@@ -54,7 +54,7 @@ services/video/              Video Service (Node 26, TypeScript, Fastify)
     db/                      schema Drizzle, migrazioni, connessione
   test/
 clients/web/                 web client (ADR 0005)
-deploy/                      compose.yaml, Caddyfile, Dockerfile, override GPU
+deploy/                      compose.yaml, Caddyfile, Dockerfile del gateway e del Video Service (override GPU non ancora presente)
 ```
 
 I confini dei moduli sono verificati da dependency-cruiser (ADR 0001). In particolare `playback/decision` non importa nulla di I/O, e `delivery` dipende solo da tipi serializzabili, così resta estraibile in `video-worker`.

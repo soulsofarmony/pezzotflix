@@ -222,7 +222,7 @@
     - **I/O:** la lettura è limitata in byte da `SUBTITLE_EXTRACT_MAX_MBPS` (default 15 MB/s), con un passo R = max(1,1; limite / bitrate del file), regolato dal servizio come descritto sopra.
       - Il limite tiene l'estrazione sotto un terzo della capacità del bind mount NTFS (47–67 MB/s, S3). Accanto a un Direct Stream UHD (12,5–16 MB/s) restano circa 16–36 MB/s per i picchi di un seek.
       - Su un file oltre 13,6 MB/s (circa 110 Mbps) vale il minimo di 1,1×, quindi il limite viene superato di poco: l'estrazione deve restare davanti alla riproduzione.
-      - La latenza di un seek durante un'estrazione sul bind mount reale non è misurata.
+      - La latenza di un seek durante un'estrazione è misurata in F2a (2026-11-06) sul portatile, Docker Desktop, bind mount NTFS in sola lettura, file 4K HEVC da circa 5,5 MB/s. Otto seek lontani in Direct Stream: primo segmento in 500–647 ms senza estrazione e in 522–592 ms con un'estrazione PGS in corso sullo stesso file; segmenti successivi in 264–400 ms contro 264–370 ms. Costo dell'estrazione: circa 20–40 ms sulla mediana, trascurabile. Passo dell'estrazione: 20 s di media nel primo secondo (la partenza a piena velocità), poi 2,6× il tempo reale, circa 14,6 MB/s, cioè al limite di 15 MB/s (risoluzione di circa 10 s, ricavata dai tempi dei sottotitoli).
     - **Cache:** LRU con `SUBTITLE_CACHE_MAX_BYTES` (20 GB).
     - **Stato delle tracce:**
       - `switchWithoutRestart` riguarda solo lo stream: è true per una traccia `client_render` o `sidecar` che ha un URL;
