@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- doc 05 §8.8: a domain-config takes domain names only, and the server can be any LAN IP. Off with TLS (remote access). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

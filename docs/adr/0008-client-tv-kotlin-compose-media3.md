@@ -90,7 +90,7 @@ Punteggi pesati nel doc 05 §8.5: A 4,41, B 3,92, C 3,00, D 2,92; E non passa il
    - Niente sezione di gestione: la coda "Da verificare" resta nel web client.
 2. **Build:**
    - `clients/tv/`, progetto Gradle con **AGP 9.5.1** (Kotlin integrato) e **Gradle 9.8.2**; JDK 21, bytecode 17;
-   - **compileSdk e targetSdk 36, minSdk 30.** Il passaggio a 37 richiede di gestire il permesso di rete locale di Android 17 (`ACCESS_LOCAL_NETWORK`), senza il quale le connessioni in LAN vanno in timeout;
+   - **compileSdk 37, targetSdk 36, minSdk 30.** Il compileSdk sale a 37 in F3a (2026-11-07) perché OkHttp 5.5.1 lo chiede per compilare; non cambia il comportamento a runtime. Il passaggio del targetSdk a 37 richiede di gestire il permesso di rete locale di Android 17 (`ACCESS_LOCAL_NETWORK`), senza il quale le connessioni in LAN vanno in timeout;
    - moduli `:app`, `:player` e `:api`; versioni fisse in `gradle/libs.versions.toml`.
 3. **Librerie e test:**
    - Navigation3 1.2.1; Coil 3.6.3, con un tetto esplicito alla cache in memoria; `SharedPreferences`; DI a mano; librerie Jetpack di base (activity-compose, lifecycle) all'ultima stabile, fissata nello scaffold;

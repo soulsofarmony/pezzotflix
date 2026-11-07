@@ -228,7 +228,7 @@ MediaVersion:
     available: { type: boolean }
     container: { type: [string, 'null'] }
     durationMs: { type: [integer, 'null'] }
-    sizeBytes: { type: integer }
+    sizeBytes: { type: integer, format: int64 }
     bitRate: { type: [integer, 'null'] }
     tracks:
       type: array
@@ -452,7 +452,7 @@ PlaybackSession:
   required: [sessionId, expiresAt, mode, reasons, stream, tracks, resumePositionMs, durationMs, chapters]
   properties:
     sessionId: { $ref: '#/Id' }
-    expiresAt: { type: integer, description: ms UTC; extended by heartbeats. }
+    expiresAt: { type: integer, format: int64, description: ms UTC; extended by heartbeats. }
     heartbeatIntervalMs: { type: integer }
     itemId: { $ref: '#/Id' }
     fileId: { $ref: '#/Id' }
@@ -515,7 +515,7 @@ ProgressReport:
   properties:
     positionMs: { type: integer, minimum: 0, description: Original media timeline. }
     state: { type: string, enum: [playing, paused, buffering] }
-    clientTs: { type: integer, description: Client clock in ms; the latest wins. }
+    clientTs: { type: integer, format: int64, description: Client clock in ms; the latest wins. }
 
 StopRequest:
   type: object
@@ -557,7 +557,7 @@ ActiveSession:
     itemId: { $ref: '#/Id' }
     itemTitle: { type: string }
     mode: { $ref: '#/DeliveryMode' }
-    startedAt: { type: integer }
+    startedAt: { type: integer, format: int64 }
     positionMs: { type: integer }
 
 PlaybackPlanExplanation:
@@ -616,7 +616,7 @@ Event:
         playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track
         becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is
         emitted for every active session on that file, each with that session's current sessionId (ADR 0003).
-    at: { type: integer }
+    at: { type: integer, format: int64 }
     payload: { type: object, additionalProperties: true }
 
 EventPage:
@@ -636,7 +636,7 @@ LibraryRoot:
     mountPath: { type: string }
     hint: { type: string, enum: [movies, series, mixed] }
     status: { type: string, enum: [online, offline] }
-    lastScanAt: { type: [integer, 'null'] }
+    lastScanAt: { type: [integer, 'null'], format: int64 }
     fileCount: { type: integer }
     held:
       description: >-
@@ -718,7 +718,7 @@ IdentificationCase:
     warnings: { type: array, items: { type: string } }
     candidates: { type: array, items: { $ref: '#/Candidate' } }
     linkedItem: { oneOf: [{ $ref: '#/ItemSummary' }, { type: 'null' }] }
-    updatedAt: { type: integer }
+    updatedAt: { type: integer, format: int64 }
 
 CasePage:
   type: object
@@ -756,7 +756,7 @@ MediaFileDetails:
     rootName: { type: string }
     relPath: { type: string }
     state: { type: string }
-    sizeBytes: { type: integer }
+    sizeBytes: { type: integer, format: int64 }
     version: { $ref: '#/MediaVersion' }
     links: { type: array, items: { $ref: '#/ItemSummary' } }
     facts: { type: object, additionalProperties: true }
@@ -770,8 +770,8 @@ MediaFileEntry:
     rootName: { type: string }
     relPath: { type: string }
     state: { type: string, description: 'File state (open set): missing, removed, …' }
-    sizeBytes: { type: integer }
-    missingSince: { type: [integer, 'null'], description: When a scan found the file gone (ms UTC). }
+    sizeBytes: { type: integer, format: int64 }
+    missingSince: { type: [integer, 'null'], format: int64, description: When a scan found the file gone (ms UTC). }
     items:
       type: array
       description: The catalog items the file is linked to, oldest link first.

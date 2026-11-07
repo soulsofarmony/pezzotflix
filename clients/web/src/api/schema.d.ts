@@ -805,6 +805,7 @@ export interface components {
             seq: number;
             /** @description library.item_added | library.item_updated | library.item_removed | ingest.progress | identification.needs_review | playback.session_terminated | playback.subtitle_ready. library.item_updated payload: { itemId, fileId?, reason? } when an item changed. reason (open set, unknown values must be tolerated): media_linked / media_unlinked = a file was linked to it or left it; media_removed = a missing file of the item was forgotten (by the owner or after the grace period): with no other file left the item is hidden from Home, lists and search; media_restored = a forgotten file came back and the item shows again. ingest.progress payload: { phase, … } when ingest work changed the library. phase (open set, unknown values must be tolerated): scan = a scan ended; remove_missing = missing files were forgotten, after the grace period or by ForgetMissingFiles, with forgotten = how many. library.item_removed payload: { itemId, kind, parentId, replacedBy? } when an item leaves the catalog; replacedBy, optional, is the item that took its place (a provisional item replaced by the identified one): a client showing the removed item can move to it. A playback session on the removed item follows its file to replacedBy and goes on. playback.session_terminated payload: { sessionId, profileId, itemId, reason } when the server closes a session the client did not stop. reason (open set, unknown values must be tolerated): expired = no heartbeat within the session timeout; terminated = TerminateSession, e.g. by another profile or the admin to free the slot; failed = playback failed and no further plan or attempt is left; item_removed = the item left the library during the session. A service shutdown publishes no event. playback.subtitle_ready payload: { sessionId, trackId, availability } when an extracted subtitle track becomes complete; the client re-reads the track url. Extraction is per file and shared: the event is emitted for every active session on that file, each with that session's current sessionId (ADR 0003). */
             type: string;
+            /** Format: int64 */
             at: number;
             payload: {
                 [key: string]: unknown;
@@ -828,6 +829,7 @@ export interface components {
             itemId: components["schemas"]["Id"];
             itemTitle?: string;
             mode: components["schemas"]["DeliveryMode"];
+            /** Format: int64 */
             startedAt: number;
             positionMs?: number;
         };
@@ -991,6 +993,7 @@ export interface components {
             available: boolean;
             container?: string | null;
             durationMs?: number | null;
+            /** Format: int64 */
             sizeBytes?: number;
             bitRate?: number | null;
             tracks: components["schemas"]["Track"][];
@@ -1092,7 +1095,10 @@ export interface components {
         };
         PlaybackSession: {
             sessionId: components["schemas"]["Id"];
-            /** @description ms UTC; extended by heartbeats. */
+            /**
+             * Format: int64
+             * @description ms UTC; extended by heartbeats.
+             */
             expiresAt: number;
             heartbeatIntervalMs?: number;
             itemId?: components["schemas"]["Id"];
@@ -1133,7 +1139,10 @@ export interface components {
             positionMs: number;
             /** @enum {string} */
             state: "playing" | "paused" | "buffering";
-            /** @description Client clock in ms; the latest wins. */
+            /**
+             * Format: int64
+             * @description Client clock in ms; the latest wins.
+             */
             clientTs: number;
         };
         StopRequest: {
@@ -1163,6 +1172,7 @@ export interface components {
             hint: "movies" | "series" | "mixed";
             /** @enum {string} */
             status: "online" | "offline";
+            /** Format: int64 */
             lastScanAt?: number | null;
             fileCount?: number;
             /** @description Set when the last scan reached the root but held it offline (unmounted-root guard): its files were not marked missing. empty_walk = the mount point looked empty; mass_missing = most files vanished at once. Released by ConfirmRootContents or by the files coming back. */
@@ -1238,6 +1248,7 @@ export interface components {
             warnings?: string[];
             candidates: components["schemas"]["Candidate"][];
             linkedItem?: components["schemas"]["ItemSummary"] | null;
+            /** Format: int64 */
             updatedAt: number;
         };
         CasePage: {
@@ -1279,8 +1290,12 @@ export interface components {
             relPath: string;
             /** @description File state (open set): missing, removed, … */
             state: string;
+            /** Format: int64 */
             sizeBytes: number;
-            /** @description When a scan found the file gone (ms UTC). */
+            /**
+             * Format: int64
+             * @description When a scan found the file gone (ms UTC).
+             */
             missingSince: number | null;
             /** @description The catalog items the file is linked to, oldest link first. */
             items: components["schemas"]["FileItem"][];
@@ -1298,6 +1313,7 @@ export interface components {
             rootName: string;
             relPath: string;
             state: string;
+            /** Format: int64 */
             sizeBytes: number;
             version: components["schemas"]["MediaVersion"];
             links?: components["schemas"]["ItemSummary"][];

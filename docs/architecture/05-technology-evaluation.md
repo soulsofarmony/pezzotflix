@@ -2072,7 +2072,7 @@ Versioni lette il 2026-11-07.
 | Android Gradle Plugin | 9.5.1 | patch della 9.5.0 (ottobre 2026) | [Google Maven](https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml), [note della 9.5](https://developer.android.com/build/releases/agp-9-5-0-release-notes) | Gradle 9.6.0 o più, JDK 17 o più, API fino a 37; Kotlin integrato da AGP 9.0; la 9.6 è ancora alpha |
 | Gradle | 9.8.2 | 2026-10-19 | [gradle.org](https://gradle.org/releases/) | |
 | JDK | 21 | — | Microsoft OpenJDK 21.0.13 sul portatile | per eseguire Gradle; bytecode 17 |
-| Android SDK | compileSdk e targetSdk 36, minSdk 30 | — | piattaforme `android-36` e `android-37.0` già installate sul portatile | S5 compila con 36 |
+| Android SDK | compileSdk 37, targetSdk 36, minSdk 30 | — | piattaforme `android-36` e `android-37.0` già installate sul portatile; build-tools 37.0.0 | S5 compila con 36; in F3a OkHttp 5.5.1 (`okhttp-android`) chiede compileSdk 37 per compilare. Il compileSdk non cambia il comportamento a runtime: quello lo decide il targetSdk, che resta 36 (sotto) |
 | Media3 | 1.11.1 | 2026-09-10 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/media3) | `exoplayer`, `exoplayer-hls`, `datasource-okhttp`, `ui-compose`, `ui` (solo per `SubtitleView`) |
 | Compose | ui e foundation 1.12.1 | 2026-11-04 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/compose) | la [BOM](https://dl.google.com/dl/android/maven2/androidx/compose/compose-bom/maven-metadata.xml) più recente è la 2026.09.00, quindi versioni fissate a mano |
 | Compose for TV | tv-material 1.1.0, tv-foundation 1.0.0 | 2026-05-06 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/tv) | |
@@ -2084,6 +2084,7 @@ Versioni lette il 2026-11-07.
 | kotlinx-coroutines | 1.11.0 | — | [Maven Central](https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/maven-metadata.xml) | |
 | OpenAPI Generator | 7.27.0 | 2026-11-02 | [release](https://github.com/OpenAPITools/openapi-generator/releases), [Gradle Plugin Portal](https://plugins.gradle.org/m2/org/openapi/generator/org.openapi.generator.gradle.plugin/maven-metadata.xml) | plugin Gradle o immagine Docker (ADR 0004), stessa versione |
 | Robolectric | 4.17 | — | [Maven Central](https://repo1.maven.org/maven2/org/robolectric/robolectric/maven-metadata.xml) | SDK dei test fissato a 30 |
+| Validatore JSON Schema (solo test di `:api`) | `io.github.optimumcode:json-schema-validator-jvm` 0.5.5 | — | Maven Central | scelto in F3a (§8.8 lo lasciava alla prima slice): JSON Schema 2020-12 come OpenAPI 3.1, scritto su kotlinx-serialization già nel progetto, niente Jackson né org.json; solo `testImplementation` |
 
 - **minSdk 30:** è la TV. Anche l'Nvidia Shield, il box più vecchio che avrebbe senso, ha Android 11. Con 30 non ci sono rami di codice per API che non si possono provare.
 - **targetSdk 36, non 37:** con targetSdk 37 Android 17 blocca di default l'accesso alla rete locale. Serve allora il permesso a runtime `ACCESS_LOCAL_NETWORK`, e senza di lui le connessioni TCP in LAN vanno in timeout, OkHttp compreso ([protezione della rete locale](https://developer.android.com/privacy-and-security/local-network-permission)).
@@ -2341,7 +2342,7 @@ Lo stato viene dal [report di S5](../spikes/S5-tv-client.md) al 2026-11-07. Le d
 ### 8.15 Raccomandazione
 
 - **Scelta:** app Android nativa in **Kotlin 2.4.21**, con **Jetpack Compose 1.12.1** e **Compose for TV** (tv-material 1.1.0) e il player **Media3 1.11.1**.
-  - Build con AGP 9.5.1 e Gradle 9.8.2; compileSdk e targetSdk 36, minSdk 30.
+  - Build con AGP 9.5.1 e Gradle 9.8.2; compileSdk 37 (lo chiede OkHttp 5.5.1, F3a), targetSdk 36, minSdk 30.
   - Client API generato con OpenAPI Generator 7.27.0 `jvm-retrofit2` e mapping `integer=kotlin.Long`, su Retrofit 3.0.0, OkHttp 5.5.1 e kotlinx-serialization 1.12.0.
   - Audio: solo capability reali. Il caso comune va in Direct Play; TrueHD e DTS scendono al FLAC in Direct Stream.
 - **Criteri decisivi:**
