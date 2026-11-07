@@ -47,35 +47,23 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `6f2aefe` | **Test end-to-end** delle due lacune su uno stack da volumi vuoti: 74 passati, 20 saltati, 0 falliti (4,9 minuti); nessun token in chiaro nel gateway, nessun errore nel Video Service. Un primo giro aveva 3 errori: Chrome chiuso all'avvio (ambiente, passa ripetuto) e due 4K HEVC in Firefox partiti per sbaglio (vedi lacune); la prova di decodifica dei test ora aspetta 5 s in Firefox |
 | `d8df747` | **Client TV, progetto (2026-11-07).** Letta la TV del proprietario via ADB: Haier H65C95EUX, OLED, Android TV 11, userspace a 32 bit, audio dagli altoparlanti integrati, Wi‑Fi a 2,4 GHz. **ADR 0008 accettata:** app Android nativa in Kotlin con Compose for TV e Media3, client generato con `jvm-retrofit2` (K1). **Spike S5** sulla TV: il file tipico del proprietario (ricodifica x265 4K HDR10, ~20 Mb/s) va in Direct Play con PGS e SRT; FLAC del server da ridurre a blocchi da 1152 campioni, `.sup` esterno da leggere nel client. Requisiti e CLAUDE.md allineati ai fatti del proprietario (libreria di ricodifiche, niente AVR) e alla regola di costruzione più leggera per i client |
 | `739b67f` | **App TV, prima slice F3a (2026-11-07).** Progetto `clients/tv` con i moduli `:api` (client generato dal contratto a ogni build, più uno strato scritto a mano), `:player` (Media3: capability lette dalla TV, Direct Play e Direct Stream HLS, tracce del piano imposte, avanzamento e ripresa, chiusura della sessione, ripianificazione fino a 3 tentativi, cambio tracce) e `:app` (indirizzo del server, profili, Home, scheda con riprendi o ricomincia, prossimo episodio, player). Nel contratto `format: int64` su 10 proprietà, additivo. 62 test Kotlin, lint, build e `:api:check` verdi; `npm run verify` verde. Provata sull'emulatore Android TV (API 30) contro uno stack dedicato: Direct Play, Direct Stream con cambio d'audio, limite di sessione. Sulla TV vera non ancora (spenta). Decisioni: compileSdk 37 per OkHttp, validatore JSON Schema per i test (doc 05 §8.6) |
-| (questo commit) | **App TV, seconda slice F3b (2026-11-07).** Schermate: serie → stagioni → episodi con avanzamento e segni di visione, extra, ricerca con la tastiera della TV, "La mia lista", segna visto o da vedere, lista, togli l'avanzamento, server irraggiungibile con "Riprova" e "Cambia server". Player: i sottotitoli serviti a parte (WebVTT e PGS in `.sup`) li disegna un overlay dell'app (ADR 0008). La revisione del player dopo F3a ha trovato due problemi gravi, corretti con i test che mancavano: con Back durante l'avvio restava una sessione che occupava il posto, e i sottotitoli ancora in estrazione non si vedevano. Server: FLAC del Direct Stream a blocchi da 1152 campioni, test end-to-end dei browser verdi. Release: APK firmato con una chiave fuori dal repository, con R8. Verifiche: 91 test Kotlin; sull'emulatore serie → episodio, ricerca, segni di visione e APK di release. La prova sulla TV vera è nel doc 07 §7 |
+| `f0bbe78` | **App TV, seconda slice F3b (2026-11-07).** Schermate: serie → stagioni → episodi con avanzamento e segni di visione, extra, ricerca con la tastiera della TV, "La mia lista", segna visto o da vedere, lista, togli l'avanzamento, server irraggiungibile con "Riprova" e "Cambia server". Player: i sottotitoli serviti a parte (WebVTT e PGS in `.sup`) li disegna un overlay dell'app (ADR 0008). La revisione del player dopo F3a ha trovato due problemi gravi, corretti con i test che mancavano: con Back durante l'avvio restava una sessione che occupava il posto, e i sottotitoli ancora in estrazione non si vedevano. Server: FLAC del Direct Stream a blocchi da 1152 campioni, test end-to-end dei browser verdi. Release: APK firmato con una chiave fuori dal repository, con R8. Verifiche: 91 test Kotlin; sull'emulatore serie → episodio, ricerca, segni di visione e APK di release. La prova sulla TV vera è nel doc 07 §7 |
+| (questo commit) | **Prima prova sulla TV vera e trasloco sul fisso (2026-11-07).** Sulla TV vera, contro lo stack del portatile, il 2001 è andato in Direct Play con l'audio AC-3 ita, i PGS ita incorporati scelti dal menu, l'avanzamento ogni 10 s, la ripresa dal punto giusto e una chiusura pulita; le capability lette dalla TV sono quelle vere. Il resto della prova (doc 07 §7) non è partito: la TV è stata spenta. Preparato il trasloco del server sul PC fisso: [passaggio di consegne](2026-11-07-trasloco-sul-fisso.md) e "Server di casa su Windows" in `deploy/README.md` |
 
 ## 2. In corso
 
-- **App per la TV (F3):** costruita (F3a e F3b) e provata sull'emulatore. Manca la prova sulla TV vera: elenco nel [doc 07 §7](../architecture/07-tv-client-plan.md#7-prova-sulla-tv-vera); installazione in `clients/tv/README.md`.
+- **Trasloco del server sul PC fisso:** preparato il 2026-11-07, si fa dal fisso seguendo il [passaggio di consegne](2026-11-07-trasloco-sul-fisso.md).
+- **App per la TV (F3):** costruita (F3a e F3b), provata sull'emulatore e, il 2026-11-07, sulla TV vera con il 2001. Il resto della prova è nel [doc 07 §7](../architecture/07-tv-client-plan.md#7-prova-sulla-tv-vera); l'installazione in `clients/tv/README.md`.
 - **Lacune dopo l'MVP**, una alla volta per la memoria del portatile: item provvisori ✅ (`6287985`), file spariti ✅ (`e1eead9`), test end-to-end ✅.
 - **MVP completo (F2 chiuso, 2026-11-06).** Revisione finale con cinque revisori (sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione); i rilievi gravi sono stati riprodotti, corretti e rivisti di nuovo. Quello che non è stato corretto è nelle lacune (§4).
 - **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non risponde all'iPad, probabilmente per l'indirizzo Wi‑Fi privato dell'iPad, che cambia.
 
 ## 3. Prossimi passi
 
-1. Prova del proprietario con lo stack Compose (`deploy/README.md`) e la libreria vera: percorsi, `LIBRARY_ROOTS`, `MEDIA_GID`, `PZF_HOSTS`.
+1. **Server sul PC fisso, con la libreria vera** (proprietario, 2026-11-07). Ci resta finché non arriva il mini-PC; poi il trasloco porta solo i volumi. Si parte da zero: profili e stato di visione del portatile non si portano. Passi nel [passaggio di consegne](2026-11-07-trasloco-sul-fisso.md).
 2. Controlli del proprietario (§5), che decidono P5 e H11.
 3. Film di prova legali (Tears of Steel, Sintel e simili) in `media-samples/`, se il proprietario dà l'ok al download.
-4. Prova dell'app TV sulla TV vera (doc 07 §7), poi le lacune di §4 in ordine di impatto.
-5. **Primo setup del server sul PC fisso** (proprietario, 2026-11-07). Ci resta finché non arriva il mini-PC; poi il trasloco porta solo i volumi. Passi, con `deploy/README.md`:
-   - **repository:** `git pull`, poi `.env` da `.env.example`. Il token TMDB lo copia il proprietario dal `.env` del portatile: mai in chat né in un commit;
-   - **libreria:** `MEDIA_DIR` sul disco dei film e `LIBRARY_ROOTS` con una radice per tipo (film, serie, documentari), un disco per radice. Si copia anche il 2001 di prova;
-   - **rete:**
-     - il fisso col cavo, con l'indirizzo fisso dal router del proprietario (prenotazione DHCP), e lo stesso per la TV;
-     - la porta 8080 aperta nel firewall di Windows: è un prompt di amministratore, lo fa il proprietario;
-   - **Windows:**
-     - niente sospensione;
-     - utente con l'accesso fatto, perché Docker Desktop parte solo dopo il login;
-     - Docker Desktop avviato all'accesso;
-     - `.wslconfig` con un tetto di memoria adatto al fisso;
-   - **scansione:** sui dischi NTFS i cambi non arrivano al container (inotify), vale la scansione periodica (`LIBRARY_SCAN_INTERVAL_MIN`);
-   - **backup:** il volume `video-backup` va copiato fuori dal PC ogni tanto;
-   - **app TV:** l'indirizzo del server diventa quello del fisso. La scheda NVIDIA (NVENC, H10 ✅ su quel PC) rende possibile il transcode in hardware: è una decisione a parte (P2), non serve per il primo setup.
+4. Resto della prova dell'app TV (doc 07 §7) con il server sul fisso, poi le lacune di §4 in ordine di impatto.
 
 ## 4. Lacune note, da riprendere
 
@@ -143,12 +131,16 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 ## 5. In attesa del proprietario
 
 - **Verifica dei colori su un monitor SDR** in Chrome, Edge e Firefox, anche con un remux UHD vero con metadata statici: decide **P5**. Se fallisce si riapre P2.
-- **Prima prova dell'app TV** sulla TV vera: il proprietario accende la TV, Claude installa l'APK via ADB e si segue il doc 07 §7.
+- **Resto della prova dell'app TV** sulla TV vera (doc 07 §7), con il server sul fisso.
 - **Backup della chiave di firma dell'app TV** (`C:\Users\SimoneMen\.pezzotflix\`, sul portatile): una copia fuori dal PC. Senza la chiave, per aggiornare l'app bisogna disinstallarla.
 - **Verifiche sulla TV** con l'app di S5 ("Pezzotflix S5 sonda", elenco nel report S5): coppia d'ascolto AAC 5.1 contro E-AC-3 5.1 (decide la politica Dolby del server, ADR 0008), sincronia labiale, HDR10 e Dolby Vision sul pannello, judder dei 24p, prova dei canali, PGS. Serve il server dei file acceso sul portatile (`bash spikes/s5-tv-client/serve.sh`).
 - **TV sul Wi‑Fi a 5 GHz o via cavo**, quando sarà possibile; il server va cablato (S5).
 - **Un sample Dolby Vision profilo 7** (UHD Blu-ray), per H11.
-- Percorsi reali della libreria e porta 8080 nel firewall (modello della TV e ADB fatti il 2026-11-07; nessun impianto audio esterno).
+- **Per il server sul fisso** (§5 del [passaggio di consegne](2026-11-07-trasloco-sul-fisso.md)):
+  - dove stanno i film;
+  - il token TMDB e la chiave dell'app copiati;
+  - la porta 8080 nel firewall;
+  - le prenotazioni DHCP del fisso e della TV.
 - **Estensione HEVC di Windows** (Microsoft Store) per provare il 4K anche in Edge e Firefox, e l'ok al download dei film di prova legali.
 - Impostazione "Indirizzo Wi‑Fi privato: No" sull'iPad per la rete di casa, se l'iPad continua a non raggiungere il portatile.
 

@@ -1,7 +1,7 @@
 # 07 — Piano del client TV (F3)
 
 - **Stato:** approvato da Claude, 2026-11-07. Per i client niente revisore sul piano (CLAUDE.md, regola del 2026-11-07).
-- **Avanzamento:** F3a ✅ (`739b67f`), F3b ✅ (2026-11-07), entrambe provate sull'emulatore Android TV. Manca la prova sulla TV vera (§7).
+- **Avanzamento:** F3a ✅ (`739b67f`), F3b ✅ (`f0bbe78`), entrambe provate sull'emulatore Android TV. Prima prova sulla TV vera il 2026-11-07: punti 2 e 3 e i PGS incorporati del punto 5 ✅; il resto del §7 è da fare.
 - **Base:** [ADR 0008](../adr/0008-client-tv-kotlin-compose-media3.md), [doc 05 §8](05-technology-evaluation.md#8-client-tv), spike [S5](../spikes/S5-tv-client.md) e [K1](../spikes/K1-kotlin-codegen.md).
 
 ## 1. Obiettivo
@@ -101,19 +101,21 @@ La TV e Docker si usano un agente alla volta. La memoria del portatile permette 
 
 ## 7. Prova sulla TV vera
 
-Da fare alla prima accensione. L'app si installa via ADB come in `clients/tv/README.md`.
+L'app si installa via ADB come in `clients/tv/README.md`.
+
+Dal trasloco sul fisso (2026-11-07) la prova continua con la libreria vera. I casi che la libreria vera non ha, come un remux con TrueHD, si provano con uno stack di prova e i file di `media-samples/`.
 
 1. **Primo avvio:** indirizzo del server scritto con la tastiera Gboard. La tastiera si chiude e il D-pad funziona su Profili e Home (difetto di Android 11 aggirato in F3a).
-2. **Capability:** la riga `capabilities` nel logcat (tag `PZF`) elenca AC-3/E-AC-3 e i decoder hardware della TV.
+2. **Capability:** la riga `capabilities` nel logcat (tag `PZF`) elenca AC-3/E-AC-3 e i decoder hardware della TV. ✅ 2026-11-07
 3. **2001 in Direct Play:**
-   - audio e sottotitoli scelti dal piano;
-   - avanzamento; si esce dopo più di 30 s e "Riprendi da" riparte dal punto giusto;
+   - audio e sottotitoli scelti dal piano; ✅ 2026-11-07: AC-3 ita, PGS ita scelti dal menu
+   - avanzamento; si esce dopo più di 30 s e "Riprendi da" riparte dal punto giusto; ✅ 2026-11-07
    - "Dall'inizio" riparte da zero.
 4. **Remux con TrueHD in Direct Stream:**
    - il FLAC a 1152 campioni va con audio a 24 bit 5.1 e 7.1, senza errori del buffer del decoder;
    - avvio, cambio traccia e chiusura vanno.
 5. **PGS:**
-   - quelli incorporati in Direct Play (2001, PGS ita);
+   - quelli incorporati in Direct Play (2001, PGS ita); ✅ 2026-11-07
    - l'overlay del `.sup` in Direct Stream: posizione e dimensione, sottotitoli forzati, display set che cambiano solo la palette;
    - velocità di decodifica sul MT5889 nei tratti densi.
 6. **Sottotitoli in preparazione** alla prima visione di un film lungo: prima la nota, poi i sottotitoli, senza ricaricare il flusso.

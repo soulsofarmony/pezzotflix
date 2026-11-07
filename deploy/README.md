@@ -165,3 +165,29 @@ Un caso senza voce in `samples.json`, o con un titolo che il catalogo non ha, **
 - Il bind mount di una cartella NTFS è lento, e inotify non arriva dai percorsi Windows: `LIBRARY_WATCH=off`, con una scansione ogni `LIBRARY_SCAN_INTERVAL_MIN` minuti (default 15) o da **Gestione**.
 - Il Video Service non pubblica porte: lo si raggiunge solo dal gateway. La sua rete non è `internal`, perché deve raggiungere Wikidata e TMDB.
 - I log dei container ruotano a 3 file da 10 MB.
+
+## Server di casa su Windows
+
+Accorgimenti per lasciare lo stack acceso su un PC Windows con Docker Desktop, perché TV e altri dispositivi lo usino. I comandi vanno in PowerShell; quelli segnati vogliono una PowerShell **da amministratore**.
+
+- **Rete privata.** `Get-NetConnectionProfile` mostra il profilo della rete. Se è `Public`, va passato a privato:
+  ```powershell
+  Set-NetConnectionProfile -InterfaceAlias "Ethernet" -NetworkCategory Private   # amministratore
+  ```
+  Al posto di `Ethernet` va il nome dell'interfaccia che mostra il primo comando.
+- **Firewall.** Va aperta la porta del gateway, solo sulle reti private:
+  ```powershell
+  New-NetFirewallRule -DisplayName "Pezzotflix (8080)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8080 -Profile Private   # amministratore
+  ```
+  - Le regole di blocco vincono su quelle che permettono. Se una volta è stato negato l'accesso a Docker Desktop, esistono regole "Docker Desktop Backend" con `Action Block`.
+  - `Get-NetFirewallRule -DisplayName "Docker Desktop Backend" | Select DisplayName, Profile, Action` le mostra; quelle di blocco vanno tolte.
+- **Indirizzo fisso.** Si chiede al router una prenotazione DHCP per il PC; meglio col cavo. Si fa lo stesso per la TV, che però deve usare il MAC del dispositivo e non uno casuale.
+- **Niente sospensione.** Lo schermo può spegnersi, il PC no:
+  ```powershell
+  powercfg /change standby-timeout-ac 0
+  powercfg /change hibernate-timeout-ac 0
+  ```
+- **Avvio.**
+  - In Docker Desktop si attiva "Start Docker Desktop when you sign in". I container hanno `restart: unless-stopped` e ripartono con Docker Desktop.
+  - Docker Desktop parte solo dopo l'accesso dell'utente. Se Windows si riavvia per gli aggiornamenti, il server resta giù finché qualcuno non accede, quindi conviene impostare le ore di attività di Windows Update sulle ore d'uso.
+- **Memoria.** WSL prende al massimo metà della RAM del PC. Un tetto diverso va in `%USERPROFILE%\.wslconfig` (`[wsl2]`, `memory=8GB`) e vale dopo `wsl --shutdown`, con Docker Desktop chiuso.
