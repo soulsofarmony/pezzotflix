@@ -2,6 +2,7 @@ package dev.pezzotflix.tv
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import dev.pezzotflix.tv.api.AppEvent
 import dev.pezzotflix.tv.api.AuthInterceptor
@@ -13,12 +14,15 @@ import dev.pezzotflix.tv.api.VideoApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
@@ -44,12 +48,20 @@ class AppPrefs(context: Context) : TokenStore {
 }
 
 /**
- * Launch extras honoured by debug builds only, for tests on the Android emulator:
+ * Launch extras for tests on the Android emulator, honoured by debug builds and by any build on the emulator (so a
+ * release APK can be proven there), never by a release build on a real device:
  * `adb shell am start -n dev.pezzotflix.tv/.MainActivity --ez pzf.softwareDecoders true --es pzf.openItem <itemId>`.
  * - softwareDecoders: declare software video decoders too (the emulator has no hardware one);
- * - openItem: open that item's detail on top of Home (e.g. an extra, which F3a cannot browse to).
+ * - openItem: open that item's detail on top of Home.
  */
-data class DebugOptions(val softwareDecoders: Boolean = false)
+data class DebugOptions(val softwareDecoders: Boolean = false) {
+    companion object {
+        /** The Android emulator's virtual hardware (goldfish, then ranchu). */
+        fun isEmulator(): Boolean = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish"
+
+        fun allowed(): Boolean = BuildConfig.DEBUG || isEmulator()
+    }
+}
 
 /** One server: its API facade and its event poller. */
 class Connection(val base: HttpUrl, val api: VideoApi, val poller: EventPoller)
@@ -70,13 +82,14 @@ class AppContainer(val app: Application) {
     val libraryVersion: StateFlow<Int> = _libraryVersion.asStateFlow()
 
     /** A 401 cleared the profile token: back to the profile choice. */
-    private val _signedOut = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val signedOut: SharedFlow<Unit> = _signedOut.asSharedFlow()
+    // A channel, not a SharedFlow: a 401 that arrives before AppNav collects (a fast first call) must not be lost.
+    private val _signedOut = Channel<Unit>(Channel.CONFLATED)
+    val signedOut: Flow<Unit> = _signedOut.receiveAsFlow()
 
     var connection: Connection? = null
         private set
 
-    /** Debug builds only, from the launch extras (MainActivity): see [DebugOptions]. */
+    /** From the launch extras (MainActivity), when [DebugOptions.allowed]. */
     var debug = DebugOptions()
 
     /** An item to open on top of Home (debug launch extra); AppNav takes it. */
@@ -90,7 +103,7 @@ class AppContainer(val app: Application) {
 
     fun connect(base: HttpUrl): Connection {
         connection?.poller?.stop()
-        val auth = AuthInterceptor(prefs) { _signedOut.tryEmit(Unit) }
+        val auth = AuthInterceptor(prefs) { _signedOut.trySend(Unit) }
         val api = VideoApi(HttpClients.retrofit(base, HttpClients.api(http, auth)))
         val poller = EventPoller(
             list = { cursor, limit -> api.listEvents(cursor, limit) },

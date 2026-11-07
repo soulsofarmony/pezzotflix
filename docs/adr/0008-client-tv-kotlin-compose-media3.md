@@ -177,6 +177,17 @@ S5 ha trovato due ripieghi che sulla TV non funzionano così come sono, e tre ob
 - **Buffer:** `largeHeap` e tetto di **100 MiB** (il doc 05 §8.10 parte da lì). Il 2001 regge da 30,3 Mb/s sostenuti in su, contro i 65–72 misurati.
 - **Schermo acceso** durante la riproduzione (`keepScreenOn`): la TV è andata in standby da sola una volta. **POST senza corpo** del client generato verificate: una POST vuota di `HttpURLConnection` riceve `415`.
 
+### Decisioni nella costruzione (F3, 2026-11-07)
+- **Sottotitoli serviti a parte** (WebVTT estratti dal server e PGS in `.sup`): li disegna un overlay dell'app, in Direct Play e in Direct Stream, non il caricamento laterale di Media3.
+  - **Perché:** Media3 1.11 analizza un sottotitolo laterale solo a fine file. Un file che il server sta ancora estraendo (`growing`, il caso normale alla prima visione) non mostrava nulla, e un errore di caricamento disattivava la traccia senza avvisare. Lo ha trovato la revisione di F3a.
+  - **Come:** l'overlay scarica il file con una sua chiamata, senza timeout di lettura. Divide il `.sup` in display set, che il `PgsParser` di Media3 decodifica quando servono. Mentre il file cresce mostra "sottotitoli in preparazione"; a `playback.subtitle_ready` lo sostituisce senza ricaricare il flusso.
+  - **Errori:** un sottotitolo che non si scarica ripianifica solo la dimensione sottotitoli (`SUBTITLE_LOAD_FAILED:<id>`) e il video continua.
+  - I sottotitoli incorporati in Direct Play restano a Media3.
+- **APK di release:**
+  - firmato con una chiave fuori dal repository (`%USERPROFILE%\.pezzotflix\`; istruzioni e backup in `clients/tv/README.md`);
+  - R8 e riduzione delle risorse attivi, con le regole di keep per kotlinx-serialization, Retrofit e i modelli generati;
+  - per passare dalla firma di debug a quella di release serve una disinstallazione.
+
 ### Da rivedere
 - **L'ascolto preferisce il Dolby:** politica del server (punto 7), con un override I2 o un campo additivo, e un test del motore.
 - **Arriva un impianto audio esterno** (eARC): `AudioCapabilities` vede TrueHD e DTS-HD e l'app li dichiara in `passthrough` (H5). Da verificare che Media3 su API 30 legga le codifiche dell'uscita HDMI.

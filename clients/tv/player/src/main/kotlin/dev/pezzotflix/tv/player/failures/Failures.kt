@@ -27,13 +27,15 @@ data class PlayerError(
     val uri: String? = null,
 )
 
+/**
+ * Media3 loads only the stream (progressive file, HLS playlists and segments). Subtitles served apart never go
+ * through it: the sidecar overlay reports their failures itself (SUBTITLE_LOAD_FAILED:<trackId>, suspect subtitle).
+ */
 object FailureClassifier {
-    /**
-     * [subtitleUrls]: the resolved urls of the session's separately served subtitles; a load that failed on one of them
-     * is a subtitle failure, whatever its status.
-     */
-    fun classify(e: PlayerError, subtitleUrls: Collection<String> = emptyList()): FailureAction {
-        if (e.uri != null && subtitleUrls.any { it == e.uri }) return FailureAction.Replan("subtitle", "SUBTITLE_LOAD_FAILED")
+    /** A subtitle served apart that will not load: re-plan from the subtitle, as the web client reports it. */
+    fun subtitleLoadFailed(trackId: String): FailureAction = FailureAction.Replan("subtitle", "SUBTITLE_LOAD_FAILED:$trackId")
+
+    fun classify(e: PlayerError): FailureAction {
         e.httpStatus?.let { status ->
             return when (status) {
                 401, 403, 404, 410 -> FailureAction.Restart("HTTP_$status")
@@ -66,7 +68,7 @@ object FailureClassifier {
 
 /**
  * Retry delays of the load error policy (doc 05 §8.10), pure: null means fatal at once.
- * - 503: after Retry-After, else 2 s, for about a minute (STREAM_PREPARING of a subtitle or a segment);
+ * - 503: after Retry-After, else 2 s, for about a minute (STREAM_PREPARING of a segment);
  * - any other HTTP status: fatal at once (the controller re-plans or restarts);
  * - no answer: backoff 1, 2, 4, 8, 8, 8 s, then fatal ("Connessione persa").
  */

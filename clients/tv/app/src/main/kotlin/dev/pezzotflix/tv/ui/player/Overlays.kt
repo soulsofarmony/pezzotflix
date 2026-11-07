@@ -188,6 +188,7 @@ fun BoxScope.StatusOverlay(
         Phase.PLAYING -> {
             state.notice?.let { Notice(it, onDismissNotice) }
             if (state.buffering) BusyText(Txt.PLAYER_BUFFERING)
+            if (state.subtitlePreparing) SubtitleNote(Txt.PLAYER_SUBTITLES_PREPARING)
         }
         Phase.FAILED -> Dialog(
             Txt.PLAYER_FAILED_TITLE,
@@ -259,6 +260,18 @@ private fun BoxScope.BusyText(text: String) {
     }
 }
 
+/** Where the subtitles would be: the selected track cannot show anything yet (its file is still being extracted). */
+@Composable
+private fun BoxScope.SubtitleNote(text: String) {
+    Box(
+        Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp).background(Scrim, RoundedCornerShape(8.dp))
+            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .testTag("subtitles-preparing"),
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = PzfColors.Muted)
+    }
+}
+
 @Composable
 private fun BoxScope.Dialog(title: String, lines: List<String>, actions: List<Pair<String, () -> Unit>>) {
     val first = remember { FocusRequester() }
@@ -283,7 +296,6 @@ private fun BoxScope.Dialog(title: String, lines: List<String>, actions: List<Pa
 private fun BoxScope.Notice(notice: PlayerController.Notice, onDismiss: () -> Unit) {
     val text = when (notice) {
         is PlayerController.Notice.ChangeRefused -> listOfNotNull(Txt.PLAYER_NOTICE_422, notice.detail).joinToString("\n")
-        PlayerController.Notice.ImageSubtitleNotRendered -> Txt.PLAYER_NOTICE_IMAGE_SUBS
     }
     LaunchedEffect(notice) {
         delay(NOTICE_MS)

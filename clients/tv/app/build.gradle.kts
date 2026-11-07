@@ -1,5 +1,6 @@
 // :app — UI (Compose for TV), navigation, settings and the manual wiring of :api and :player (doc 05 §8.11).
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -8,6 +9,12 @@ plugins {
 
 // The TV runs ARM (doc 05 §8.11). `-PpzfExtraAbis=x86,x86_64` adds the emulator's ABIs to a local build.
 val extraAbis = providers.gradleProperty("pzfExtraAbis").orNull?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+
+// Release signing: a key outside the repo (clients/tv/README.md), read only when its properties file exists.
+// Without it the release APK is built unsigned and the debug build is unaffected. `-PpzfSigning=<file>` overrides the path.
+val signingFile = providers.gradleProperty("pzfSigning").orNull?.let(::File)
+    ?: File(System.getProperty("user.home"), ".pezzotflix/tv-signing.properties")
+val signing = Properties().apply { if (signingFile.isFile) signingFile.inputStream().use { load(it) } }
 
 android {
     namespace = "dev.pezzotflix.tv"
@@ -18,15 +25,29 @@ android {
         applicationId = "dev.pezzotflix.tv"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a") + extraAbis
         }
     }
+    signingConfigs {
+        if (signing.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(signing.getProperty("storeFile"))
+                storePassword = signing.getProperty("storePassword")
+                keyAlias = signing.getProperty("keyAlias")
+                keyPassword = signing.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 (code and resources): a smaller APK and less to load on the TV's 32-bit userspace.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     buildFeatures {

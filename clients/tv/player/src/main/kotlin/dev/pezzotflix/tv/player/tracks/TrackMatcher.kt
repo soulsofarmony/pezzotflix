@@ -30,12 +30,10 @@ data class TrackRef(val group: Int, val index: Int)
 /**
  * The plan's tracks on Media3's tracks (doc 05 §8.10): what to force with TrackSelectionOverride.
  * - [audio] null: no override (HLS carries one audio track; or no match, Media3 keeps its own choice);
- * - [text] the subtitle to show; [textOff] disables text rendering;
- * - [notice] a subtitle the plan selected but this client does not render yet (image subtitle served apart, F3b).
+ * - [text] the embedded subtitle to show; [textOff] disables Media3's text rendering. Subtitles served apart
+ *   (sidecar, client_render) never reach Media3: the sidecar overlay draws them, so text is off.
  */
-data class TrackPlan(val audio: TrackRef?, val text: TrackRef?, val textOff: Boolean, val notice: Notice? = null) {
-    enum class Notice { IMAGE_SUBTITLE_NOT_RENDERED }
-}
+data class TrackPlan(val audio: TrackRef?, val text: TrackRef?, val textOff: Boolean)
 
 /** A selected track Media3 cannot play: report it with this dimension (doc 05 §8.10). */
 data class TrackFailure(val suspect: String, val error: String)
@@ -49,21 +47,12 @@ object TrackMatcher {
         val hls = session.stream.protocol.value == "hls-fmp4"
         val audio = if (hls) null else planAudio(session.tracks.audio, tracks.filter { it.kind == MediaTrack.Kind.AUDIO })
         val sub = session.tracks.subtitles.firstOrNull { it.selected }
-        val sidecarIds = session.tracks.subtitles.filter { isSeparate(it) }.map { it.id }.toSet()
         val text = tracks.filter { it.kind == MediaTrack.Kind.TEXT }
         return when {
-            sub == null -> TrackPlan(audio, null, textOff = true)
-            sub.delivery == SessionTrack.Delivery.client_render ->
-                TrackPlan(audio, null, textOff = true, notice = TrackPlan.Notice.IMAGE_SUBTITLE_NOT_RENDERED)
-            sub.delivery == SessionTrack.Delivery.burned -> TrackPlan(audio, null, textOff = true)
-            sub.delivery == SessionTrack.Delivery.sidecar -> {
-                val t = text.firstOrNull { sameSidecar(it.id, sub.id) }
-                TrackPlan(audio, t?.ref, textOff = t == null)
-            }
+            sub == null || isSeparate(sub) || sub.delivery == SessionTrack.Delivery.burned -> TrackPlan(audio, null, textOff = true)
             else -> {
                 val planEmbedded = session.tracks.subtitles.filter { !isSeparate(it) && it.delivery != SessionTrack.Delivery.burned }.sortedBy { it.index }
-                val mediaEmbedded = text.filter { m -> sidecarIds.none { sameSidecar(m.id, it) } }
-                val t = match(planEmbedded, sub, mediaEmbedded)
+                val t = match(planEmbedded, sub, text)
                 TrackPlan(audio, t?.ref, textOff = t == null)
             }
         }
@@ -76,10 +65,6 @@ object TrackMatcher {
 
     private fun isSeparate(t: SessionTrack): Boolean =
         t.delivery == SessionTrack.Delivery.sidecar || t.delivery == SessionTrack.Delivery.client_render
-
-    /** Side-loaded subtitles carry the plan's track id as Format.id (Media3 may prefix it with a period index). */
-    fun sameSidecar(formatId: String?, trackId: String): Boolean =
-        formatId != null && (formatId == trackId || formatId.endsWith(":$trackId"))
 
     /**
      * The media track of [target]: by ordinal within the type when both sides list the same number of tracks and the

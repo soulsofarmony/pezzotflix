@@ -1,6 +1,7 @@
 # 07 — Piano del client TV (F3)
 
 - **Stato:** approvato da Claude, 2026-11-07. Per i client niente revisore sul piano (CLAUDE.md, regola del 2026-11-07).
+- **Avanzamento:** F3a ✅ (`739b67f`), F3b ✅ (2026-11-07), entrambe provate sull'emulatore Android TV. Manca la prova sulla TV vera (§7).
 - **Base:** [ADR 0008](../adr/0008-client-tv-kotlin-compose-media3.md), [doc 05 §8](05-technology-evaluation.md#8-client-tv), spike [S5](../spikes/S5-tv-client.md) e [K1](../spikes/K1-kotlin-codegen.md).
 
 ## 1. Obiettivo
@@ -79,3 +80,56 @@ La TV e Docker si usano un agente alla volta. La memoria del portatile permette 
 - **Percorsi lunghi di Windows:** il worktree aggiunge profondità alle cartelle di build di Gradle. Se si supera il limite, la cartella di build va spostata in un percorso corto.
 - **Compose sul SoC a 32 bit:** si misura lo scorrimento della Home in F3a; se non basta, baseline profile e immagini più piccole.
 - **Memoria della TV:** buffer e cache delle immagini con un tetto esplicito. Il low memory killer si osserva su un film intero.
+
+## 6. Decisioni prese durante la costruzione
+
+- **Sottotitoli serviti a parte:** li disegna un overlay dell'app, non Media3 ([ADR 0008](../adr/0008-client-tv-kotlin-compose-media3.md), decisioni nella costruzione). Il WebVTT esterno di F3a è passato all'overlay in F3b, dopo la revisione del player.
+- **Revisione del player (dopo F3a), corretta in F3b:**
+  - con Back durante l'avvio, la sessione nata tardi viene chiusa;
+  - avvio e chiusura della sessione girano fuori dallo scope della schermata e sono solo attesi;
+  - un errore dentro `load()` torna come risultato;
+  - nuovi test per ChangeTracks (410, 422, 503), heartbeat 410, errore di rete e "Riprova".
+- **Navigazione:**
+  - "La mia lista" è una schermata a sé;
+  - in testa alla Home ci sono Cerca, La mia lista e Cambia profilo;
+  - su una riga di episodio, OK lo avvia e "Dettagli" apre la sua scheda;
+  - una stagione si apre con il focus sull'episodio da vedere.
+- **Ricerca:** parte 250 ms dopo l'ultimo tasto e mostra al massimo 50 risultati; dal campo, giù porta ai risultati.
+- **Riproduzione:** Play alla fine del film ricomincia da capo nella stessa sessione.
+- **Liste:** lette a pagine da 200, al massimo 10 pagine.
+- **Opzioni di debug** (decoder software, apertura diretta di un item): solo nella build di debug o sull'emulatore.
+
+## 7. Prova sulla TV vera
+
+Da fare alla prima accensione. L'app si installa via ADB come in `clients/tv/README.md`.
+
+1. **Primo avvio:** indirizzo del server scritto con la tastiera Gboard. La tastiera si chiude e il D-pad funziona su Profili e Home (difetto di Android 11 aggirato in F3a).
+2. **Capability:** la riga `capabilities` nel logcat (tag `PZF`) elenca AC-3/E-AC-3 e i decoder hardware della TV.
+3. **2001 in Direct Play:**
+   - audio e sottotitoli scelti dal piano;
+   - avanzamento; si esce dopo più di 30 s e "Riprendi da" riparte dal punto giusto;
+   - "Dall'inizio" riparte da zero.
+4. **Remux con TrueHD in Direct Stream:**
+   - il FLAC a 1152 campioni va con audio a 24 bit 5.1 e 7.1, senza errori del buffer del decoder;
+   - avvio, cambio traccia e chiusura vanno.
+5. **PGS:**
+   - quelli incorporati in Direct Play (2001, PGS ita);
+   - l'overlay del `.sup` in Direct Stream: posizione e dimensione, sottotitoli forzati, display set che cambiano solo la palette;
+   - velocità di decodifica sul MT5889 nei tratti densi.
+6. **Sottotitoli in preparazione** alla prima visione di un film lungo: prima la nota, poi i sottotitoli, senza ricaricare il flusso.
+7. **Seek lontano in Direct Stream:** confrontare i tempi dei sottotitoli con l'immagine dopo il riavvio della pipeline. Media3 può lasciare uno scarto di 40–200 ms, che S5 non ha misurato.
+8. **Immagine:** HDR10 e Dolby Vision corretti sul pannello. Un Dolby Vision profilo 7 ricade su HDR10 senza errore.
+9. **Home:** scorrimento e caricamento dei poster sul MT5889, con l'APK di release.
+10. **Un film intero** (`largeHeap`, buffer da 100 MiB) sul Wi‑Fi a 2,4 GHz:
+    - eventuali rebuffering e memoria;
+    - un `.sup` grande (30–60 MB) e la pulizia dei file temporanei all'avvio successivo.
+11. **Chiusura della sessione:**
+    - TV spenta, tasto Home o un'altra app durante la riproduzione: la sessione si chiude e libera il posto;
+    - Back durante l'avvio non lascia sessioni appese.
+12. **Telecomando:**
+    - play/pausa, avanti e indietro;
+    - sinistra e destra ±10 s a controlli nascosti;
+    - Back: la prima pressione nasconde i controlli, la seconda esce.
+13. **Ricerca → Back → giù → apri → play:** la tastiera non ricompare.
+14. **Serie → stagione:** il focus va sull'episodio da vedere. Play alla fine ricomincia da zero.
+15. **Release sopra debug:** una disinstallazione, poi l'indirizzo del server va riscritto.

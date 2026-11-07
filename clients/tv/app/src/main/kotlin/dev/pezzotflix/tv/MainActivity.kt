@@ -24,9 +24,9 @@ class MainActivity : ComponentActivity() {
         readDebugExtras(intent)
     }
 
-    /** Debug builds only: see [DebugOptions]. */
+    /** Debug builds, or any build on the Android emulator (to prove a release APK there): see [DebugOptions]. */
     private fun readDebugExtras(intent: Intent?) {
-        if (!BuildConfig.DEBUG || intent == null) return
+        if (!DebugOptions.allowed() || intent == null) return
         if (intent.hasExtra(EXTRA_SOFTWARE_DECODERS)) {
             container.debug = container.debug.copy(softwareDecoders = intent.getBooleanExtra(EXTRA_SOFTWARE_DECODERS, false))
         }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -14,6 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -122,7 +126,7 @@ fun ItemSummary.isLandscape(): Boolean = kind == ItemKind.episode || kind == Ite
  * a progress bar when started, and "Non disponibile" / "In attesa" when they apply.
  */
 @Composable
-fun ItemCard(item: ItemSummary, base: HttpUrl?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ItemCard(item: ItemSummary, base: HttpUrl?, onClick: () -> Unit, modifier: Modifier = Modifier, fill: Boolean = false) {
     val landscape = item.isLandscape()
     val width: Dp = if (landscape) 240.dp else 140.dp
     val image = pickImage(
@@ -131,7 +135,7 @@ fun ItemCard(item: ItemSummary, base: HttpUrl?, onClick: () -> Unit, modifier: M
         if (landscape) listOf(ImageRef.Type.still, ImageRef.Type.thumbnail, ImageRef.Type.backdrop, ImageRef.Type.poster) else listOf(ImageRef.Type.poster),
         if (landscape) 640 else 320,
     )
-    Column(modifier.width(width)) {
+    Column(if (fill) modifier.fillMaxWidth() else modifier.width(width)) {
         Card(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth().aspectRatio(if (landscape) 16f / 9f else 2f / 3f),
@@ -151,12 +155,7 @@ fun ItemCard(item: ItemSummary, base: HttpUrl?, onClick: () -> Unit, modifier: M
                 } else {
                     AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
-                val progress = item.state?.progressPercent ?: 0.0
-                if (progress > 0 && item.state?.watched != true) {
-                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(5.dp).background(Color(0x99000000))) {
-                        Box(Modifier.fillMaxHeight().fillMaxWidth((progress / 100).toFloat().coerceIn(0f, 1f)).background(PzfColors.Accent))
-                    }
-                }
+                ProgressBar(item, Modifier.align(Alignment.BottomStart))
             }
         }
         Text(
@@ -172,6 +171,41 @@ fun ItemCard(item: ItemSummary, base: HttpUrl?, onClick: () -> Unit, modifier: M
             else -> null
         }
         if (flag != null) Text(flag, style = MaterialTheme.typography.bodyMedium, color = PzfColors.Warning)
+    }
+}
+
+/** The resume bar of a started, unwatched item. */
+@Composable
+fun ProgressBar(item: ItemSummary, modifier: Modifier = Modifier) {
+    val progress = item.state?.progressPercent ?: 0.0
+    if (progress <= 0 || item.state?.watched == true) return
+    Box(modifier.fillMaxWidth().height(5.dp).background(Color(0x99000000))) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth((progress / 100).toFloat().coerceIn(0f, 1f)).background(PzfColors.Accent))
+    }
+}
+
+/**
+ * Cards in a grid (search results, "La mia lista"): D-pad moves in two dimensions; [first] goes on the first card.
+ * Posters and stills share the cells: a row is as tall as its tallest card.
+ */
+@Composable
+fun ItemGrid(items: List<ItemSummary>, base: HttpUrl?, onOpen: (ItemSummary) -> Unit, modifier: Modifier = Modifier, first: FocusRequester? = null) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(150.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 16.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
+            ItemCard(
+                item,
+                base,
+                onClick = { onOpen(item) },
+                modifier = if (i == 0 && first != null) Modifier.focusRequester(first) else Modifier,
+                fill = true,
+            )
+        }
     }
 }
 

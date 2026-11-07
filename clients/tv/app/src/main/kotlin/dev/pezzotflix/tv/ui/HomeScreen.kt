@@ -29,6 +29,7 @@ import androidx.tv.material3.Text
 import dev.pezzotflix.api.models.Home
 import dev.pezzotflix.api.models.HomeRow
 import dev.pezzotflix.tv.AppContainer
+import dev.pezzotflix.tv.api.ApiException
 import kotlinx.coroutines.flow.drop
 
 class HomeViewModel(private val container: AppContainer) : LoadViewModel<Home>() {
@@ -42,9 +43,19 @@ class HomeViewModel(private val container: AppContainer) : LoadViewModel<Home>()
     override suspend fun fetch(): Home = container.connection?.api?.home() ?: error("no server")
 }
 
-/** Home composed by the server (doc 03): its rows in its order, cards that open the detail. */
+/**
+ * Home composed by the server (doc 03): its rows in its order, cards that open the detail. The header leads to
+ * Search and to "La mia lista" (the server's Home has no watchlist row).
+ */
 @Composable
-fun HomeScreen(container: AppContainer, onOpen: (String) -> Unit, onSwitchProfile: () -> Unit) {
+fun HomeScreen(
+    container: AppContainer,
+    onOpen: (String) -> Unit,
+    onSearch: () -> Unit,
+    onWatchlist: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
     val vm = viewModel { HomeViewModel(container) }
     val state by vm.state.collectAsState()
     // Events and the end of a playback bump the library version: reload without losing what is on screen.
@@ -62,11 +73,25 @@ fun HomeScreen(container: AppContainer, onOpen: (String) -> Unit, onSwitchProfil
             container.prefs.profileName?.let {
                 Text(it, style = MaterialTheme.typography.titleMedium, color = PzfColors.Muted, modifier = Modifier.padding(end = 16.dp))
             }
-            PzfButton(Txt.SWITCH_PROFILE, onSwitchProfile)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                PzfButton(Txt.SEARCH, onSearch, Modifier.testTag("search"))
+                PzfButton(Txt.WATCHLIST, onWatchlist, Modifier.testTag("watchlist"))
+                PzfButton(Txt.SWITCH_PROFILE, onSwitchProfile)
+            }
         }
         when (val s = state) {
             Load.Loading -> Busy()
-            is Load.Failed -> ErrorPanel(Txt.error(s.error), listOf(Txt.RETRY to { vm.reload() }, Txt.SWITCH_PROFILE to onSwitchProfile))
+            is Load.Failed -> if ((s.error as? ApiException)?.code == "NETWORK") {
+                // Nothing answers at the remembered address: try again, or type another one.
+                val address = container.connection?.base?.let { "${it.host}:${it.port}" }
+                ErrorPanel(
+                    listOfNotNull(Txt.ERROR_NETWORK, address?.let(Txt::serverAddress)).joinToString("\n"),
+                    listOf(Txt.RETRY to { vm.reload() }, Txt.SERVER_CHANGE to onChangeServer),
+                    title = Txt.SERVER_UNREACHABLE_TITLE,
+                )
+            } else {
+                ErrorPanel(Txt.error(s.error), listOf(Txt.RETRY to { vm.reload() }, Txt.SWITCH_PROFILE to onSwitchProfile))
+            }
             is Load.Ready -> {
                 val rows = s.value.rows.filter { it.items.isNotEmpty() }
                 if (rows.isEmpty()) {

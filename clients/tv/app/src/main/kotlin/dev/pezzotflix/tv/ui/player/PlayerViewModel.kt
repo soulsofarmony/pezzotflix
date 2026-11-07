@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.pezzotflix.api.models.ClientCapabilities
 import dev.pezzotflix.tv.AppContainer
 import dev.pezzotflix.tv.BuildConfig
+import dev.pezzotflix.tv.DebugOptions
 import dev.pezzotflix.tv.LOG_TAG
 import dev.pezzotflix.tv.api.ApiJson
 import dev.pezzotflix.tv.player.Media3Engine
@@ -42,7 +43,7 @@ class PlayerViewModel(private val container: AppContainer, args: Screen.Player) 
         capabilities = {
             withContext(Dispatchers.Default) {
                 val facts = PlatformFacts.read(container.app, BuildConfig.VERSION_NAME)
-                CapabilityMapper.map(facts, softwareDecoders = BuildConfig.DEBUG && container.debug.softwareDecoders).also {
+                CapabilityMapper.map(facts, softwareDecoders = DebugOptions.allowed() && container.debug.softwareDecoders).also {
                     Log.i(LOG_TAG, "capabilities ${ApiJson.encodeToString(ClientCapabilities.serializer(), it)}")
                 }
             }

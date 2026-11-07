@@ -32,6 +32,8 @@ sealed interface Screen {
     data object Profiles : Screen
     data object Home : Screen
     data class Item(val id: String) : Screen
+    data object Search : Screen
+    data object Watchlist : Screen
     data class Player(val itemId: String, val title: String, val startPositionMs: Long?, val versionCount: Int?) : Screen
 }
 
@@ -46,6 +48,11 @@ fun startScreen(container: AppContainer): Screen = when {
 fun SnapshotStateList<Screen>.resetTo(screen: Screen) {
     clear()
     add(screen)
+}
+
+/** Back from [screen] when it is still on top (a late callback of a screen already left does nothing). */
+private fun pop(backStack: SnapshotStateList<Screen>, screen: Screen) {
+    if (backStack.size > 1 && backStack.lastOrNull() == screen) backStack.removeAt(backStack.lastIndex)
 }
 
 /**
@@ -110,9 +117,15 @@ fun AppNav(container: AppContainer, restart: (() -> Unit)? = null) {
                     HomeScreen(
                         container,
                         onOpen = { backStack.add(Screen.Item(it)) },
+                        onSearch = { backStack.add(Screen.Search) },
+                        onWatchlist = { backStack.add(Screen.Watchlist) },
                         onSwitchProfile = {
                             container.stopEvents()
                             backStack.resetTo(Screen.Profiles)
+                        },
+                        onChangeServer = {
+                            container.stopEvents()
+                            backStack.resetTo(Screen.Server)
                         },
                     )
                 }
@@ -121,8 +134,16 @@ fun AppNav(container: AppContainer, restart: (() -> Unit)? = null) {
                         container,
                         key.id,
                         onPlay = { backStack.add(it) },
+                        onOpen = { backStack.add(Screen.Item(it)) },
                         onReplaced = { id -> if (backStack.lastOrNull() == key) backStack[backStack.lastIndex] = Screen.Item(id) },
+                        onBack = { pop(backStack, key) },
                     )
+                }
+                entry<Screen.Search> {
+                    SearchScreen(container, onOpen = { backStack.add(Screen.Item(it)) })
+                }
+                entry<Screen.Watchlist> { key ->
+                    WatchlistScreen(container, onOpen = { backStack.add(Screen.Item(it)) }, onBack = { pop(backStack, key) })
                 }
                 entry<Screen.Player> { key ->
                     PlayerScreen(container, key, onExit = { if (backStack.lastOrNull() == key) backStack.removeAt(backStack.lastIndex) })

@@ -38,8 +38,12 @@ export function audioFraming(action: Extract<AudioAction, { kind: 'convert' }>, 
   }
 }
 
-/** Fixed FLAC block size, so the frame grid is known (the encoder's default depends on the rate). */
-const FLAC_FRAME_SAMPLES = 4608;
+/**
+ * Fixed FLAC block size, so the frame grid is known (the encoder's default depends on the rate). 1152, not
+ * 4608: 4608-sample frames of real 24-bit 5.1/7.1 audio exceed the 32 KiB input buffer of Android's
+ * c2.android.flac.decoder and playback stops (ADR 0008, spike S5).
+ */
+const FLAC_FRAME_SAMPLES = 1152;
 
 /**
  * Audio arguments. A conversion is anchored on the zero-based timeline (H-M1): aresample pads or trims

@@ -1,7 +1,8 @@
 package dev.pezzotflix.tv.player
 
 import android.content.Context
-import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -12,6 +13,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.text.Cue
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -21,22 +24,34 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.util.EventLogger
 import dev.pezzotflix.api.models.PlaybackSession
-import dev.pezzotflix.api.models.SessionTrack
 import dev.pezzotflix.tv.api.ServerUrl
 import dev.pezzotflix.tv.player.failures.FailureAction
 import dev.pezzotflix.tv.player.failures.FailureClassifier
 import dev.pezzotflix.tv.player.failures.PlayerError
 import dev.pezzotflix.tv.player.failures.PzfLoadErrorPolicy
+import dev.pezzotflix.tv.player.subtitles.SidecarOverlay
 import dev.pezzotflix.tv.player.tracks.MediaTrack
 import dev.pezzotflix.tv.player.tracks.TrackMatcher
 import dev.pezzotflix.tv.player.tracks.TrackPlan
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 
+/** The cues to draw now. Identity equality: comparing bitmap cues field by field would compare their pixels. */
+class CueFrame(val cues: List<Cue>)
+
 /**
  * The one ExoPlayer of a player screen (doc 05 §8.10): progressive Direct Play and HLS Direct Stream from the session's
- * locators (the session token is in the path; [http] carries no Bearer), side-loaded WebVTT sidecars, the plan's tracks
- * forced with TrackSelectionOverride, a 100 MiB buffer cap, the TV's load error policy. Tunneling stays off.
+ * locators (the session token is in the path; [http] carries no Bearer), the plan's tracks forced with
+ * TrackSelectionOverride, a 100 MiB buffer cap, the TV's load error policy. Tunneling stays off.
+ * Subtitles: embedded ones are Media3's; those served apart (WebVTT sidecar, PGS .sup) are the [SidecarOverlay]'s,
+ * looked up at the player's position every [OVERLAY_TICK_MS]. [cues] carries whichever is showing.
  */
 @OptIn(UnstableApi::class)
 class Media3Engine(
@@ -56,7 +71,35 @@ class Media3Engine(
     private var plan: TrackPlan? = null
     private var tracksApplied = false
     private var supportChecked = false
-    private var subtitleUrls: Set<String> = emptySet()
+    private val main = Handler(Looper.getMainLooper())
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val _cues = MutableStateFlow(CueFrame(emptyList()))
+    val cues: StateFlow<CueFrame> = _cues.asStateFlow()
+    private var embeddedCues: List<Cue> = emptyList()
+
+    private val overlay = SidecarOverlay(
+        http = http,
+        resolve = { ServerUrl.resolve(server, it)?.toString() },
+        scope = scope,
+        cacheDir = context.cacheDir,
+        listener = object : SidecarOverlay.Listener {
+            override fun onPreparing(preparing: Boolean) {
+                this@Media3Engine.listener?.onSubtitlePreparing(preparing)
+            }
+
+            override fun onFailure(trackId: String) {
+                this@Media3Engine.listener?.onFailure(FailureClassifier.subtitleLoadFailed(trackId))
+            }
+        },
+        log = log,
+    )
+
+    private val tick = object : Runnable {
+        override fun run() {
+            renderOverlay()
+            if (overlay.active) main.postDelayed(this, OVERLAY_TICK_MS)
+        }
+    }
 
     init {
         val loadControl = DefaultLoadControl.Builder()
@@ -77,35 +120,19 @@ class Media3Engine(
         if (verbose) player.addAnalyticsListener(EventLogger(LOG_TAG))
     }
 
-    override fun load(session: PlaybackSession, startMs: Long, listener: EngineListener) {
+    override fun load(session: PlaybackSession, startMs: Long, listener: EngineListener): FailureAction? {
+        val url = ServerUrl.resolve(server, session.stream.url)?.toString() ?: return FailureAction.Replan("unknown", "BAD_STREAM_URL")
         this.session = session
         this.listener = listener
         plan = null
         tracksApplied = false
         supportChecked = false
-        val url = ServerUrl.resolve(server, session.stream.url)?.toString()
-        if (url == null) {
-            listener.onFailure(FailureAction.Replan("unknown", "BAD_STREAM_URL"))
-            return
-        }
-        val sidecars = session.tracks.subtitles.filter { it.delivery == SessionTrack.Delivery.sidecar && it.url != null }
-        subtitleUrls = session.tracks.subtitles.mapNotNull { t -> t.url?.let { ServerUrl.resolve(server, it)?.toString() } }.toSet()
         val item = MediaItem.Builder()
             .setUri(url)
             .setMediaId(session.sessionId)
             .setMimeType(if (session.stream.protocol.value == "hls-fmp4") MimeTypes.APPLICATION_M3U8 else null)
-            .setSubtitleConfigurations(
-                sidecars.map { t ->
-                    MediaItem.SubtitleConfiguration.Builder(Uri.parse(ServerUrl.resolve(server, t.url!!).toString()))
-                        .setId(t.id)
-                        .setMimeType(MimeTypes.TEXT_VTT)
-                        .setLanguage(t.language)
-                        .setLabel(t.title)
-                        .build()
-                },
-            )
             .build()
-        log("load ${session.mode} ${session.stream.protocol} at ${startMs}ms, sidecars ${sidecars.size}")
+        log("load ${session.mode} ${session.stream.protocol} at ${startMs}ms")
         player.playWhenReady = false
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .clearOverrides()
@@ -113,18 +140,50 @@ class Media3Engine(
             .build()
         player.setMediaItem(item, startMs)
         player.prepare()
+        showOverlay(session)
+        return null
     }
 
     override fun update(session: PlaybackSession) {
         this.session = session
         applyPlan(player.currentTracks)
+        showOverlay(session)
+    }
+
+    override fun subtitleComplete(trackId: String) {
+        if (session != null) overlay.complete(trackId)
     }
 
     override fun unload() {
         listener = null
         session = null
+        overlay.clear()
+        main.removeCallbacks(tick)
+        embeddedCues = emptyList()
+        publishCues(emptyList())
         player.stop()
         player.clearMediaItems()
+    }
+
+    /** The selected subtitle when it is served apart: the overlay draws it, and Media3's text is off (TrackMatcher). */
+    private fun showOverlay(session: PlaybackSession) {
+        overlay.show(session.tracks.subtitles.firstOrNull { it.selected && SidecarOverlay.isSeparate(it) })
+        main.removeCallbacks(tick)
+        if (overlay.active) main.post(tick) else publishCues(embeddedCues)
+    }
+
+    private fun renderOverlay() {
+        if (!overlay.active || session == null) return
+        publishCues(overlay.cuesAt(player.currentPosition))
+    }
+
+    private fun publishCues(cues: List<Cue>) {
+        if (_cues.value.cues !== cues) _cues.value = CueFrame(cues)
+    }
+
+    override fun onCues(cueGroup: CueGroup) {
+        embeddedCues = cueGroup.cues
+        if (!overlay.active) publishCues(embeddedCues)
     }
 
     override fun positionMs(): Long? = if (session == null) null else player.currentPosition
@@ -146,6 +205,9 @@ class Media3Engine(
     override val isPlaying: Boolean get() = player.isPlaying
 
     fun release() {
+        overlay.clear()
+        main.removeCallbacks(tick)
+        scope.cancel()
         player.removeListener(this)
         player.release()
     }
@@ -186,8 +248,7 @@ class Media3Engine(
             p.text?.let { r -> b.setOverrideForType(TrackSelectionOverride(groups[r.group].mediaTrackGroup, r.index)) }
         }
         player.trackSelectionParameters = b.build()
-        listener?.onNotice(p.notice)
-        log("plan audio=${p.audio} text=${p.text} textOff=${p.textOff} notice=${p.notice}")
+        log("plan audio=${p.audio} text=${p.text} textOff=${p.textOff}")
     }
 
     private fun flatten(tracks: Tracks): List<MediaTrack> = tracks.groups.flatMapIndexed { g, group ->
@@ -239,6 +300,7 @@ class Media3Engine(
     }
 
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+        renderOverlay()
         if (reason == Player.DISCONTINUITY_REASON_SEEK) listener?.onSeeked()
     }
 
@@ -258,7 +320,7 @@ class Media3Engine(
             httpStatus = http?.responseCode,
             uri = http?.dataSpec?.uri?.toString(),
         )
-        val action = FailureClassifier.classify(e, subtitleUrls)
+        val action = FailureClassifier.classify(e)
         log("player error ${e.codeName} status=${e.httpStatus} renderer=${renderer?.sampleMimeType} -> $action")
         l.onFailure(action)
     }
@@ -267,5 +329,7 @@ class Media3Engine(
         const val LOG_TAG = "PZF"
         /** doc 05 §8.10: about 43 s of the typical sample, 6.5 s at a UHD remux's 128 Mb/s peak. */
         const val BUFFER_BYTES = 100 * 1024 * 1024
+        /** Overlay cue lookup period: well under a subtitle's on-screen precision, and cheap (one binary search). */
+        const val OVERLAY_TICK_MS = 40L
     }
 }

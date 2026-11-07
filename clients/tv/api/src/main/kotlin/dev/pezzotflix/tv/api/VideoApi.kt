@@ -4,10 +4,12 @@ import dev.pezzotflix.api.apis.CatalogApi
 import dev.pezzotflix.api.apis.PlaybackApi
 import dev.pezzotflix.api.apis.ProfilesApi
 import dev.pezzotflix.api.apis.SystemApi
+import dev.pezzotflix.api.apis.WatchStateApi
 import dev.pezzotflix.api.models.EventPage
 import dev.pezzotflix.api.models.FallbackRequest
 import dev.pezzotflix.api.models.Home
 import dev.pezzotflix.api.models.ItemDetail
+import dev.pezzotflix.api.models.ItemPage
 import dev.pezzotflix.api.models.ItemSummary
 import dev.pezzotflix.api.models.PlaybackSession
 import dev.pezzotflix.api.models.Profile
@@ -31,6 +33,7 @@ class VideoApi(retrofit: Retrofit) : PlaybackPort {
     private val catalog = retrofit.create(CatalogApi::class.java)
     private val playback = retrofit.create(PlaybackApi::class.java)
     private val bodies = retrofit.create(PlaybackBodiesApi::class.java)
+    private val watch = retrofit.create(WatchStateApi::class.java)
 
     suspend fun serverInfo(): ServerInfo = body { system.getServerInfo() }
     suspend fun listProfiles(): List<Profile> = body { profiles.listProfiles() }.profiles
@@ -39,6 +42,21 @@ class VideoApi(retrofit: Retrofit) : PlaybackPort {
     suspend fun item(itemId: String): ItemDetail = body { catalog.getItem(itemId) }
     suspend fun nextUp(seriesId: String): ItemSummary? = body { catalog.getNextUp(seriesId) }.item
     suspend fun listEvents(cursor: String?, limit: Long): EventPage = body { system.listEvents(cursor, limit) }
+
+    /** Seasons of a series or episodes of a season, every page (a season is short; [MAX_PAGES] bounds a bad cursor). */
+    suspend fun children(itemId: String): List<ItemSummary> = allPages { cursor -> body { catalog.getChildren(itemId, cursor, PAGE_LIMIT) } }
+
+    /** The profile's watchlist ("La mia lista"), by title as the web's list. */
+    suspend fun watchlist(): List<ItemSummary> = allPages { cursor -> body { catalog.listItems(inWatchlist = true, cursor = cursor, limit = PAGE_LIMIT) } }
+
+    /** Best matches first (one page: the server ranks them). */
+    suspend fun search(query: String): List<ItemSummary> = body { catalog.search(query, null, SEARCH_LIMIT) }.items
+
+    suspend fun markWatched(itemId: String) = noContent { watch.markWatched(itemId) }
+    suspend fun markUnwatched(itemId: String) = noContent { watch.markUnwatched(itemId) }
+    suspend fun addToWatchlist(itemId: String) = noContent { watch.addToWatchlist(itemId) }
+    suspend fun removeFromWatchlist(itemId: String) = noContent { watch.removeFromWatchlist(itemId) }
+    suspend fun clearProgress(itemId: String) = noContent { watch.clearProgress(itemId) }
 
     override suspend fun startPlayback(request: StartRequest): PlaybackSession =
         body { bodies.startPlayback(PlaybackBodies.startPlayback(request)) }
@@ -56,6 +74,17 @@ class VideoApi(retrofit: Retrofit) : PlaybackPort {
         body { playback.reportPlaybackFailure(sessionId, request) }
 
     override suspend fun terminateSession(sessionId: String) = noContent { playback.terminateSession(sessionId) }
+
+    private suspend fun allPages(page: suspend (String?) -> ItemPage): List<ItemSummary> {
+        val out = ArrayList<ItemSummary>()
+        var cursor: String? = null
+        repeat(MAX_PAGES) {
+            val p = page(cursor)
+            out += p.items
+            cursor = p.nextCursor ?: return out
+        }
+        return out
+    }
 
     private suspend fun <T : Any> body(call: suspend () -> Response<T>): T {
         val r = send(call)
@@ -83,5 +112,12 @@ class VideoApi(retrofit: Retrofit) : PlaybackPort {
             null
         }
         throw ApiException.fromResponse(r.code(), text, r.headers()["Retry-After"])
+    }
+
+    companion object {
+        /** The contract's maximum page size. */
+        const val PAGE_LIMIT = 200L
+        const val MAX_PAGES = 10
+        const val SEARCH_LIMIT = 50L
     }
 }

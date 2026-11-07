@@ -100,7 +100,7 @@ describe('ffmpeg command of a run (ADR 0003 D4, D11, D13)', () => {
       '-i', 'file:/media/Film/A/A.mkv',
       '-map', '0:0', '-map', '0:1',
       '-c:v', 'copy', '-tag:v', 'hvc1',
-      '-af', 'aresample=48000,aresample=async=1:min_comp=0.00001:first_pts=0', '-c:a', 'flac', '-frame_size', '4608',
+      '-af', 'aresample=48000,aresample=async=1:min_comp=0.00001:first_pts=0', '-c:a', 'flac', '-frame_size', '1152',
       ...TAIL,
     ]);
   });
@@ -108,7 +108,7 @@ describe('ffmpeg command of a run (ADR 0003 D4, D11, D13)', () => {
   it('a restart: -noaccurate_seek -ss Kₖ + 0.135, audio anchored on Kₖ; DV P7 gets remove_dovi; AVC no tag; no audio map without audio', () => {
     const p7 = directStreamArgs(plan({ video: { kind: 'copy', source: video(), tag: 'hvc1', dolbyVision: 'remove_dovi' } }), '/m/a.mkv', { seekS: seekSeconds(12_000, 14_000), keyframeMs: 12_000 });
     expect(p7.slice(5, 8)).toEqual(['-noaccurate_seek', '-ss', '12.135000']);
-    // FLAC frames of 4608 samples at 48 kHz (96 ms): 12 s is frame 125, first_pts 576000.
+    // FLAC frames of 1152 samples at 48 kHz (24 ms): 12 s is frame 500, first_pts 576000.
     expect(p7).toEqual(expect.arrayContaining(['-af', 'aresample=48000,aresample=async=1:min_comp=0.00001:first_pts=576000']));
     expect(p7).toEqual(expect.arrayContaining(['-bsf:v', 'hevc_metadata=remove_dovi=1']));
     const avc = directStreamArgs(plan({ video: { kind: 'copy', source: video({ codec: 'h264' }), tag: null, dolbyVision: 'none' }, audio: null }), '/m/a.mkv', null);
@@ -127,11 +127,13 @@ describe('ffmpeg command of a run (ADR 0003 D4, D11, D13)', () => {
   // The rate is always explicit (m1): the anchor is computed in the rate the first aresample outputs.
   it.each([
     [{ kind: 'copy' }, 48_000, 5000, ['-c:a', 'copy']],
-    [{ kind: 'convert', codec: 'flac', channels: 8, bitrateBps: null, layout: null }, 48_000, 0, ['-af', `aresample=48000,${A}0`, '-c:a', 'flac', '-frame_size', '4608']],
-    // FLAC keeps 96 kHz: 5 s is 480000 samples = 104.17 frames of 4608 → frame 104.
-    [{ kind: 'convert', codec: 'flac', channels: 6, bitrateBps: null, layout: null }, 96_000, 5000, ['-af', `aresample=96000,${A}479232`, '-c:a', 'flac', '-frame_size', '4608']],
+    [{ kind: 'convert', codec: 'flac', channels: 8, bitrateBps: null, layout: null }, 48_000, 0, ['-af', `aresample=48000,${A}0`, '-c:a', 'flac', '-frame_size', '1152']],
+    // FLAC keeps 96 kHz: 5 s is 480000 samples = 416.67 frames of 1152 → frame 416.
+    [{ kind: 'convert', codec: 'flac', channels: 6, bitrateBps: null, layout: null }, 96_000, 5000, ['-af', `aresample=96000,${A}479232`, '-c:a', 'flac', '-frame_size', '1152']],
+    // 1 s at 48 kHz is 48000 samples = 41.67 frames of 1152 → frame 41 (4608-sample frames would give 46080).
+    [{ kind: 'convert', codec: 'flac', channels: 6, bitrateBps: null, layout: null }, 48_000, 1000, ['-af', `aresample=48000,${A}47232`, '-c:a', 'flac', '-frame_size', '1152']],
     // Unknown source rate: 48 kHz, stated.
-    [{ kind: 'convert', codec: 'flac', channels: 6, bitrateBps: null, layout: null }, null, 5000, ['-af', `aresample=48000,${A}239616`, '-c:a', 'flac', '-frame_size', '4608']],
+    [{ kind: 'convert', codec: 'flac', channels: 6, bitrateBps: null, layout: null }, null, 5000, ['-af', `aresample=48000,${A}239616`, '-c:a', 'flac', '-frame_size', '1152']],
     // AAC: 1024-sample frames; 5 s at 48 kHz is 240000 samples = 234.375 frames → frame 234.
     [{ kind: 'convert', codec: 'aac', channels: 6, bitrateBps: 640_000, layout: '5.1' }, 48_000, 5000, ['-af', `aresample=48000,${A}239616,aformat=channel_layouts=5.1`, '-c:a', 'aac', '-b:a', '640000']],
     // AAC at 44.1 kHz: 220500 samples = 215.33 frames → 215 · 1024.
@@ -152,7 +154,7 @@ describe('ffmpeg command of a run (ADR 0003 D4, D11, D13)', () => {
 
   it('encoder framing per codec', () => {
     const conv = (codec: 'flac' | 'aac' | 'eac3' | 'opus') => ({ kind: 'convert', codec, channels: 2, bitrateBps: null, layout: null }) as unknown as Parameters<typeof audioFraming>[0];
-    expect(audioFraming(conv('flac'), { sampleRate: 96_000 })).toEqual({ rate: 96_000, frameSamples: 4608 });
+    expect(audioFraming(conv('flac'), { sampleRate: 96_000 })).toEqual({ rate: 96_000, frameSamples: 1152 });
     expect(audioFraming(conv('aac'), { sampleRate: 192_000 })).toEqual({ rate: 48_000, frameSamples: 1024 });
     expect(audioFraming(conv('eac3'), { sampleRate: 44_100 })).toEqual({ rate: 44_100, frameSamples: 1536 });
     expect(audioFraming(conv('opus'), { sampleRate: null })).toEqual({ rate: 48_000, frameSamples: 960 });

@@ -17,6 +17,7 @@ Source of truth for requirements: `docs/requirements/0001-video-service-requirem
 - [x] 6. Technology evaluation + ADRs — `docs/architecture/05-technology-evaluation.md`, `docs/adr/`: 0001–0007 all Accepted (0007 revised after the TMDB tests; 0003 streaming and 0005 web client accepted on 2026-11-05)
 - [x] 7. MVP implementation plan — `docs/architecture/06-mvp-plan.md`
 - [x] 8. MVP build — F0 scaffold ✅ (78c6713); F1a ingest: F1a.1 library + analyzer ✅ (2ed688f), F1a.2 identifier + catalog write ✅ (21d61b0), F1a.3 catalog read + admin ✅ (9c96f38), F1a.4 metadata + artwork ✅ (e5c57c1); F1b playback: F1b.0 plan + delivery port ✅ (c15320d), F1b.1 profiles ✅ (c08a5ec), F1b.2 decision engine + sessions ✅ (3e2b8c1), F1b.3 stream delivery ✅ (4c60f78), F1b.4 subtitles + transcode ✅ (5acca04); F1c web client ✅ (8111756); follow-ups ✅ (5da30a8), Italian reasons ✅ (f80caf5); F2 integration: F2a Compose stack + e2e ✅ (5808b1e), final review + fixes ✅ (5d2cc18, ec718e4, a5d698a, 910ad92), final e2e on a fresh stack ✅. **MVP done (2026-11-06).** Resume from `docs/journal/2026-11-05-sessione-portatile.md`.
+- [x] 9. TV client (ADR 0008, plan `docs/architecture/07-tv-client-plan.md`): F3a ✅ (739b67f), F3b ✅ (2026-11-07), tested on the Android TV emulator. The first run on the real TV is pending (plan §7). Build and install: `clients/tv/README.md`; the release signing key is outside the repo, in `%USERPROFILE%\.pezzotflix\` on the laptop.
 
 ## Hard rules
 

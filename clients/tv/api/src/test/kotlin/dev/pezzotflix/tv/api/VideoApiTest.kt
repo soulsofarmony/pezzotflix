@@ -177,6 +177,52 @@ class VideoApiTest {
         assertEquals("Bearer tok-1", server.takeRequest().headers["Authorization"])
     }
 
+    private fun summary(id: String) = """{"id":"$id","kind":"episode","title":"$id","badges":[],"available":true,"provisional":false}"""
+
+    /** Method and path of the request as the contract writes it, with the operationId it maps to. */
+    private fun RecordedRequest.operation(vararg params: Pair<String, String>): String? {
+        val path = url.encodedPath
+        val op = Contract.operations.singleOrNull { o ->
+            o.method == method && Regex("^" + o.path.replace(Regex("\\{[^}]+}"), "[^/]+") + "$").matches(path)
+        }
+        for ((k, v) in params) assertEquals("$path $k", v, url.queryParameter(k))
+        assertEquals("$path Bearer", "Bearer tok-1", headers["Authorization"])
+        return op?.operationId
+    }
+
+    @Test
+    fun libraryCallsFollowTheContract() = runBlocking {
+        // Children: every page, following the cursor.
+        server.enqueue(json(200, """{"items":[${summary("e1")}],"nextCursor":"c2"}"""))
+        server.enqueue(json(200, """{"items":[${summary("e2")}],"nextCursor":null}"""))
+        assertEquals(listOf("e1", "e2"), api.children("s1").map { it.id })
+        assertEquals("getChildren", server.takeRequest().operation("limit" to "200"))
+        assertEquals("getChildren", server.takeRequest().operation("cursor" to "c2"))
+
+        server.enqueue(json(200, """{"items":[${summary("m1")}],"nextCursor":null}"""))
+        assertEquals(listOf("m1"), api.watchlist().map { it.id })
+        assertEquals("listItems", server.takeRequest().operation("inWatchlist" to "true"))
+
+        server.enqueue(json(200, """{"items":[${summary("m2")}],"nextCursor":null}"""))
+        assertEquals(listOf("m2"), api.search("blade runner").map { it.id })
+        assertEquals("search", server.takeRequest().operation("q" to "blade runner", "limit" to "50"))
+
+        val calls = listOf<Pair<String, suspend () -> Unit>>(
+            "markWatched" to { api.markWatched("m1") },
+            "markUnwatched" to { api.markUnwatched("m1") },
+            "addToWatchlist" to { api.addToWatchlist("m1") },
+            "removeFromWatchlist" to { api.removeFromWatchlist("m1") },
+            "clearProgress" to { api.clearProgress("m1") },
+        )
+        for ((operationId, call) in calls) {
+            server.enqueue(noContent())
+            call()
+            val req = server.takeRequest()
+            assertEquals(operationId, req.operation())
+            assertTrue(req.url.encodedPath, req.url.encodedPath.contains("/m1"))
+        }
+    }
+
     @Test
     fun publicOperationsAreTheContractsUnsecuredOnes() {
         val fromBundle = Contract.operations.filter { it.public }.map { it.operationId }.toSet()

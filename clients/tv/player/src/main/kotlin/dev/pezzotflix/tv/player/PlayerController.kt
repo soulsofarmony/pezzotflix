@@ -13,7 +13,6 @@ import dev.pezzotflix.tv.api.StartRequest
 import dev.pezzotflix.tv.api.SubtitleChoice
 import dev.pezzotflix.tv.api.TrackChange
 import dev.pezzotflix.tv.player.failures.FailureAction
-import dev.pezzotflix.tv.player.tracks.TrackPlan
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -42,6 +41,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   unknown start again from here. A stream's 404/410 says nothing about why: one heartbeat asks first.
  * - Giving up (a failure, leaving the player, onStop) stops the session: it would hold the only slot until timeout.
  *   Those stops run on [releaseScope], which outlives the screen.
+ * - Calls that create or end a session (StartPlayback, StopPlayback) also run on [releaseScope] and are only awaited
+ *   from [scope]: leaving the screen cancels the wait, not the request. A session created after its screen left is
+ *   stopped at once.
  */
 class PlayerController(
     private val api: PlaybackPort,
@@ -62,8 +64,6 @@ class PlayerController(
     sealed interface Notice {
         /** The server refused a track change (422): the current tracks stay. */
         data class ChangeRefused(val detail: String?) : Notice
-        /** The selected subtitle is an image track served apart (.sup): not rendered by this version. */
-        data object ImageSubtitleNotRendered : Notice
     }
 
     data class State(
@@ -83,6 +83,8 @@ class PlayerController(
         val terminatedReason: String? = null,
         val notice: Notice? = null,
         val busy: Boolean = false,
+        /** The selected subtitle served apart cannot show anything yet (its url answers 503, or nothing arrived). */
+        val subtitlePreparing: Boolean = false,
     )
 
     data class StartOptions(
@@ -242,7 +244,7 @@ class PlayerController(
             startPositionMs = startPositionMs?.coerceAtLeast(0),
         )
         // StartPlayback is not a session call: its 404 is an unknown item, never a closed session.
-        val outcome = withPreparing(op, { api.startPlayback(body) })
+        val outcome = withPreparing(op, { startDetached(body, startPositionMs) })
         if (outcome !is Outcome.Ok) return
         val session = outcome.session
         if (op != this.op) {
@@ -250,6 +252,33 @@ class PlayerController(
             return
         }
         playSession(op, session, startPositionMs ?: session.resumePositionMs)
+    }
+
+    /**
+     * StartPlayback on [releaseScope], awaited here. If the wait is cancelled (Back while the call is in flight clears
+     * the screen's scope) and the server then answers with a session, that session is stopped: nobody else knows it.
+     */
+    private suspend fun startDetached(body: StartRequest, startPositionMs: Long?): PlaybackSession {
+        // The error travels in the Result: a failed child must not be reported to (or cancel) releaseScope.
+        val call = releaseScope.async { runCatching { api.startPlayback(body) } }
+        try {
+            return call.await().getOrThrow()
+        } catch (e: CancellationException) {
+            call.invokeOnCompletion { cause ->
+                if (cause != null) return@invokeOnCompletion
+                val orphan = call.getCompleted().getOrNull() ?: return@invokeOnCompletion
+                log("StartPlayback answered after its screen left: stopping ${orphan.sessionId}")
+                releaseScope.launch { runCatching { api.stopPlayback(orphan.sessionId, startPositionMs ?: orphan.resumePositionMs) } }
+            }
+            throw e
+        }
+    }
+
+    /** StopPlayback on [releaseScope], waited for at most STOP_WAIT_MS: a cancel or the timeout ends the wait, not the stop. */
+    private suspend fun stopAndWait(ids: Collection<String>, positionMs: Long) {
+        val list = ids.toList()
+        val stop = releaseScope.launch { for (id in list) runCatching { api.stopPlayback(id, positionMs) } }
+        withTimeoutOrNull(STOP_WAIT_MS) { stop.join() }
     }
 
     /**
@@ -330,9 +359,15 @@ class PlayerController(
         }
         if (op != this.op) return
         val gen = ++generation
+        val refused = engine.load(session, startMs, listenerFor(gen))
+        if (refused != null) {
+            // Nothing loaded and nothing set: the automatic attempt decides the next state.
+            log("stream refused at load: $refused")
+            scope.launch { automatic(refused, startMs) }
+            return
+        }
         loadedGen = gen
         bound = gen
-        engine.load(session, startMs, listenerFor(gen))
         loaded = true
         lastState = ProgressReport.State.buffering
         set { copy(phase = Phase.PLAYING, busy = false) }
@@ -371,10 +406,8 @@ class PlayerController(
             if (live()) report()
         }
 
-        override fun onNotice(notice: TrackPlan.Notice?) {
-            if (!live()) return
-            if (notice == TrackPlan.Notice.IMAGE_SUBTITLE_NOT_RENDERED) set { copy(notice = Notice.ImageSubtitleNotRendered) }
-            else if (s.notice == Notice.ImageSubtitleNotRendered) set { copy(notice = null) }
+        override fun onSubtitlePreparing(preparing: Boolean) {
+            if (live()) set { copy(subtitlePreparing = preparing) }
         }
     }
 
@@ -384,6 +417,7 @@ class PlayerController(
         if (loaded) engine.unload()
         loaded = false
         stopTicker()
+        if (s.subtitlePreparing) set { copy(subtitlePreparing = false) }
     }
 
     /** The engine keeps playing, but its listener no longer acts: the server is replacing its stream. */
@@ -484,7 +518,7 @@ class PlayerController(
         }
         if (old != null) {
             closedSessionId = old.sessionId
-            withTimeoutOrNull(STOP_WAIT_MS) { runCatching { api.stopPlayback(old.sessionId, pos) } }
+            stopAndWait(listOf(old.sessionId), pos)
         }
         val req = request ?: return
         if (op != this.op) return
@@ -508,11 +542,9 @@ class PlayerController(
 
     // ------------------------------------------------------------ session changes
 
+    /** Subtitles served apart are the overlay's, not part of what Media3 loads: engine.update() takes them. */
     private fun sameStream(a: PlaybackSession, b: PlaybackSession): Boolean =
-        a.stream.url == b.stream.url && a.stream.protocol == b.stream.protocol && sidecarUrls(a) == sidecarUrls(b)
-
-    private fun sidecarUrls(x: PlaybackSession): Set<String> =
-        x.tracks.subtitles.filter { it.delivery == SessionTrack.Delivery.sidecar }.mapNotNull { it.url }.toSet()
+        a.stream.url == b.stream.url && a.stream.protocol == b.stream.protocol
 
     /** A session returned by a change or a re-plan. Same stream: keep the engine; else a new load from here. */
     private fun applySession(op: Int, next: PlaybackSession, positionMs: Long) {
@@ -635,15 +667,11 @@ class PlayerController(
                 if (e.sessionId != x.sessionId || x.sessionId == closedSessionId) return
                 val availability = SessionTrack.Availability.entries.firstOrNull { it.value == e.availability } ?: return
                 val subtitles = x.tracks.subtitles.map { if (it.id == e.trackId) it.copy(availability = availability) else it }
-                val updated = x.copy(tracks = x.tracks.copy(subtitles = subtitles))
-                set { copy(session = updated) }
-                val selected = subtitles.firstOrNull { it.selected }
-                // The selected sidecar grew to its final file: load it again from here.
-                if (availability == SessionTrack.Availability.complete && selected != null && selected.id == e.trackId &&
-                    selected.delivery == SessionTrack.Delivery.sidecar && s.phase == Phase.PLAYING && loaded
-                ) {
-                    playSession(++op, updated, positionMs())
-                }
+                set { copy(session = x.copy(tracks = x.tracks.copy(subtitles = subtitles))) }
+                // The track's file is final: the overlay reads it again and swaps its cues. The player and any track
+                // change in flight are not touched (the overlay acts only if it still shows that track).
+                val trackId = e.trackId
+                if (availability == SessionTrack.Availability.complete && trackId != null && loaded) engine.subtitleComplete(trackId)
             }
             is AppEvent.SessionTerminated -> {
                 val x = s.session ?: return
@@ -672,11 +700,14 @@ class PlayerController(
 
     fun togglePlay() {
         if (!loaded) return
-        if (engine.isPlaying) engine.pause() else engine.play()
+        if (engine.isPlaying) engine.pause() else play()
     }
 
     fun play() {
-        if (loaded) engine.play()
+        if (!loaded) return
+        // At the end, play alone would stay ended (Media3): start again from the beginning, as players do.
+        if (s.ended) seekTo(0)
+        engine.play()
     }
 
     fun pause() {
@@ -800,9 +831,7 @@ class PlayerController(
             if (ok != true) toStop += r.sessionId
         }
         if (toStop.isEmpty()) return
-        withTimeoutOrNull(STOP_WAIT_MS) {
-            for (id in toStop) runCatching { api.stopPlayback(id, positionMs) }
-        }
+        stopAndWait(toStop, positionMs)
     }
 
     companion object {

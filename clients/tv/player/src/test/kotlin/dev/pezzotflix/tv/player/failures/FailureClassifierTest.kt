@@ -36,10 +36,13 @@ class FailureClassifierTest {
     }
 
     @Test
-    fun aFailedSubtitleLoadIsASubtitleFailure() {
+    fun subtitlesServedApartFailThroughTheOverlayNotMedia3() {
+        // Media3 loads only the stream: a 404 is the stream's (the session closed), whatever the url.
         val url = "http://192.168.1.12:18480/video/media/s/tok/subtitles/s6.vtt"
         val e = err(PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, status = 404, uri = url)
-        assertEquals(FailureAction.Replan("subtitle", "SUBTITLE_LOAD_FAILED"), FailureClassifier.classify(e, setOf(url)))
+        assertEquals(FailureAction.Restart("HTTP_404"), FailureClassifier.classify(e))
+        // The overlay's failure, as the web client reports it (doc 05 §8.10).
+        assertEquals(FailureAction.Replan("subtitle", "SUBTITLE_LOAD_FAILED:s6"), FailureClassifier.subtitleLoadFailed("s6"))
     }
 
     @Test

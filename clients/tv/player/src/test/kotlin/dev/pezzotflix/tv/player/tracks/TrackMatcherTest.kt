@@ -24,7 +24,6 @@ class TrackMatcherTest {
         for ((a, t, expected) in cases) {
             val plan = TrackMatcher.plan(Fixtures.odyssey(a, t), Fixtures.odysseyMedia())
             assertEquals("$a/$t", expected, Triple(plan.audio?.group, plan.text?.group, plan.textOff))
-            assertNull(plan.notice)
         }
     }
 
@@ -50,7 +49,7 @@ class TrackMatcherTest {
     }
 
     @Test
-    fun bladeRunnerDirectStreamUsesSidecarsByIdAndSkipsTheSup() {
+    fun bladeRunnerDirectStreamLeavesSubtitlesServedApartToTheOverlay() {
         val session = Fixtures.session(
             DeliveryMode.direct_stream, "/video/media/s/tok_bbbbbbbbbbbbbbbb/hls/master.m3u8", PlaybackSessionStream.Protocol.hlsMinusFmp4,
             audio = listOf(audio("s1", 1, "truehd", "ita", 6, true, "TrueHD 5.1"), audio("s2", 2, "eac3", "eng", 6), audio("s3", 3, "ac3", "ita", 2)),
@@ -61,22 +60,18 @@ class TrackMatcherTest {
                 sub("s7", 7, "ass", "eng", title = "ASS styled", delivery = Delivery.sidecar, url = "/video/media/s/tok/subtitles/s7.vtt"),
             ),
         )
+        // The HLS stream carries video and audio only: subtitles served apart never reach Media3.
         val media = listOf(
             media(MediaTrack.Kind.VIDEO, 0, "1", "video/hevc", null, null, null),
             media(MediaTrack.Kind.AUDIO, 1, "2", "audio/flac", null, null, 6),
-            media(MediaTrack.Kind.TEXT, 2, "1:s6", Fixtures.CUES, "text/vtt", "it", null),
-            media(MediaTrack.Kind.TEXT, 3, "2:s7", Fixtures.CUES, "text/vtt", "en", null),
         )
         val forced = TrackMatcher.plan(session, media)
-        // One muxed audio track in HLS: no override; the .sup is not rendered by this version.
+        // One muxed audio track in HLS: no override; the .sup is the overlay's, Media3's text is off.
         assertNull(forced.audio)
-        assertEquals(true, forced.textOff)
-        assertEquals(TrackPlan.Notice.IMAGE_SUBTITLE_NOT_RENDERED, forced.notice)
+        assertEquals(TrackPlan(null, null, textOff = true), forced)
 
         val srt = session.copy(tracks = session.tracks.copy(subtitles = session.tracks.subtitles.map { it.copy(selected = it.id == "s7") }))
-        val plan = TrackMatcher.plan(srt, media)
-        assertEquals(3, plan.text?.group)
-        assertEquals(false, plan.textOff)
+        assertEquals(TrackPlan(null, null, textOff = true), TrackMatcher.plan(srt, media))
     }
 
     @Test

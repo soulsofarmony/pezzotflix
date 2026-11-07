@@ -3,6 +3,9 @@
 package dev.pezzotflix.tv.ui.player
 
 import android.view.KeyEvent as AndroidKeyEvent
+import android.view.ViewTreeObserver
+import android.view.WindowInsets
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.OptIn
@@ -38,17 +41,17 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
-import androidx.media3.common.text.Cue
-import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPresentationState
 import dev.pezzotflix.tv.AppContainer
+import dev.pezzotflix.tv.player.CueFrame
 import dev.pezzotflix.tv.player.PlayerController.Phase
 import dev.pezzotflix.tv.ui.Screen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 
 enum class Panel { AUDIO, SUBTITLES, INFO }
 
@@ -154,7 +157,7 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
             .testTag("player"),
     ) {
         Video(player)
-        Subtitles(player)
+        Subtitles(vm.engine.cues)
         if (controlsVisible && state.phase == Phase.PLAYING) {
             Controls(
                 title = args.title,
@@ -178,6 +181,7 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
             onDismissNotice = controller::dismissNotice,
         )
     }
+    KeepKeyboardHidden()
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 }
 
@@ -193,19 +197,13 @@ private fun Video(player: Player) {
     }
 }
 
-/** Media3's SubtitleView: text cues (SRT, WebVTT) and bitmap cues (embedded PGS) with the system caption style. */
+/**
+ * Media3's SubtitleView with the system caption style: text cues (SRT, WebVTT) and bitmap cues (PGS), embedded ones
+ * from Media3 and those served apart from the engine's overlay.
+ */
 @Composable
-private fun Subtitles(player: Player) {
-    var cues by remember { mutableStateOf<List<Cue>>(player.currentCues.cues) }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onCues(cueGroup: CueGroup) {
-                cues = cueGroup.cues
-            }
-        }
-        player.addListener(listener)
-        onDispose { player.removeListener(listener) }
-    }
+private fun Subtitles(cues: StateFlow<CueFrame>) {
+    val frame by cues.collectAsState()
     AndroidView(
         factory = { ctx ->
             SubtitleView(ctx).apply {
@@ -213,9 +211,32 @@ private fun Subtitles(player: Player) {
                 setUserDefaultTextSize()
             }
         },
-        update = { it.setCues(cues) },
+        update = { it.setCues(frame.cues) },
         modifier = Modifier.fillMaxSize(),
     )
+}
+
+/**
+ * The soft keyboard stays closed while the player shows: on Android 11 a keyboard closed earlier (the search field)
+ * can come back at the SurfaceView's relayout, over the film and eating the D-pad (see AppNav), despite the
+ * Activity's stateAlwaysHidden. Every layout pass checks the window's insets and hides it again.
+ */
+@Composable
+private fun KeepKeyboardHidden() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val imm = view.context.getSystemService(InputMethodManager::class.java)
+        fun hide() {
+            view.windowInsetsController?.hide(WindowInsets.Type.ime())
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+        }
+        hide()
+        val onLayout = ViewTreeObserver.OnGlobalLayoutListener {
+            if (view.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) == true) hide()
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(onLayout)
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(onLayout) }
+    }
 }
 
 const val SKIP_MS = 10_000L
