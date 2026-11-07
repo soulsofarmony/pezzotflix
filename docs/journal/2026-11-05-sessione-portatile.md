@@ -60,6 +60,20 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 2. Controlli del proprietario (§5), che decidono P5 e H11.
 3. Film di prova legali (Tears of Steel, Sintel e simili) in `media-samples/`, se il proprietario dà l'ok al download.
 4. App per la TV (§2), poi le lacune di §4 in ordine di impatto.
+5. **Primo setup del server sul PC fisso** (proprietario, 2026-11-07). Ci resta finché non arriva il mini-PC; poi il trasloco porta solo i volumi. Passi, con `deploy/README.md`:
+   - **repository:** `git pull`, poi `.env` da `.env.example`. Il token TMDB lo copia il proprietario dal `.env` del portatile: mai in chat né in un commit;
+   - **libreria:** `MEDIA_DIR` sul disco dei film e `LIBRARY_ROOTS` con una radice per tipo (film, serie, documentari), un disco per radice. Si copia anche il 2001 di prova;
+   - **rete:**
+     - il fisso col cavo, con l'indirizzo fisso dal router del proprietario (prenotazione DHCP), e lo stesso per la TV;
+     - la porta 8080 aperta nel firewall di Windows: è un prompt di amministratore, lo fa il proprietario;
+   - **Windows:**
+     - niente sospensione;
+     - utente con l'accesso fatto, perché Docker Desktop parte solo dopo il login;
+     - Docker Desktop avviato all'accesso;
+     - `.wslconfig` con un tetto di memoria adatto al fisso;
+   - **scansione:** sui dischi NTFS i cambi non arrivano al container (inotify), vale la scansione periodica (`LIBRARY_SCAN_INTERVAL_MIN`);
+   - **backup:** il volume `video-backup` va copiato fuori dal PC ogni tanto;
+   - **app TV:** l'indirizzo del server diventa quello del fisso. La scheda NVIDIA (NVENC, H10 ✅ su quel PC) rende possibile il transcode in hardware: è una decisione a parte (P2), non serve per il primo setup.
 
 ## 4. Lacune note, da riprendere
 
