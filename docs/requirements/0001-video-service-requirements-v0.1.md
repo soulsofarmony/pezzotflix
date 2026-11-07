@@ -129,6 +129,8 @@ Il sistema deve quindi poter gestire contenuti quali:
 
 La qualità del supporto originale deve poter essere mantenuta end-to-end quando il client è in grado di riprodurla.
 
+> **Aggiornamento del proprietario (2026-11-07).** Nella pratica la libreria sarà fatta soprattutto di **ricodifiche x265** da circa 20 GB per un film 4K, o meno. Esempio: HEVC Main10 HDR10 a circa 20 Mbit/s, audio Dolby Digital 5.1 e AAC 5.1, sottotitoli PGS e SRT. I remux restano supportati, e per loro valgono le regole di questa sezione.
+
 ---
 
 # 5. Strategia di playback
@@ -224,6 +226,8 @@ Accesso tramite browser/web application.
 Applicazione/interfaccia dedicata alla fruizione sul televisore principale.
 
 Il client TV rappresenta uno dei casi d'uso principali per la riproduzione alla qualità originale.
+
+> **Nota (2026-11-07).** Il televisore principale è un Haier H65C95EUX: OLED, Android TV 11, audio dagli altoparlanti integrati, senza amplificatore esterno. Per ora quindi l'audio lossless in passthrough non ha nessun ricevitore. Tecnologia del client: ADR 0008. Caratteristiche misurate: spike S5.
 
 ### Mobile
 

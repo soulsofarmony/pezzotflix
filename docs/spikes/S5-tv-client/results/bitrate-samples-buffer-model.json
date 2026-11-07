@@ -1,0 +1,297 @@
+[
+ {
+  "file": "Blade Runner 2049 (2017) - 2160p Remux.mkv",
+  "avgMbps": 99.5,
+  "peak1sMbps": 102.1,
+  "peak5sMbps": 101.5,
+  "peak30sMbps": 99.5,
+  "peak60sMbps": 99.5,
+  "peak300sMbps": 99.5,
+  "bufferNeeded": {
+   "20": {
+    "MB": 298.3,
+    "sAtAvg": 24.0
+   },
+   "25": {
+    "MB": 279.5,
+    "sAtAvg": 22.5
+   },
+   "30": {
+    "MB": 260.8,
+    "sAtAvg": 21.0
+   },
+   "35": {
+    "MB": 242.0,
+    "sAtAvg": 19.5
+   },
+   "40": {
+    "MB": 223.3,
+    "sAtAvg": 17.9
+   },
+   "50": {
+    "MB": 185.8,
+    "sAtAvg": 14.9
+   },
+   "60": {
+    "MB": 148.9,
+    "sAtAvg": 12.0
+   },
+   "80": {
+    "MB": 76.5,
+    "sAtAvg": 6.1
+   },
+   "trace:net/run1": {
+    "MB": 111.7,
+    "sAtAvg": 9.0
+   },
+   "trace:net2/net2-run1": {
+    "MB": 103.2,
+    "sAtAvg": 8.3
+   },
+   "trace:net2/net2-run2": {
+    "MB": 110.3,
+    "sAtAvg": 8.9
+   },
+   "trace:net2/net2-run3": {
+    "MB": 111.2,
+    "sAtAvg": 8.9
+   }
+  }
+ },
+ {
+  "file": "Dune.2021.2160p.UHD.BluRay.REMUX.DV.HDR.mkv",
+  "avgMbps": 34.4,
+  "peak1sMbps": 53.6,
+  "peak5sMbps": 42.8,
+  "peak30sMbps": 34.4,
+  "peak60sMbps": 34.4,
+  "peak300sMbps": 34.4,
+  "bufferNeeded": {
+   "20": {
+    "MB": 54.9,
+    "sAtAvg": 12.8
+   },
+   "25": {
+    "MB": 37.9,
+    "sAtAvg": 8.8
+   },
+   "30": {
+    "MB": 21.7,
+    "sAtAvg": 5.0
+   },
+   "35": {
+    "MB": 7.0,
+    "sAtAvg": 1.6
+   },
+   "40": {
+    "MB": 3.3,
+    "sAtAvg": 0.8
+   },
+   "50": {
+    "MB": 0.8,
+    "sAtAvg": 0.2
+   },
+   "60": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "80": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net/run1": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run1": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run2": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run3": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   }
+  }
+ },
+ {
+  "file": "Oppenheimer (2023).mkv",
+  "avgMbps": 44.2,
+  "peak1sMbps": 75.3,
+  "peak5sMbps": 57.8,
+  "peak30sMbps": 44.2,
+  "peak60sMbps": 44.2,
+  "peak300sMbps": 44.2,
+  "bufferNeeded": {
+   "20": {
+    "MB": 91.0,
+    "sAtAvg": 16.5
+   },
+   "25": {
+    "MB": 73.5,
+    "sAtAvg": 13.3
+   },
+   "30": {
+    "MB": 56.5,
+    "sAtAvg": 10.2
+   },
+   "35": {
+    "MB": 40.1,
+    "sAtAvg": 7.3
+   },
+   "40": {
+    "MB": 24.4,
+    "sAtAvg": 4.4
+   },
+   "50": {
+    "MB": 6.2,
+    "sAtAvg": 1.1
+   },
+   "60": {
+    "MB": 3.7,
+    "sAtAvg": 0.7
+   },
+   "80": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net/run1": {
+    "MB": 1.4,
+    "sAtAvg": 0.3
+   },
+   "trace:net2/net2-run1": {
+    "MB": 1.9,
+    "sAtAvg": 0.3
+   },
+   "trace:net2/net2-run2": {
+    "MB": 1.4,
+    "sAtAvg": 0.2
+   },
+   "trace:net2/net2-run3": {
+    "MB": 1.4,
+    "sAtAvg": 0.2
+   }
+  }
+ },
+ {
+  "file": "Long Test (2024) - 2160p.mkv",
+  "avgMbps": 44.3,
+  "peak1sMbps": 71.8,
+  "peak5sMbps": 50.8,
+  "peak30sMbps": 44.6,
+  "peak60sMbps": 44.5,
+  "peak300sMbps": 44.3,
+  "bufferNeeded": {
+   "20": {
+    "MB": 911.5,
+    "sAtAvg": 164.6
+   },
+   "25": {
+    "MB": 724.0,
+    "sAtAvg": 130.7
+   },
+   "30": {
+    "MB": 537.0,
+    "sAtAvg": 97.0
+   },
+   "35": {
+    "MB": 350.5,
+    "sAtAvg": 63.3
+   },
+   "40": {
+    "MB": 164.7,
+    "sAtAvg": 29.7
+   },
+   "50": {
+    "MB": 3.0,
+    "sAtAvg": 0.5
+   },
+   "60": {
+    "MB": 1.5,
+    "sAtAvg": 0.3
+   },
+   "80": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net/run1": {
+    "MB": 7.1,
+    "sAtAvg": 1.3
+   },
+   "trace:net2/net2-run1": {
+    "MB": 1.4,
+    "sAtAvg": 0.3
+   },
+   "trace:net2/net2-run2": {
+    "MB": 1.4,
+    "sAtAvg": 0.2
+   },
+   "trace:net2/net2-run3": {
+    "MB": 5.2,
+    "sAtAvg": 0.9
+   }
+  }
+ },
+ {
+  "file": "Il.Buono.il.Brutto.il.Cattivo.1966.1080p.BluRay.REMUX.mkv",
+  "avgMbps": 31.4,
+  "peak1sMbps": 39.8,
+  "peak5sMbps": 34.3,
+  "peak30sMbps": 31.4,
+  "peak60sMbps": 31.4,
+  "peak300sMbps": 31.4,
+  "bufferNeeded": {
+   "20": {
+    "MB": 42.7,
+    "sAtAvg": 10.9
+   },
+   "25": {
+    "MB": 23.9,
+    "sAtAvg": 6.1
+   },
+   "30": {
+    "MB": 7.2,
+    "sAtAvg": 1.8
+   },
+   "35": {
+    "MB": 0.7,
+    "sAtAvg": 0.2
+   },
+   "40": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "50": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "60": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "80": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net/run1": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run1": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run2": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run3": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   }
+  }
+ }
+]

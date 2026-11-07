@@ -13,7 +13,8 @@ Nessuna scelta di stack entra nel codice senza un ADR in stato **Accepted**.
 | [0005](0005-web-client-react-vite.md) | Web client: React 19 con Vite 8, hls.js e libpgs | Accepted |
 | [0006](0006-deploy-e-gateway.md) | Deploy Docker Compose e gateway Caddy | Accepted |
 | [0007](0007-provider-metadata-e-offline.md) | Provider dei metadata (TMDB + base durevole Wikidata) e funzionamento offline | Accepted |
+| [0008](0008-client-tv-kotlin-compose-media3.md) | Client TV: app Android nativa in Kotlin con Compose for TV e Media3 | Accepted |
 
 La valutazione completa delle aree tecnologiche è in [05 — Valutazione tecnologica](../architecture/05-technology-evaluation.md).
 
-ADR previste, con numero da assegnare quando servono: client TV, accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
+ADR previste, con numero da assegnare quando servono: accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.

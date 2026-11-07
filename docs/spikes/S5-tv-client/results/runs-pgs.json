@@ -1,0 +1,170 @@
+[
+ {
+  "run": "br2049-pgs-forced",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1782,
+  "firstFrameMs": 847,
+  "seeks": [
+   {
+    "toMs": 1000,
+    "readyMs": 1981,
+    "firstFrameMs": 369,
+    "posAfterMs": 3615
+   }
+  ],
+  "dropped": 3,
+  "rendered": 797,
+  "rebuffers": 2,
+  "rebufferMs": 6272,
+  "audioIn": "Format(2, TrueHD 5.1, video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 5,
+  "maxPssMb": 70,
+  "maxAllocMb": 25,
+  "cues": 8,
+  "meminfo": {
+   "TOTAL PSS": 74,
+   "Java Heap": 34,
+   "Native Heap": 7,
+   "Graphics": 6
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "br2049-pgs-full",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1909,
+  "firstFrameMs": 845,
+  "seeks": [
+   {
+    "toMs": 1000,
+    "readyMs": 2008,
+    "firstFrameMs": 337,
+    "posAfterMs": 3651
+   }
+  ],
+  "dropped": 2,
+  "rendered": 724,
+  "rebuffers": 3,
+  "rebufferMs": 7573,
+  "audioIn": "Format(2, TrueHD 5.1, video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 1,
+  "maxPssMb": 71,
+  "maxAllocMb": 25,
+  "cues": 6,
+  "meminfo": {
+   "TOTAL PSS": 74,
+   "Java Heap": 34,
+   "Native Heap": 8,
+   "Graphics": 7
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "buono-pgs",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1267,
+  "firstFrameMs": 951,
+  "seeks": [
+   {
+    "toMs": 1000,
+    "readyMs": 1007,
+    "firstFrameMs": 384,
+    "posAfterMs": 7959
+   }
+  ],
+  "dropped": 2,
+  "rendered": 1365,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, AC3 5.1, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 87,
+  "maxAllocMb": 43,
+  "cues": 9,
+  "meminfo": {
+   "TOTAL PSS": 90,
+   "Java Heap": 52,
+   "Native Heap": 7,
+   "Graphics": 6
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "buono-sup-sideload",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1417,
+  "firstFrameMs": 796,
+  "seeks": [
+   {
+    "toMs": 1000,
+    "readyMs": 825,
+    "firstFrameMs": 402,
+    "posAfterMs": 8069
+   }
+  ],
+  "dropped": 2,
+  "rendered": 1362,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, AC3 5.1, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 66,
+  "maxAllocMb": 39,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 68,
+   "Java Heap": 32,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ }
+]

@@ -1,0 +1,47 @@
+[
+ {
+  "file": "Blade Runner 2049 (2017) - 2160p Remux.mkv",
+  "durationS": 30.0,
+  "sizeBytes": 373447749,
+  "avgMbps": 99.6,
+  "peak1sMbps": 102.1,
+  "peak5sMbps": 101.5,
+  "peak30sMbps": 99.5
+ },
+ {
+  "file": "Dune.2021.2160p.UHD.BluRay.REMUX.DV.HDR.mkv",
+  "durationS": 30.0,
+  "sizeBytes": 129044629,
+  "avgMbps": 34.4,
+  "peak1sMbps": 53.6,
+  "peak5sMbps": 42.8,
+  "peak30sMbps": 34.3
+ },
+ {
+  "file": "Oppenheimer (2023).mkv",
+  "durationS": 30.0,
+  "sizeBytes": 165810240,
+  "avgMbps": 44.2,
+  "peak1sMbps": 75.3,
+  "peak5sMbps": 57.8,
+  "peak30sMbps": 44.2
+ },
+ {
+  "file": "Long Test (2024) - 2160p.mkv",
+  "durationS": 300.0,
+  "sizeBytes": 1663907538,
+  "avgMbps": 44.4,
+  "peak1sMbps": 71.8,
+  "peak5sMbps": 50.8,
+  "peak30sMbps": 44.6
+ },
+ {
+  "file": "Il.Buono.il.Brutto.il.Cattivo.1966.1080p.BluRay.REMUX.mkv",
+  "durationS": 30.0,
+  "sizeBytes": 117706954,
+  "avgMbps": 31.4,
+  "peak1sMbps": 39.8,
+  "peak5sMbps": 34.3,
+  "peak30sMbps": 31.4
+ }
+]

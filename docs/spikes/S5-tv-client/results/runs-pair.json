@@ -1,0 +1,130 @@
+[
+ {
+  "run": "a0",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1393,
+  "firstFrameMs": 770,
+  "seeks": [
+   {
+    "toMs": 60000,
+    "readyMs": 2357,
+    "firstFrameMs": 1972,
+    "posAfterMs": 65521
+   }
+  ],
+  "dropped": 0,
+  "rendered": 362,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, 1 AAC 5.1 eng (decodificato dalla TV), video/x-matroska, audio/mp4a-latm, mp4a.40.2, -1, en, [-1, -1, -1.0, nu",
+  "audioDecoder": "c2.android.aac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 79,
+  "maxAllocMb": 41,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 84,
+   "Java Heap": 47,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "a1",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 2295,
+  "firstFrameMs": 765,
+  "seeks": [
+   {
+    "toMs": 60000,
+    "readyMs": 2247,
+    "firstFrameMs": 1884,
+    "posAfterMs": 65420
+   }
+  ],
+  "dropped": 96,
+  "rendered": 308,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, 2 E-AC-3 5.1 640k eng (conversione del server dallo stesso AAC), video/x-matroska, audio/eac3, null, -1, en, [",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "E_AC3 6ch 48000",
+   "E_AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 73,
+  "maxAllocMb": 49,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 78,
+   "Java Heap": 43,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "a2",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1349,
+  "firstFrameMs": 697,
+  "seeks": [
+   {
+    "toMs": 60000,
+    "readyMs": 2337,
+    "firstFrameMs": 1954,
+    "posAfterMs": 65641
+   }
+  ],
+  "dropped": 0,
+  "rendered": 370,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, 3 AC-3 5.1 ita originale (riferimento, altra lingua), video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 63,
+  "maxAllocMb": 46,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 68,
+   "Java Heap": 32,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ }
+]

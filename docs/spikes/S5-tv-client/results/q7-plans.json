@@ -1,0 +1,674 @@
+[
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "2001: Odissea nello spazio",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 29,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 19554748,
+   "averageBps": 19554748,
+   "audioBps": 384000
+  },
+  "audio": [
+   "ac3 6ch ita"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/21829610391",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 21829609367-21829610390/21829610391",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Blade Runner 2049",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 140,
+  "mode": "direct_stream",
+  "protocol": "hls-fmp4",
+  "mimeType": "video/mp4; codecs=\"hvc1.2.4.L183.B0, flac\"",
+  "reasons": [
+   "Audio TrueHD 5.1 (ita) non decodificato dal client: convertito in FLAC 5.1",
+   "Sottotitoli PGS (ita) visualizzati dal client"
+  ],
+  "bitrate": {
+   "peakBps": 101764111,
+   "averageBps": 99559789,
+   "audioBps": 4147200
+  },
+  "audio": [
+   "truehd 6ch ita"
+  ],
+  "subs": [
+   "hdmv_pgs_subtitle ita client_render"
+  ],
+  "url": "/video/media/s/<token>/main.m3u8",
+  "playlist": [
+   200,
+   "application/vnd.apple.mpegurl",
+   "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-STREAM-INF:BANDWIDTH=101764111,AVERAGE-BANDWIDTH=99559789,CODECS=\"hvc1.2.4.L183.B0,flac\",RESOLUTION=3840x2160,FRAME-RATE=60.000,VIDEO-RANGE=PQ\nmedia-0.m3u8\n"
+  ]
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Il buono, il brutto, il cattivo",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 33,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 31383291,
+   "averageBps": 31383291,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ita"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/117706954",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 117705930-117706953/117706954",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Dune",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 10,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, ec-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 34406167,
+   "averageBps": 34406167,
+   "audioBps": 448000
+  },
+  "audio": [
+   "eac3 6ch ita"
+  ],
+  "subs": [
+   "subrip ita embedded"
+  ],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/129044629",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 129043605-129044628/129044629",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Oppenheimer",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 17,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, flac\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 44216064,
+   "averageBps": 44216064,
+   "audioBps": 2500000
+  },
+  "audio": [
+   "flac 6ch eng"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/165810240",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 165809216-165810239/165810240",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Segreti",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 24,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ec-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è",
+   "Sottotitoli SubRip (ita) serviti come WebVTT"
+  ],
+  "bitrate": {
+   "peakBps": 30422609,
+   "averageBps": 30422609,
+   "audioBps": 448000
+  },
+  "audio": [
+   "eac3 6ch ita"
+  ],
+  "subs": [
+   "subrip ita sidecar"
+  ],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/114103797",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 114102773-114103796/114103797",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Bugie",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 39,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29933182,
+   "averageBps": 29933182,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ger"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/112268141",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 112267117-112268140/112268141",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Passato e presente",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 14,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29933182,
+   "averageBps": 29933182,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ger"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/112268141",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 112267117-112268140/112268141",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-noffmpeg.json",
+  "item": "Trailer",
+  "kind": "extra",
+  "status": 201,
+  "startMs": 27,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, mp4a.40.2\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29598527,
+   "averageBps": 29598527,
+   "audioBps": 256000
+  },
+  "audio": [
+   "aac 2ch eng"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/111072174",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 111071150-111072173/111072174",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "2001: Odissea nello spazio",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 9,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 19554748,
+   "averageBps": 19554748,
+   "audioBps": 384000
+  },
+  "audio": [
+   "ac3 6ch ita"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/21829610391",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 21829609367-21829610390/21829610391",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Blade Runner 2049",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 34,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L183.B0, mlpa\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 99569471,
+   "averageBps": 99569471,
+   "audioBps": 4500000
+  },
+  "audio": [
+   "truehd 6ch ita"
+  ],
+  "subs": [
+   "hdmv_pgs_subtitle ita embedded"
+  ],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/373447749",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 373446725-373447748/373447749",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Il buono, il brutto, il cattivo",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 15,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 31383291,
+   "averageBps": 31383291,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ita"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/117706954",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 117705930-117706953/117706954",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Dune",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 34,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, ec-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 34406167,
+   "averageBps": 34406167,
+   "audioBps": 448000
+  },
+  "audio": [
+   "eac3 6ch ita"
+  ],
+  "subs": [
+   "subrip ita embedded"
+  ],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/129044629",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 129043605-129044628/129044629",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Oppenheimer",
+  "kind": "movie",
+  "status": 201,
+  "startMs": 32,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"hvc1.2.4.L153.B0, flac\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 44216064,
+   "averageBps": 44216064,
+   "audioBps": 2500000
+  },
+  "audio": [
+   "flac 6ch eng"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/165810240",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 165809216-165810239/165810240",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Segreti",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 25,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ec-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è",
+   "Sottotitoli SubRip (ita) serviti come WebVTT"
+  ],
+  "bitrate": {
+   "peakBps": 30422609,
+   "averageBps": 30422609,
+   "audioBps": 448000
+  },
+  "audio": [
+   "eac3 6ch ita"
+  ],
+  "subs": [
+   "subrip ita sidecar"
+  ],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/114103797",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 114102773-114103796/114103797",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Bugie",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 17,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29933182,
+   "averageBps": 29933182,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ger"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/112268141",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 112267117-112268140/112268141",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Passato e presente",
+  "kind": "episode",
+  "status": 201,
+  "startMs": 15,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, ac-3\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29933182,
+   "averageBps": 29933182,
+   "audioBps": 448000
+  },
+  "audio": [
+   "ac3 6ch ger"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/112268141",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 112267117-112268140/112268141",
+    1024
+   ]
+  }
+ },
+ {
+  "caps": "caps-tv-ffmpeg.json",
+  "item": "Trailer",
+  "kind": "extra",
+  "status": 201,
+  "startMs": 35,
+  "mode": "direct_play",
+  "protocol": "progressive",
+  "mimeType": "video/x-matroska; codecs=\"avc1.640029, mp4a.40.2\"",
+  "reasons": [
+   "Riproduzione diretta: il file è servito così com'è"
+  ],
+  "bitrate": {
+   "peakBps": 29598527,
+   "averageBps": 29598527,
+   "audioBps": 256000
+  },
+  "audio": [
+   "aac 2ch eng"
+  ],
+  "subs": [],
+  "url": "/video/media/s/<token>/file",
+  "range": {
+   "first": [
+    206,
+    "bytes 0-1023/111072174",
+    "video/x-matroska",
+    "bytes",
+    1024
+   ],
+   "last": [
+    206,
+    "bytes 111071150-111072173/111072174",
+    1024
+   ]
+  }
+ }
+]

@@ -44,10 +44,12 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 | `1afffe2` | Standard di libreria, ADR 0002, doc 01 e diario allineati alle correzioni. **Test end-to-end finali** su uno stack ricostruito da volumi vuoti: 74 passati, 20 saltati (sample c4 e c7 mancanti, HEVC assente in Edge e Firefox su questo portatile), 0 falliti, in 5,2 minuti; nel log del gateway nessun token in chiaro |
 | `6287985` | **Dopo l'MVP, item provvisori:** un file che aspetta Wikidata o TMDB compare subito col titolo dal nome del file ("In attesa"), si guarda, e quando arriva l'identificazione progressi, "visto", cronologia e watchlist passano al titolo vero (migrazione 0004). Le sessioni aperte seguono il file; il web client va al titolo nuovo. Tre giri di revisione (unione di copie che perdeva i progressi, sessioni chiuse per errore, "visto" sul film sbagliato, adozione incompleta). 1697 test video più 388 sui sample, 528 web |
 | `e1eead9` | **Dopo l'MVP, file spariti:** un file mancante esce dal catalogo dopo 30 giorni (`MISSING_REMOVE_AFTER_DAYS`, 0 = mai), solo se la sua libreria è in linea e non trattenuta; nuova pagina **Gestione → File mancanti** con "Dimentica" per un file o per tutti i mancanti di una libreria. Niente si cancella: un file che torna riprende titolo e progressi. Regola "un disco per radice". Una revisione, correzioni piccole. 1807 test video con i sample, 550 web |
-| (questo commit) | **Test end-to-end** delle due lacune su uno stack da volumi vuoti: 74 passati, 20 saltati, 0 falliti (4,9 minuti); nessun token in chiaro nel gateway, nessun errore nel Video Service. Un primo giro aveva 3 errori: Chrome chiuso all'avvio (ambiente, passa ripetuto) e due 4K HEVC in Firefox partiti per sbaglio (vedi lacune); la prova di decodifica dei test ora aspetta 5 s in Firefox |
+| `6f2aefe` | **Test end-to-end** delle due lacune su uno stack da volumi vuoti: 74 passati, 20 saltati, 0 falliti (4,9 minuti); nessun token in chiaro nel gateway, nessun errore nel Video Service. Un primo giro aveva 3 errori: Chrome chiuso all'avvio (ambiente, passa ripetuto) e due 4K HEVC in Firefox partiti per sbaglio (vedi lacune); la prova di decodifica dei test ora aspetta 5 s in Firefox |
+| (questo commit) | **Client TV, progetto (2026-11-07).** Letta la TV del proprietario via ADB: Haier H65C95EUX, OLED, Android TV 11, userspace a 32 bit, audio dagli altoparlanti integrati, Wi‑Fi a 2,4 GHz. **ADR 0008 accettata:** app Android nativa in Kotlin con Compose for TV e Media3, client generato con `jvm-retrofit2` (K1). **Spike S5** sulla TV: il file tipico del proprietario (ricodifica x265 4K HDR10, ~20 Mb/s) va in Direct Play con PGS e SRT; FLAC del server da ridurre a blocchi da 1152 campioni, `.sup` esterno da leggere nel client. Requisiti e CLAUDE.md allineati ai fatti del proprietario (libreria di ricodifiche, niente AVR) e alla regola di costruzione più leggera per i client |
 
 ## 2. In corso
 
+- **App per la TV (F3):** progetto chiuso (ADR 0008, S5, K1). Si costruisce in due slice, una dopo l'altra: (1) scaffold, client API, profili, Home, scheda e player; (2) serie, extra, ricerca, prossimo episodio, parser del `.sup`. Una sola revisione esterna, sul player. Nel server: FLAC a 1152 campioni e `format: int64` nel contratto.
 - **Lacune dopo l'MVP**, una alla volta per la memoria del portatile: item provvisori ✅ (`6287985`), file spariti ✅ (`e1eead9`), test end-to-end ✅.
 - **MVP completo (F2 chiuso, 2026-11-06).** Revisione finale con cinque revisori (sicurezza, riproduzione, ingest, contratto e web client, deploy e documentazione); i rilievi gravi sono stati riprodotti, corretti e rivisti di nuovo. Quello che non è stato corretto è nelle lacune (§4).
 - **Prova dell'app da parte del proprietario**, anche dall'iPad sulla rete locale. Problema aperto: il portatile non risponde all'iPad, probabilmente per l'indirizzo Wi‑Fi privato dell'iPad, che cambia.
@@ -57,7 +59,7 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 1. Prova del proprietario con lo stack Compose (`deploy/README.md`) e la libreria vera: percorsi, `LIBRARY_ROOTS`, `MEDIA_GID`, `PZF_HOSTS`.
 2. Controlli del proprietario (§5), che decidono P5 e H11.
 3. Film di prova legali (Tears of Steel, Sintel e simili) in `media-samples/`, se il proprietario dà l'ok al download.
-4. Dopo l'MVP: lacune di §4 in ordine di impatto, poi l'app per la TV (serve il modello della TV, ADB in rete, il collegamento audio).
+4. App per la TV (§2), poi le lacune di §4 in ordine di impatto.
 
 ## 4. Lacune note, da riprendere
 
@@ -122,9 +124,10 @@ Diario della sessione ripresa sul portatile dal [passaggio di consegne](2026-11-
 ## 5. In attesa del proprietario
 
 - **Verifica dei colori su un monitor SDR** in Chrome, Edge e Firefox, anche con un remux UHD vero con metadata statici: decide **P5**. Se fallisce si riapre P2.
-- **Ascolto 5.1** delle clip c1–c7 (`spikes/s2-browser-playback/index.html`). Serve un'uscita HDMI verso l'AVR: il PC originale ha solo uscite stereo.
+- **Verifiche sulla TV** con l'app di S5 ("Pezzotflix S5 sonda", elenco nel report S5): coppia d'ascolto AAC 5.1 contro E-AC-3 5.1 (decide la politica Dolby del server, ADR 0008), sincronia labiale, HDR10 e Dolby Vision sul pannello, judder dei 24p, prova dei canali, PGS. Serve il server dei file acceso sul portatile (`bash spikes/s5-tv-client/serve.sh`).
+- **TV sul Wi‑Fi a 5 GHz o via cavo**, quando sarà possibile; il server va cablato (S5).
 - **Un sample Dolby Vision profilo 7** (UHD Blu-ray), per H11.
-- Percorsi reali della libreria, modello della TV, ADB, eARC, porta 8080 nel firewall.
+- Percorsi reali della libreria e porta 8080 nel firewall (modello della TV e ADB fatti il 2026-11-07; nessun impianto audio esterno).
 - **Estensione HEVC di Windows** (Microsoft Store) per provare il 4K anche in Edge e Firefox, e l'ok al download dei film di prova legali.
 - Impostazione "Indirizzo Wi‑Fi privato: No" sull'iPad per la rete di casa, se l'iPad continua a non raggiungere il portatile.
 

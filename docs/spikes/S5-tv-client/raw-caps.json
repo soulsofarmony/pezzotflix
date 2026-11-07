@@ -1,0 +1,1650 @@
+{
+  "build": {
+    "manufacturer": "Haier",
+    "model": "Haier OLED TV AE",
+    "device": "irvine",
+    "sdk": 30,
+    "release": "11",
+    "hardware": "mt5889",
+    "fingerprint": "Haier\/HRT51EUOL\/irvine:11\/RTM9.241015.206\/13302540:user\/release-keys"
+  },
+  "media3": "1.11.1",
+  "ffmpeg": {
+    "available": true,
+    "version": "Lavc60.3.100",
+    "supportsFormat": {
+      "audio\/ac3": true,
+      "audio\/eac3": true,
+      "audio\/eac3-joc": true,
+      "audio\/ac4": false,
+      "audio\/true-hd": true,
+      "audio\/vnd.dts": true,
+      "audio\/vnd.dts.hd": true,
+      "audio\/vnd.dts.uhd;profile=p2": false,
+      "audio\/mp4a-latm": true,
+      "audio\/flac": true,
+      "audio\/opus": false,
+      "audio\/raw": false,
+      "audio\/mpeg": true
+    }
+  },
+  "codecs": [
+    {
+      "name": "c2.android.aac.decoder",
+      "type": "audio\/mp4a-latm",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p2@l0",
+        "p5@l0",
+        "p29@l0",
+        "p23@l0",
+        "p39@l0",
+        "p20@l0",
+        "p42@l0"
+      ],
+      "maxChannels": 8,
+      "sampleRates": [
+        7350,
+        8000,
+        11025,
+        12000,
+        16000,
+        22050,
+        24000,
+        32000,
+        44100,
+        48000
+      ],
+      "maxBitrate": 510000
+    },
+    {
+      "name": "OMX.google.aac.decoder",
+      "type": "audio\/mp4a-latm",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p2@l0",
+        "p5@l0",
+        "p29@l0",
+        "p23@l0",
+        "p39@l0",
+        "p20@l0",
+        "p42@l0"
+      ],
+      "maxChannels": 8,
+      "sampleRates": [
+        7350,
+        8000,
+        11025,
+        12000,
+        16000,
+        22050,
+        24000,
+        32000,
+        44100,
+        48000
+      ],
+      "maxBitrate": 510000
+    },
+    {
+      "name": "c2.android.amrnb.decoder",
+      "type": "audio\/3gpp",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 12200
+    },
+    {
+      "name": "OMX.google.amrnb.decoder",
+      "type": "audio\/3gpp",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 12200
+    },
+    {
+      "name": "c2.android.amrwb.decoder",
+      "type": "audio\/amr-wb",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [
+        16000
+      ],
+      "maxBitrate": 23850
+    },
+    {
+      "name": "OMX.google.amrwb.decoder",
+      "type": "audio\/amr-wb",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [
+        16000
+      ],
+      "maxBitrate": 23850
+    },
+    {
+      "name": "c2.android.flac.decoder",
+      "type": "audio\/flac",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 21000000
+    },
+    {
+      "name": "OMX.google.flac.decoder",
+      "type": "audio\/flac",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 21000000
+    },
+    {
+      "name": "c2.android.g711.alaw.decoder",
+      "type": "audio\/g711-alaw",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 64000
+    },
+    {
+      "name": "OMX.google.g711.alaw.decoder",
+      "type": "audio\/g711-alaw",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 64000
+    },
+    {
+      "name": "c2.android.g711.mlaw.decoder",
+      "type": "audio\/g711-mlaw",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 64000
+    },
+    {
+      "name": "OMX.google.g711.mlaw.decoder",
+      "type": "audio\/g711-mlaw",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [
+        8000
+      ],
+      "maxBitrate": 64000
+    },
+    {
+      "name": "c2.android.mp3.decoder",
+      "type": "audio\/mpeg",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 2,
+      "sampleRates": [
+        8000,
+        11025,
+        12000,
+        16000,
+        22050,
+        24000,
+        32000,
+        44100,
+        48000
+      ],
+      "maxBitrate": 320000
+    },
+    {
+      "name": "OMX.google.mp3.decoder",
+      "type": "audio\/mpeg",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 2,
+      "sampleRates": [
+        8000,
+        11025,
+        12000,
+        16000,
+        22050,
+        24000,
+        32000,
+        44100,
+        48000
+      ],
+      "maxBitrate": 320000
+    },
+    {
+      "name": "c2.android.opus.decoder",
+      "type": "audio\/opus",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [
+        8000,
+        12000,
+        16000,
+        24000,
+        48000
+      ],
+      "maxBitrate": 510000
+    },
+    {
+      "name": "OMX.google.opus.decoder",
+      "type": "audio\/opus",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [
+        8000,
+        12000,
+        16000,
+        24000,
+        48000
+      ],
+      "maxBitrate": 510000
+    },
+    {
+      "name": "c2.android.raw.decoder",
+      "type": "audio\/raw",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 10000000
+    },
+    {
+      "name": "OMX.google.raw.decoder",
+      "type": "audio\/raw",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 10000000
+    },
+    {
+      "name": "c2.android.vorbis.decoder",
+      "type": "audio\/vorbis",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 500000
+    },
+    {
+      "name": "OMX.google.vorbis.decoder",
+      "type": "audio\/vorbis",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 8,
+      "sampleRates": [],
+      "maxBitrate": 500000
+    },
+    {
+      "name": "OMX.MS.AC3.Decoder",
+      "type": "audio\/ac3",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.ADPCM.Decoder",
+      "type": "audio\/x-adpcm-ima",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.ADPCM.Decoder",
+      "type": "audio\/x-adpcm-ms",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.EAC3.Decoder",
+      "type": "audio\/eac3",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 6,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.AAC.Decoder",
+      "type": "audio\/mp4a-latm-hw",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.MP1.Decoder",
+      "type": "audio\/mpeg-l1",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.MP2.Decoder",
+      "type": "audio\/mpeg-l2",
+      "hw": true,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": false,
+      "maxChannels": 1,
+      "sampleRates": [],
+      "maxBitrate": 2147483647
+    },
+    {
+      "name": "OMX.MS.AV1.Decoder",
+      "type": "video\/av01",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "main8@5.1",
+        "main10@5.1",
+        "main10HDR10@5.1",
+        "main10HDR10Plus@5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 40000000,
+      "uhdMaxFps": 66,
+      "fhdMaxFps": 262.05882352941177
+    },
+    {
+      "name": "OMX.MS.AV1.Decoder.secure",
+      "type": "video\/av01",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "main8@5.1",
+        "main10@5.1",
+        "main10HDR10@5.1",
+        "main10HDR10Plus@5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 40000000,
+      "uhdMaxFps": 66,
+      "fhdMaxFps": 262.05882352941177
+    },
+    {
+      "name": "OMX.MS.AVC.Decoder",
+      "type": "video\/avc",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "baseline@5.1",
+        "constrainedBaseline@5.1",
+        "main@5.1",
+        "high@5.1",
+        "constrainedHigh@5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": false,
+      "uhd24": true,
+      "maxBitrate": 300000000,
+      "uhdMaxFps": 30.340740740740742,
+      "fhdMaxFps": 120.47058823529412
+    },
+    {
+      "name": "OMX.MS.AVC.Decoder.secure",
+      "type": "video\/avc",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "baseline@5.1",
+        "constrainedBaseline@5.1",
+        "main@5.1",
+        "high@5.1",
+        "constrainedHigh@5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": false,
+      "uhd24": true,
+      "maxBitrate": 300000000,
+      "uhdMaxFps": 30.340740740740742,
+      "fhdMaxFps": 120.47058823529412
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.DTR.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheDtr(P4)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.DTR.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheDtr(P4)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheStn(P5)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheStn(P5)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheSt(P8)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheSt(P8)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheDtr(P4)@uhd60",
+        "dvheStn(P5)@uhd60",
+        "dvheSt(P8)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvheDtr(P4)@uhd60",
+        "dvheStn(P5)@uhd60",
+        "dvheSt(P8)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVAV.SE.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvavSe(P9)@fhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVAV.SE.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvavSe(P9)@fhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.AVC.DOLBY_VISION.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvavSe(P9)@fhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.AVC.DOLBY_VISION.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvavSe(P9)@fhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVAV1.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvav110(P10)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.DOLBY_VISION.DVAV1.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvav110(P10)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.AV1.DOLBY_VISION.Decoder",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "dvav110(P10)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.AV1.DOLBY_VISION.Decoder.secure",
+      "type": "video\/dolby-vision",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "dvav110(P10)@uhd60"
+      ],
+      "maxW": 4096,
+      "maxH": 2304,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.FLV.Decoder",
+      "type": "video\/flv",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p1@l1",
+        "p1@l2",
+        "p1@l4",
+        "p1@l8",
+        "p1@l16",
+        "p1@l32",
+        "p1@l64",
+        "p1@l128",
+        "p2@l1",
+        "p2@l2",
+        "p2@l4",
+        "p2@l8",
+        "p2@l16",
+        "p2@l32",
+        "p2@l64",
+        "p2@l128",
+        "p4@l1",
+        "p4@l2",
+        "p4@l4",
+        "p4@l8",
+        "p4@l16",
+        "p4@l32",
+        "p4@l64",
+        "p4@l128",
+        "p8@l1",
+        "p8@l2",
+        "p8@l4",
+        "p8@l8",
+        "p8@l16",
+        "p8@l32",
+        "p8@l64",
+        "p8@l128"
+      ],
+      "maxW": 32768,
+      "maxH": 32768,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.H263.Decoder",
+      "type": "video\/3gpp",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p1@l1",
+        "p1@l2",
+        "p1@l4",
+        "p1@l8",
+        "p1@l16",
+        "p1@l32",
+        "p1@l64",
+        "p1@l128",
+        "p2@l1",
+        "p2@l2",
+        "p2@l4",
+        "p2@l8",
+        "p2@l16",
+        "p2@l32",
+        "p2@l64",
+        "p2@l128",
+        "p4@l1",
+        "p4@l2",
+        "p4@l4",
+        "p4@l8",
+        "p4@l16",
+        "p4@l32",
+        "p4@l64",
+        "p4@l128",
+        "p8@l1",
+        "p8@l2",
+        "p8@l4",
+        "p8@l8",
+        "p8@l16",
+        "p8@l32",
+        "p8@l64",
+        "p8@l128"
+      ],
+      "maxW": 720,
+      "maxH": 576,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 16384000
+    },
+    {
+      "name": "OMX.MS.HEVC.Decoder",
+      "type": "video\/hevc",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "main@H5.1",
+        "main10@H5.1",
+        "main10HDR10@H5.1",
+        "main10HDR10Plus@H5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 160000000,
+      "uhdMaxFps": 64.47407407407407,
+      "fhdMaxFps": 256
+    },
+    {
+      "name": "OMX.MS.HEVC.Decoder.secure",
+      "type": "video\/hevc",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "main@H5.1",
+        "main10@H5.1",
+        "main10HDR10@H5.1",
+        "main10HDR10Plus@H5.1"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 160000000,
+      "uhdMaxFps": 64.47407407407407,
+      "fhdMaxFps": 256
+    },
+    {
+      "name": "OMX.MS.MJPG.Decoder",
+      "type": "video\/x-motion-jpeg",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "maxW": 32768,
+      "maxH": 32768,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.MPEG2.Decoder",
+      "type": "video\/mpeg2",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p0@l0",
+        "p0@l1",
+        "p0@l2",
+        "p0@l3",
+        "p1@l0",
+        "p1@l1",
+        "p1@l2",
+        "p1@l3"
+      ],
+      "maxW": 1920,
+      "maxH": 1088,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 80000000,
+      "fhdMaxFps": 30
+    },
+    {
+      "name": "OMX.MS.M4V.Decoder",
+      "type": "video\/mp4v-es",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "profileLevels": [
+        "p1@l1",
+        "p1@l2",
+        "p1@l4",
+        "p1@l8",
+        "p1@l16",
+        "p1@l32",
+        "p1@l64",
+        "p1@l128",
+        "p4@l1",
+        "p4@l2",
+        "p4@l4",
+        "p4@l8",
+        "p4@l16",
+        "p4@l32",
+        "p4@l64",
+        "p4@l128",
+        "p8@l1",
+        "p8@l2",
+        "p8@l4",
+        "p8@l8",
+        "p8@l16",
+        "p8@l32",
+        "p8@l64",
+        "p8@l128",
+        "p1024@l1",
+        "p1024@l2",
+        "p1024@l4",
+        "p1024@l8",
+        "p1024@l16",
+        "p1024@l32",
+        "p1024@l64",
+        "p1024@l128",
+        "p32768@l1"
+      ],
+      "maxW": 896,
+      "maxH": 896,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 8000000
+    },
+    {
+      "name": "OMX.MS.VC1.Decoder",
+      "type": "video\/vc1",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "maxW": 32768,
+      "maxH": 32768,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "OMX.MS.VP8.Decoder",
+      "type": "video\/x-vnd.on2.vp8",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "maxW": 1920,
+      "maxH": 1088,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 100000000,
+      "fhdMaxFps": 59.55882352941177
+    },
+    {
+      "name": "OMX.MS.VP9.Decoder",
+      "type": "video\/x-vnd.on2.vp9",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "profile0@l512",
+        "profile2@l512",
+        "profile2HDR@l512",
+        "profile2HDR10Plus@l512"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 120000000,
+      "uhdMaxFps": 70.92148148148148,
+      "fhdMaxFps": 281.6
+    },
+    {
+      "name": "OMX.MS.VP9.Decoder.secure",
+      "type": "video\/x-vnd.on2.vp9",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": true,
+      "adaptive": true,
+      "profileLevels": [
+        "profile0@l512",
+        "profile2@l512",
+        "profile2HDR@l512",
+        "profile2HDR10Plus@l512"
+      ],
+      "maxW": 4096,
+      "maxH": 2176,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 120000000,
+      "uhdMaxFps": 70.92148148148148,
+      "fhdMaxFps": 281.6
+    },
+    {
+      "name": "OMX.MS.WMV3.Decoder",
+      "type": "video\/x-ms-wmv",
+      "hw": true,
+      "alias": false,
+      "tunneled": true,
+      "secure": false,
+      "adaptive": false,
+      "maxW": 32768,
+      "maxH": 32768,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 64000,
+      "uhdMaxFps": 960,
+      "fhdMaxFps": 960
+    },
+    {
+      "name": "c2.android.av1.decoder",
+      "type": "video\/av01",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "main8@3.2",
+        "main10HDR10@3.2",
+        "main10HDR10Plus@3.2"
+      ],
+      "maxW": 1920,
+      "maxH": 1072,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 10000000
+    },
+    {
+      "name": "c2.android.avc.decoder",
+      "type": "video\/avc",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "constrainedBaseline@5.2",
+        "baseline@5.2",
+        "main@5.2",
+        "constrainedHigh@5.2",
+        "high@5.2"
+      ],
+      "maxW": 4080,
+      "maxH": 4080,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 48000000,
+      "uhdMaxFps": 60.681481481481484,
+      "fhdMaxFps": 240.94117647058823
+    },
+    {
+      "name": "OMX.google.h264.decoder",
+      "type": "video\/avc",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "constrainedBaseline@5.2",
+        "baseline@5.2",
+        "main@5.2",
+        "constrainedHigh@5.2",
+        "high@5.2"
+      ],
+      "maxW": 4080,
+      "maxH": 4080,
+      "uhd60": true,
+      "uhd24": true,
+      "maxBitrate": 48000000,
+      "uhdMaxFps": 60.681481481481484,
+      "fhdMaxFps": 240.94117647058823
+    },
+    {
+      "name": "c2.android.h263.decoder",
+      "type": "video\/3gpp",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "p1@l16",
+        "p1@l8",
+        "p8@l16",
+        "p8@l8"
+      ],
+      "maxW": 352,
+      "maxH": 288,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 384000
+    },
+    {
+      "name": "OMX.google.h263.decoder",
+      "type": "video\/3gpp",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "p1@l16",
+        "p1@l8",
+        "p8@l16",
+        "p8@l8"
+      ],
+      "maxW": 352,
+      "maxH": 288,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 384000
+    },
+    {
+      "name": "c2.android.hevc.decoder",
+      "type": "video\/hevc",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "main@H5.2",
+        "mainStill@H5.2"
+      ],
+      "maxW": 4096,
+      "maxH": 4096,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 10000000,
+      "uhdMaxFps": 15.432098765432098,
+      "fhdMaxFps": 61.72839506172839
+    },
+    {
+      "name": "OMX.google.hevc.decoder",
+      "type": "video\/hevc",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "main@H5.2",
+        "mainStill@H5.2"
+      ],
+      "maxW": 4096,
+      "maxH": 4096,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 10000000,
+      "uhdMaxFps": 15.432098765432098,
+      "fhdMaxFps": 61.72839506172839
+    },
+    {
+      "name": "c2.android.mpeg4.decoder",
+      "type": "video\/mp4v-es",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "p1@l256"
+      ],
+      "maxW": 352,
+      "maxH": 288,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 384000
+    },
+    {
+      "name": "OMX.google.mpeg4.decoder",
+      "type": "video\/mp4v-es",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "p1@l256"
+      ],
+      "maxW": 352,
+      "maxH": 288,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 384000
+    },
+    {
+      "name": "c2.android.vp8.decoder",
+      "type": "video\/x-vnd.on2.vp8",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "maxW": 2048,
+      "maxH": 2048,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 40000000,
+      "fhdMaxFps": 122.54901960784314
+    },
+    {
+      "name": "OMX.google.vp8.decoder",
+      "type": "video\/x-vnd.on2.vp8",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "maxW": 2048,
+      "maxH": 2048,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 40000000,
+      "fhdMaxFps": 122.54901960784314
+    },
+    {
+      "name": "c2.android.vp9.decoder",
+      "type": "video\/x-vnd.on2.vp9",
+      "hw": false,
+      "alias": false,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "profile0@l256",
+        "profile2@l256",
+        "profile2HDR@l256",
+        "profile2HDR10Plus@l256"
+      ],
+      "maxW": 2048,
+      "maxH": 2048,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 40000000,
+      "fhdMaxFps": 61.27450980392157
+    },
+    {
+      "name": "OMX.google.vp9.decoder",
+      "type": "video\/x-vnd.on2.vp9",
+      "hw": false,
+      "alias": true,
+      "tunneled": false,
+      "secure": false,
+      "adaptive": true,
+      "profileLevels": [
+        "profile0@l256",
+        "profile2@l256",
+        "profile2HDR@l256",
+        "profile2HDR10Plus@l256"
+      ],
+      "maxW": 2048,
+      "maxH": 2048,
+      "uhd60": false,
+      "uhd24": false,
+      "maxBitrate": 40000000,
+      "fhdMaxFps": 61.27450980392157
+    }
+  ],
+  "media3Decoders": {
+    "video\/hevc": {
+      "decoders": [
+        "OMX.MS.HEVC.Decoder (hw)",
+        "c2.android.hevc.decoder (sw)"
+      ],
+      "tunneling": [
+        "OMX.MS.HEVC.Decoder"
+      ]
+    },
+    "video\/dolby-vision": {
+      "decoders": [
+        "OMX.MS.DOLBY_VISION.DVHE.DTR.Decoder (hw)",
+        "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder (hw)",
+        "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder (hw)",
+        "OMX.MS.DOLBY_VISION.Decoder (hw)",
+        "OMX.MS.DOLBY_VISION.DVAV.SE.Decoder (hw)",
+        "OMX.MS.AVC.DOLBY_VISION.Decoder (hw)",
+        "OMX.MS.DOLBY_VISION.DVAV1.Decoder (hw)",
+        "OMX.MS.AV1.DOLBY_VISION.Decoder (hw)"
+      ],
+      "tunneling": [
+        "OMX.MS.DOLBY_VISION.DVHE.DTR.Decoder",
+        "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder",
+        "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder",
+        "OMX.MS.DOLBY_VISION.Decoder",
+        "OMX.MS.DOLBY_VISION.DVAV.SE.Decoder",
+        "OMX.MS.AVC.DOLBY_VISION.Decoder",
+        "OMX.MS.DOLBY_VISION.DVAV1.Decoder",
+        "OMX.MS.AV1.DOLBY_VISION.Decoder"
+      ]
+    },
+    "video\/av01": {
+      "decoders": [
+        "OMX.MS.AV1.Decoder (hw)",
+        "c2.android.av1.decoder (sw)"
+      ],
+      "tunneling": [
+        "OMX.MS.AV1.Decoder"
+      ]
+    },
+    "video\/avc": {
+      "decoders": [
+        "OMX.MS.AVC.Decoder (hw)",
+        "c2.android.avc.decoder (sw)"
+      ],
+      "tunneling": [
+        "OMX.MS.AVC.Decoder"
+      ]
+    },
+    "video\/x-vnd.on2.vp9": {
+      "decoders": [
+        "OMX.MS.VP9.Decoder (hw)",
+        "c2.android.vp9.decoder (sw)"
+      ],
+      "tunneling": [
+        "OMX.MS.VP9.Decoder"
+      ]
+    },
+    "audio\/ac3": {
+      "decoders": [
+        "OMX.MS.AC3.Decoder (hw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/eac3": {
+      "decoders": [
+        "OMX.MS.EAC3.Decoder (hw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/eac3-joc": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/ac4": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/true-hd": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/vnd.dts": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/vnd.dts.hd": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/vnd.dts.uhd;profile=p2": {
+      "decoders": [],
+      "tunneling": []
+    },
+    "audio\/mp4a-latm": {
+      "decoders": [
+        "c2.android.aac.decoder (sw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/flac": {
+      "decoders": [
+        "c2.android.flac.decoder (sw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/opus": {
+      "decoders": [
+        "c2.android.opus.decoder (sw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/raw": {
+      "decoders": [
+        "c2.android.raw.decoder (sw)"
+      ],
+      "tunneling": []
+    },
+    "audio\/mpeg": {
+      "decoders": [
+        "c2.android.mp3.decoder (sw)"
+      ],
+      "tunneling": []
+    }
+  },
+  "display": {
+    "mode": "1920x1080@60.000004",
+    "supportedModes": [
+      "1:1920x1080@60.000004",
+      "2:1920x1080@50.0"
+    ],
+    "hdrTypes": [
+      "DOLBY_VISION",
+      "HDR10",
+      "HLG",
+      "HDR10_PLUS"
+    ],
+    "maxLuminance": 500,
+    "maxAvgLuminance": 500,
+    "minLuminance": 0,
+    "isHdr": true,
+    "isWideColorGamut": false,
+    "media3DisplaySize": "3840x2160"
+  },
+  "audio": {
+    "outputDevices": [
+      {
+        "type": "BUILTIN_SPEAKER",
+        "name": "Haier OLED TV AE",
+        "id": 2,
+        "encodings": [
+          "PCM_16BIT",
+          "AC3",
+          "E_AC3",
+          "E_AC3_JOC"
+        ],
+        "channelCounts": [
+          2
+        ],
+        "channelMasks": [
+          12
+        ],
+        "sampleRates": [
+          8000,
+          11025,
+          12000,
+          16000,
+          22050,
+          24000,
+          32000,
+          44100,
+          48000,
+          96000,
+          192000
+        ]
+      }
+    ],
+    "media3AudioCapabilities": "AudioCapabilities[maxChannelCount=10, audioProfiles={2=AudioProfile[format=2, maxChannelCount=10, channelMasks=null], 5=AudioProfile[format=5, maxChannelCount=10, channelMasks=null], 6=AudioProfile[format=6, maxChannelCount=10, channelMasks=null], 17=AudioProfile[format=17, maxChannelCount=10, channelMasks=null], 18=AudioProfile[format=18, maxChannelCount=10, channelMasks=null]}, speakerLayoutChannelMasks=[12], spatializerChannelMasks=[]]",
+    "media3MaxChannelCount": 10,
+    "media3SupportsEncoding": {
+      "PCM_16BIT": true,
+      "PCM_FLOAT": false,
+      "AC3": true,
+      "E_AC3": true,
+      "E_AC3_JOC": true,
+      "AC4": true,
+      "DTS": false,
+      "DTS_HD": false,
+      "DOLBY_TRUEHD": false,
+      "DOLBY_MAT": false,
+      "IEC61937": false
+    },
+    "directPlaybackSupported": {
+      "PCM_16BIT": [],
+      "PCM_FLOAT": [],
+      "AC3": [
+        2,
+        6,
+        8
+      ],
+      "E_AC3": [
+        2,
+        6,
+        8
+      ],
+      "E_AC3_JOC": [
+        2,
+        6,
+        8
+      ],
+      "AC4": [
+        2,
+        6,
+        8
+      ],
+      "DTS": [],
+      "DTS_HD": [],
+      "DOLBY_TRUEHD": [],
+      "DOLBY_MAT": [],
+      "IEC61937": []
+    },
+    "outputSampleRate": "48000"
+  },
+  "memory": {
+    "totalMem": 2953904128,
+    "availMem": 1084444672,
+    "lowMemory": false,
+    "threshold": 67108864,
+    "memoryClassMb": 192,
+    "largeMemoryClassMb": 512,
+    "maxHeap": 201326592
+  }
+}

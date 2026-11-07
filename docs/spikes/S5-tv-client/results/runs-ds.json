@@ -1,0 +1,39 @@
+[
+ {
+  "run": "2001-srt-eng",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 2921,
+  "firstFrameMs": 2498,
+  "seeks": [
+   {
+    "toMs": 7144531,
+    "readyMs": 1518,
+    "firstFrameMs": 1234,
+    "posAfterMs": 7150973
+   }
+  ],
+  "dropped": 0,
+  "rendered": 1154,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, null, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 175,
+  "maxAllocMb": 122,
+  "cues": 17,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ }
+]

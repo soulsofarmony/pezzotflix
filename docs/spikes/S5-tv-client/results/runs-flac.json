@@ -1,0 +1,336 @@
+[
+ {
+  "run": "cmp-flac-stack",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1032,
+  "firstFrameMs": 942,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, 3 FLAC (conversione del server), video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [6, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "E_AC3 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 71,
+  "maxAllocMb": 30,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33242)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33684)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34346)"
+  ],
+  "net": null
+ },
+ {
+  "run": "mkv-a0",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 824,
+  "firstFrameMs": 785,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, 1 FLAC 5.1 24 bit, blocchi 4608, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [6, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 64,
+  "maxAllocMb": 22,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33242)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33684)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34346)"
+  ],
+  "net": null
+ },
+ {
+  "run": "mkv-a1",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 991,
+  "firstFrameMs": 867,
+  "seeks": [
+   {
+    "toMs": 20000,
+    "readyMs": 2303,
+    "firstFrameMs": 2296,
+    "posAfterMs": 25569
+   }
+  ],
+  "dropped": 1,
+  "rendered": 372,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, 2 FLAC 5.1 24 bit, blocchi 1152, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [6, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 98,
+  "maxAllocMb": 58,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 102,
+   "Java Heap": 66,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "mkv-a2",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 965,
+  "firstFrameMs": 710,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 1,
+  "rebufferMs": 25,
+  "audioIn": "Format(4, 3 FLAC 7.1 24 bit, blocchi 4608, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [8, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 23,
+  "maxAllocMb": 16,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34197)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 36362)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 38031)"
+  ],
+  "net": null
+ },
+ {
+  "run": "mkv-a3",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 959,
+  "firstFrameMs": 736,
+  "seeks": [
+   {
+    "toMs": 20000,
+    "readyMs": 2303,
+    "firstFrameMs": 2294,
+    "posAfterMs": 25569
+   }
+  ],
+  "dropped": 0,
+  "rendered": 373,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, 4 FLAC 7.1 24 bit, blocchi 1152, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [8, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 98,
+  "maxAllocMb": 57,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 102,
+   "Java Heap": 66,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "mp4-a0",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 924,
+  "firstFrameMs": 802,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, null, video/mp4, audio/flac, null, 128000, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 34,
+  "maxAllocMb": 24,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33242)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33684)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34346)"
+  ],
+  "net": null
+ },
+ {
+  "run": "mp4-a1",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1429,
+  "firstFrameMs": 880,
+  "seeks": [
+   {
+    "toMs": 20000,
+    "readyMs": 2058,
+    "firstFrameMs": 2040,
+    "posAfterMs": 25814
+   }
+  ],
+  "dropped": 0,
+  "rendered": 367,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, null, video/mp4, audio/flac, null, 128000, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 89,
+  "maxAllocMb": 48,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 94,
+   "Java Heap": 57,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "mp4-a2",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1449,
+  "firstFrameMs": 717,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, null, video/mp4, audio/flac, null, 128000, it, [-1, -1, -1.0, null], [8, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 23,
+  "maxAllocMb": 22,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34197)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 36362)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 38031)"
+  ],
+  "net": null
+ },
+ {
+  "run": "mp4-a3",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1911,
+  "firstFrameMs": 748,
+  "seeks": [
+   {
+    "toMs": 20000,
+    "readyMs": 1407,
+    "firstFrameMs": 1396,
+    "posAfterMs": 26436
+   }
+  ],
+  "dropped": 0,
+  "rendered": 369,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, null, video/mp4, audio/flac, null, 128000, it, [-1, -1, -1.0, null], [8, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 100,
+  "maxAllocMb": 59,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 104,
+   "Java Heap": 68,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ }
+]

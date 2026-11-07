@@ -1,0 +1,9 @@
+# Estratto di `adb shell dumpsys hdmi_control`, 2026-11-07
+
+  mSystemAudioActivated: false
+  port_id: 1, type: HDMI_IN, address: 0x1000, cec: true, arc: false, mhl: false
+  port_id: 2, type: HDMI_IN, address: 0x2000, cec: true, arc: false, mhl: false
+  port_id: 3, type: HDMI_IN, address: 0x3000, cec: true, arc: true, mhl: false
+  port_id: 4, type: HDMI_IN, address: 0x4000, cec: true, arc: false, mhl: false
+    mArcEstablished: false
+    mArcFeatureEnabled: {1=false, 2=false, 3=true, 4=false}

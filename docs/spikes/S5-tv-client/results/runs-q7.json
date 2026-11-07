@@ -1,0 +1,298 @@
+[
+ {
+  "run": "Blade-ffmpeg-off",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1487,
+  "firstFrameMs": 456,
+  "seeks": [
+   {
+    "toMs": 24004,
+    "readyMs": 2182,
+    "firstFrameMs": 366,
+    "posAfterMs": 26976
+   }
+  ],
+  "dropped": 3,
+  "rendered": 610,
+  "rebuffers": 2,
+  "rebufferMs": 7275,
+  "audioIn": "Format(2, null, video/mp4, audio/flac, null, 128000, und, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 4,
+  "maxPssMb": 68,
+  "maxAllocMb": 25,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Blade-ffmpeg-on",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1598,
+  "firstFrameMs": 815,
+  "seeks": [
+   {
+    "toMs": 24004,
+    "readyMs": 1586,
+    "firstFrameMs": 227,
+    "posAfterMs": 27662
+   }
+  ],
+  "dropped": 0,
+  "rendered": 806,
+  "rebuffers": 1,
+  "rebufferMs": 3499,
+  "audioIn": "Format(2, TrueHD 5.1, video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 3,
+  "maxPssMb": 72,
+  "maxAllocMb": 25,
+  "cues": 4,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Dune-ffmpeg-off",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder",
+  "hdr": "Dolby Vision (dvhe.08.09)",
+  "startReadyMs": 1027,
+  "firstFrameMs": 948,
+  "seeks": [
+   {
+    "toMs": 24004,
+    "readyMs": 1235,
+    "firstFrameMs": 430,
+    "posAfterMs": 29362
+   }
+  ],
+  "dropped": 0,
+  "rendered": 1025,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, E-AC3 5.1, video/x-matroska, audio/eac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "E_AC3 6ch 48000",
+   "E_AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 94,
+  "maxAllocMb": 50,
+  "cues": 2,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Dune-ffmpeg-on",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.DOLBY_VISION.DVHE.ST.Decoder",
+  "hdr": "Dolby Vision (dvhe.08.09)",
+  "startReadyMs": 791,
+  "firstFrameMs": 698,
+  "seeks": [
+   {
+    "toMs": 24004,
+    "readyMs": 233,
+    "firstFrameMs": 154,
+    "posAfterMs": 30024
+   }
+  ],
+  "dropped": 0,
+  "rendered": 1055,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, E-AC3 5.1, video/x-matroska, audio/eac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "E_AC3 6ch 48000",
+   "E_AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 107,
+  "maxAllocMb": 62,
+  "cues": 2,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Odissea-ffmpeg-off",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 891,
+  "firstFrameMs": 823,
+  "seeks": [
+   {
+    "toMs": 7144531,
+    "readyMs": 1437,
+    "firstFrameMs": 1156,
+    "posAfterMs": 7151065
+   }
+  ],
+  "dropped": 0,
+  "rendered": 495,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, null, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 80,
+  "maxAllocMb": 53,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Odissea-ffmpeg-on",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.HEVC.Decoder",
+  "hdr": "HDR10 (PQ)",
+  "startReadyMs": 1334,
+  "firstFrameMs": 1103,
+  "seeks": [
+   {
+    "toMs": 7144531,
+    "readyMs": 2479,
+    "firstFrameMs": 2030,
+    "posAfterMs": 7150013
+   }
+  ],
+  "dropped": 0,
+  "rendered": 475,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, null, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 63,
+  "maxAllocMb": 35,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Oppenheimer-ffmpeg-off",
+  "ffmpeg": "off",
+  "videoDecoder": "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder",
+  "hdr": "Dolby Vision (dvhe.05.09)",
+  "startReadyMs": 770,
+  "firstFrameMs": 759,
+  "seeks": [
+   {
+    "toMs": 24000,
+    "readyMs": 1561,
+    "firstFrameMs": 324,
+    "posAfterMs": 30006
+   }
+  ],
+  "dropped": 10,
+  "rendered": 1072,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, FLAC 5.1, video/x-matroska, audio/flac, null, -1, en, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 81,
+  "maxAllocMb": 37,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "Oppenheimer-ffmpeg-on",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.DOLBY_VISION.DVHE.STN.Decoder",
+  "hdr": "Dolby Vision (dvhe.05.09)",
+  "startReadyMs": 810,
+  "firstFrameMs": 762,
+  "seeks": [
+   {
+    "toMs": 24000,
+    "readyMs": 1612,
+    "firstFrameMs": 404,
+    "posAfterMs": 30001
+   }
+  ],
+  "dropped": 2,
+  "rendered": 1079,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, FLAC 5.1, video/x-matroska, audio/flac, null, -1, en, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 87,
+  "maxAllocMb": 44,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [],
+  "net": null
+ }
+]

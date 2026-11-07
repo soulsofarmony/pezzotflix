@@ -1,0 +1,57 @@
+audio-off ch51-a0            ff=off track=1 TrueHD 5.1 [audio/true-hd 6ch] dec=- out=E_AC3 6ch offload=False err=ERROR_CODE_DECODER_INIT_FAILED | AF: -
+audio-off ch51-a1            ff=off track=2 DTS 5.1 (core) [audio/vnd.dts 6ch] dec=- out=E_AC3 6ch offload=False err=ERROR_CODE_DECODER_INIT_FAILED | AF: -
+audio-off ch51-a2            ff=off track=3 E-AC-3 5.1 640k [audio/eac3 6ch] dec=- out=E_AC3 6ch offload=False err=- | AF: OFFLOAD E_AC3 6ch SPEAKER
+audio-off ch51-a3            ff=off track=4 AC-3 5.1 640k [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+audio-off ch51-a4            ff=off track=5 FLAC 5.1 [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off ch51-a5            ff=off track=6 PCM 5.1 24 bit [audio/raw 6ch] dec=- out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off ch51-a6            ff=off track=7 AAC 5.1 [audio/mp4a-latm 6ch] dec=c2.android.aac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off ch51-a7            ff=off track=8 AAC 2.0 [audio/mp4a-latm 2ch] dec=c2.android.aac.decoder out=PCM_16BIT 2ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off ch71-a0            ff=off track=1 TrueHD 5.1 (encoder ffmpeg: niente 7.1) [audio/true-hd 6ch] dec=c2.android.flac.decoder out=- ch offload= err=ERROR_CODE_DECODER_INIT_FAILED | AF: -
+audio-off ch71-a1            ff=off track=2 FLAC 7.1 [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off ch71-a2            ff=off track=3 PCM 7.1 24 bit [audio/raw 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-off cmp-a0             ff=off track=1 TrueHD (decodifica software sulla TV) [audio/true-hd 6ch] dec=- out=E_AC3 6ch offload=False err=ERROR_CODE_DECODER_INIT_FAILED | AF: -
+audio-off cmp-a1             ff=off track=2 E-AC-3 5.1 640k (conversione del server) [audio/eac3 6ch] dec=- out=E_AC3 6ch offload=False err=- | AF: OFFLOAD E_AC3 6ch SPEAKER
+audio-off cmp-a2             ff=off track=3 FLAC (conversione del server) [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+audio-off cmp-a3             ff=off track=4 DTS-HD MA 7.1 originale [audio/vnd.dts.hd 8ch] dec=- out=E_AC3 6ch offload=False err=ERROR_CODE_DECODER_INIT_FAILED | AF: -
+audio-off real-dtshd-ma      ff=off track=- [ ch] dec=- out=- ch offload= err=- | AF: -
+audio-off real-eac3-joc      ff=off track=E-AC-3 JOC Atmos 7.1 (bitstream reale, FATE) [audio/eac3 8ch] dec=- out=E_AC3 8ch offload=False err=- | AF: OFFLOAD E_AC3 8ch SPEAKER
+audio-off real-truehd-atmos  ff=off track=- [ ch] dec=- out=- ch offload= err=- | AF: -
+audio-on  ch51-a0            ff=on track=3 E-AC-3 5.1 640k [audio/eac3 6ch] dec=ffmpegLavc60.3.100-truehd out=E_AC3 6ch offload=False err=- | AF: OFFLOAD E_AC3 6ch SPEAKER
+audio-on  ch51-a1            ff=on track=4 AC-3 5.1 640k [audio/ac3 6ch] dec=ffmpegLavc60.3.100-truehd out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+audio-on  ch51-a2            ff=on track=5 FLAC 5.1 [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch51-a3            ff=on track=6 PCM 5.1 24 bit [audio/raw 6ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch51-a4            ff=on track=7 AAC 5.1 [audio/mp4a-latm 6ch] dec=c2.android.aac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch51-a5            ff=on track=8 AAC 2.0 [audio/mp4a-latm 2ch] dec=c2.android.aac.decoder out=PCM_16BIT 2ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch51-a6            ff=on track=1 TrueHD 5.1 [audio/true-hd 6ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch51-a7            ff=on track=2 DTS 5.1 (core) [audio/vnd.dts 6ch] dec=ffmpegLavc60.3.100-dca out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch71-a0            ff=on track=2 FLAC 7.1 [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch71-a1            ff=on track=3 PCM 7.1 24 bit [audio/raw 8ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  ch71-a2            ff=on track=1 TrueHD 5.1 (encoder ffmpeg: niente 7.1) [audio/true-hd 6ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  cmp-a0             ff=on track=2 E-AC-3 5.1 640k (conversione del server) [audio/eac3 6ch] dec=ffmpegLavc60.3.100-truehd out=E_AC3 6ch offload=False err=- | AF: OFFLOAD E_AC3 6ch SPEAKER
+audio-on  cmp-a1             ff=on track=3 FLAC (conversione del server) [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+audio-on  cmp-a2             ff=on track=1 TrueHD (decodifica software sulla TV) [audio/true-hd 6ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  cmp-a3             ff=on track=4 DTS-HD MA 7.1 originale [audio/vnd.dts.hd 8ch] dec=ffmpegLavc60.3.100-dca out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  real-dtshd-ma      ff=on track=DTS-HD MA 7.1 (bitstream reale, FATE) [audio/vnd.dts.hd 8ch] dec=ffmpegLavc60.3.100-dca out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+audio-on  real-eac3-joc      ff=on track=E-AC-3 JOC Atmos 7.1 (bitstream reale, FATE) [audio/eac3 8ch] dec=- out=E_AC3 8ch offload=False err=- | AF: OFFLOAD E_AC3 8ch SPEAKER
+audio-on  real-truehd-atmos  ff=on track=TrueHD Atmos 7.1 (bitstream reale, FATE) [audio/true-hd 8ch] dec=ffmpegLavc60.3.100-truehd out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+flac      cmp-flac-stack     ff=off track=3 FLAC (conversione del server) [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+flac      mkv-a0             ff=off track=1 FLAC 5.1 24 bit, blocchi 4608 [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+flac      mkv-a1             ff=off track=2 FLAC 5.1 24 bit, blocchi 1152 [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+flac      mkv-a2             ff=off track=3 FLAC 7.1 24 bit, blocchi 4608 [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+flac      mkv-a3             ff=off track=4 FLAC 7.1 24 bit, blocchi 1152 [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+flac      mp4-a0             ff=off track=None [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+flac      mp4-a1             ff=off track=None [audio/flac 6ch] dec=c2.android.flac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+flac      mp4-a2             ff=off track=None [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=ERROR_CODE_FAILED_RUNTIME_CHECK | AF: -
+flac      mp4-a3             ff=off track=None [audio/flac 8ch] dec=c2.android.flac.decoder out=PCM_16BIT 8ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+pair      a0                 ff=off track=1 AAC 5.1 eng (decodificato dalla TV) [audio/mp4a-latm 6ch] dec=c2.android.aac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+pair      a1                 ff=off track=2 E-AC-3 5.1 640k eng (conversione del server dallo stesso AAC) [audio/eac3 6ch] dec=- out=E_AC3 6ch offload=False err=- | AF: OFFLOAD E_AC3 6ch SPEAKER
+pair      a2                 ff=off track=3 AC-3 5.1 ita originale (riferimento, altra lingua) [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     audio-aac51        ff=on track=None [audio/mp4a-latm 6ch] dec=c2.android.aac.decoder out=PCM_16BIT 6ch offload=False err=- | AF: MIXER PCM_16_BIT 2ch SPEAKER
+o2001     audio-ac3-noffmpeg ff=off track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     audio-ac3          ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     mem-120s           ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     mem-default        ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     pgs-ita            ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     video-syncseek     ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER
+o2001     video-tunnel       ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: DIRECT AC3 6ch SPEAKER
+o2001     video              ff=on track=None [audio/ac3 6ch] dec=- out=AC3 6ch offload=False err=- | AF: OFFLOAD AC3 6ch SPEAKER

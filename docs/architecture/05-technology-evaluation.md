@@ -1,7 +1,7 @@
 # 05 — Valutazione tecnologica
 
-- **Stato:** completo per l'MVP. Tutte le ADR collegate sono **Accepted**; le ha accettate l'orchestratore dopo il passaggio del `design-reviewer` (CLAUDE.md, decisioni delegate dal proprietario il 2026-11-05).
-- **Data:** 2026-11-05
+- **Stato:** completo per l'MVP. Le ADR delle aree 1–7 sono **Accepted**; le ha accettate l'orchestratore dopo il passaggio del `design-reviewer` (CLAUDE.md, decisioni delegate dal proprietario il 2026-11-05). L'area 8 (client TV) ha l'ADR 0008 **Accepted** (2026-11-07).
+- **Data:** 2026-11-05; area 8 il 2026-11-07
 - **Fonti interne:** [requisiti](../requirements/0001-video-service-requirements-v0.1.md) (§20–21 e le sezioni citate in ogni area); doc [01](01-domain-model.md)–[04](04-playback-architecture.md); report degli spike in [`docs/spikes/`](../spikes/); [standard di libreria](../library-standard.md).
 
 La tecnologia segue i requisiti: ogni area parte dalla decisione da prendere e da criteri pesati, ricavati dai requisiti, e confronta le opzioni con un punteggio che distingue **evidenza** (**E**: spike, smoke test, documentazione) da **giudizio** (**G**). La decisione vincolante sta nell'ADR dell'area; qui resta il ragionamento completo.
@@ -17,8 +17,9 @@ La tecnologia segue i requisiti: ogni area parte dalla decisione da prendere e d
 | 5 | [Provider dei metadata e funzionamento offline](#5-provider-dei-metadata-e-funzionamento-offline) | TMDB per l'arricchimento, Wikidata per identificazione e base durevole | Identificazione TMDB-first | [0007](../adr/0007-provider-metadata-e-offline.md) |
 | 6 | [Protocollo di streaming e Stream Delivery](#6-protocollo-di-streaming-e-stream-delivery) | HLS fMP4 (CMAF) con playlist VOD dell'intero film, segmenter proprio sui confini dei keyframe (indice dai Cues dell'MKV), un ffmpeg figlio per sessione rallentato dalla backpressure, Direct Play con `@fastify/send` | DASH CMAF; muxer `hls` di ffmpeg con playlist EVENT | [0003](../adr/0003-streaming-hls-fmp4-segmenter.md) |
 | 7 | [Web client](#7-web-client) | React 19.3.1, Vite 8.3.6, TanStack Router e Query, openapi-fetch; player con hls.js 1.7.4 light e libpgs 0.9.0 | Svelte 5.57.3 | [0005](../adr/0005-web-client-react-vite.md) |
+| 8 | [Client TV](#8-client-tv) | App Android nativa: Kotlin 2.4.21, Compose for TV (tv-material 1.1.0), Media3 1.11.1; client generato con OpenAPI Generator `jvm-retrofit2` su OkHttp 5.5.1 | Kotlin con Leanback | [0008](../adr/0008-client-tv-kotlin-compose-media3.md) (**Accepted**) |
 
-**ADR previste, senza numero:** client TV, accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
+**ADR previste, senza numero:** accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
 
 **Decisioni aggiunte dopo la revisione di design (2026-11-05)**, riportate nelle aree e nelle ADR:
 - path fissi nel container sotto `DATA_DIR=/data` e volume `video-backup` (§4.6.2, ADR 0006);
@@ -453,14 +454,14 @@ Convenzioni vincolanti (dettagli nell'ADR 0004):
   - le immagini (`GetImage`) hanno URL indirizzati per contenuto: `immutable` per un anno se non TMDB, 30 giorni senza `immutable` se di sorgente `tmdb`;
   - `/video/healthz` è una route operativa del Video Service, inoltrata dal gateway.
 - **ADR 0003, streaming** (accettata il 2026-11-05): il token nel path è un **vincolo** sulla forma dei locatori HLS/DASH.
-- **ADR del client TV:** il client Kotlin generato (`jvm-ktor` o `jvm-retrofit2`/OkHttp) va scelto lì insieme allo stack Android. Qui si garantisce solo che la generazione funzioni.
+- **ADR del client TV:** il client Kotlin generato (`jvm-ktor` o `jvm-retrofit2`/OkHttp) va scelto lì insieme allo stack Android. Qui si garantisce solo che la generazione funzioni. → Scelto `jvm-retrofit2` dopo l'esperimento K1 (§8.7, ADR 0008, Accepted).
 
 ### 3.8 Domande aperte
 
-- **Libreria HTTP Kotlin del client generato** (Ktor contro Retrofit/OkHttp): decide l'ADR del client TV. Il generatore supporta entrambe.
+- **Libreria HTTP Kotlin del client generato** (Ktor contro Retrofit/OkHttp): decide l'ADR del client TV. Il generatore supporta entrambe. → Retrofit 3.0.0 su OkHttp 5.5.1: il codice `jvm-ktor` non compila sul bundle (§8.7).
 - **Toolchain sullo spec reale:** l'orchestratore prova `redocly bundle`, fastify-openapi-glue e openapi-typescript sullo spec multi-file vero durante F0.
-- **Generatore Kotlin:** la verifica completa è rinviata all'ADR del client TV. Trigger: inizio del lavoro sul client TV, oppure un fallimento della generazione al gate di milestone.
-- **Push al posto del polling** (SSE): quando arriveranno TV e mobile (I3). Il contratto degli eventi è già quello, cambia il trasporto.
+- **Generatore Kotlin:** la verifica completa è rinviata all'ADR del client TV. Trigger: inizio del lavoro sul client TV, oppure un fallimento della generazione al gate di milestone. → Fatta il 2026-11-07 (§8.7, [K1](../spikes/K1-kotlin-codegen.md)): `jvm-retrofit2` compila e decodifica i payload d'esempio del contratto con tre mapping di tipo, senza cambiare il contratto; `jvm-ktor` non compila.
+- **Push al posto del polling** (SSE): quando arriveranno TV e mobile (I3). Il contratto degli eventi è già quello, cambia il trasporto. → Per la TV resta il polling (§8.8).
 
 
 ---
@@ -641,7 +642,7 @@ Tutti i dati stanno sotto `DATA_DIR=/data` (decisione dopo la revisione di desig
 
 - **MVP:** HTTP in LAN sulla porta `${HTTP_PORT}`, `auto_https off`. Su Windows può servire una regola del firewall per raggiungere la porta di Docker Desktop dagli altri dispositivi: è un passo del proprietario, con UAC.
 - **Futuro remoto** (§9): HTTPS automatico di Caddy (ACME) o `tls internal` in LAN, e autenticazione davanti a `/video/*`, senza modifiche al Video Service (doc 02 §2.1). Per la challenge DNS serve una build di Caddy con il plugin del provider DNS (`xcaddy`).
-- **Da tenere presente per il client TV:** Android blocca di default il traffico HTTP in chiaro. L'app TV dovrà dichiararlo permesso per la LAN, finché non c'è TLS. Va nell'ADR del client TV.
+- **Da tenere presente per il client TV:** Android blocca di default il traffico HTTP in chiaro. L'app TV dovrà dichiararlo permesso per la LAN, finché non c'è TLS. Va nell'ADR del client TV. → `base-config` con il chiaro permesso, perché un `domain-config` non accetta intervalli IP (§8.8).
 
 ### 4.11 Dipendenze con altre aree
 
@@ -1888,7 +1889,7 @@ Le prime tre le sta applicando l'autore dell'ADR 0003, su decisione dell'orchest
 - **ADR 0006:** build in `clients/web/dist`, copiata nell'immagine `gateway` (multi-stage, solo il workspace del web) o montata in sviluppo; dev server sull'host con proxy verso il gateway; compressione degli asset da aggiungere.
 - **ADR 0003:** ipotesi H-A…H-J (§7.11), regola dei buffer, estrazione e disponibilità dei sottotitoli, codici HTTP, offset dei timestamp.
 - **Decision Engine (F1b):** vocabolario delle capability (I6), `maxFrameRate`, `limits.maxBitrate` assente = nessun limite, ripianificazione per dimensione (doc 04 §8), scelta della dimensione per un `unknown` dopo un 5xx. La tabella del §7.8.2 è l'input dei casi di test del Decision Engine per il browser.
-- **Client TV (ADR futura):** nessun codice di UI condiviso. Si condividono il contratto, il vocabolario e il protocollo di ripianificazione.
+- **Client TV (ADR 0008, Accepted, §8):** nessun codice di UI condiviso. Si condividono il contratto, il vocabolario e il protocollo di ripianificazione.
 
 ### 7.14 Raccomandazione
 
@@ -1928,3 +1929,447 @@ Le prime tre le sta applicando l'autore dell'ADR 0003, su decisione dell'orchest
   - [OpenReplay su Vue Vapor](https://blog.openreplay.com/vue-vapor-mode/);
   - [Chromium audio/video](https://chromium.org/audio-video) (codec proprietari solo in Chrome);
   - [S2](../spikes/S2-browser-playback.md), `spikes/w1-web-bundle/`.
+
+---
+
+## 8. Client TV
+
+- **Area:** stack dell'app per Android TV e Google TV, client API in Kotlin, capability e audio sulla TV del soggiorno
+- **ADR:** [0008 — Client TV: app Android nativa in Kotlin con Compose for TV e Media3](../adr/0008-client-tv-kotlin-compose-media3.md) (**Accepted**)
+- **Data:** 2026-11-07 (rivista lo stesso giorno dopo la revisione di design)
+- **Aree collegate:** [contratto API](#3-formato-del-contratto-api-e-codegen) (ADR 0004), [deploy](#4-deploy-e-gateway) (ADR 0006), [streaming](#6-protocollo-di-streaming-e-stream-delivery) (ADR 0003), [web client](#7-web-client) (ADR 0005), Decision Engine (F1b)
+- **Fonti interne:**
+  - requisiti §5–§9, §14–§16, §18, §20; doc 03 P1, P2, P8, P9, §4.1, §7, I2, I3, I6; doc 04 §4–§8, H5, H11, P1, P5;
+  - [S5 — Client TV sulla TV del proprietario](../spikes/S5-tv-client.md), con gli artefatti in [`docs/spikes/S5-tv-client/`](../spikes/S5-tv-client/);
+  - [K1 — Client Kotlin generato dal contratto](../spikes/K1-kotlin-codegen.md).
+
+### 8.1 Decisioni da prendere
+
+Il client TV viene dopo l'MVP web. Il proprietario lo vuole presto, e questa area è il cancello prima di qualsiasi codice di prodotto per la TV (CLAUDE.md). Le decisioni sono:
+1. lo **stack dell'app**: linguaggio, UI e player;
+2. il **client API** in Kotlin: generatore, libreria HTTP e serializzazione, verificati sul bundle (rinvio dell'ADR 0004 punto 7 e del §3);
+3. la **mappatura delle capability** sul contratto (doc 03 §4.1, I6);
+4. l'**audio** sulla TV di oggi, come conseguenza delle prime tre;
+5. i punti lasciati aperti dalle altre aree: HTTP in chiaro in LAN (§4.10), polling o SSE per la TV (§3), versioni e toolchain.
+
+**Tre fatti del proprietario (2026-11-07)**, che il resto dell'area dà per acquisiti:
+1. **Niente AVR né soundbar.** L'audio esce dagli altoparlanti Harman Kardon del TV, sull'uscita Speaker, non su HDMI ARC.
+   - Il passthrough lossless (TrueHD, DTS-HD) non è in gioco su questo impianto. Non è un requisito perso: con un impianto futuro il client lo dichiarerebbe da sé (§8.9.3).
+   - Il box esterno non serve per l'audio. Resta una strada futura facoltativa, per esempio per il DV profilo 7, senza un acquisto consigliato.
+2. **La libreria sarà fatta soprattutto di ricodifiche x265, non di remux completi.** Il sample tipico, misurato in S5, è "2001: Odissea nello spazio":
+   - 4K HEVC Main10 HDR10, 21,8 GB, 19,6 Mb/s medi, senza Dolby Vision;
+   - audio AC-3 5.1 in italiano e AAC 5.1 in inglese;
+   - sottotitoli PGS in italiano e SRT in inglese.
+
+   Il percorso comune è quindi AC-3, E-AC-3 e AAC con PGS e SRT incorporati, e TrueHD, DTS-HD e DV P7 diventano casi limite. I remux restano supportati, perché i requisiti li ammettono.
+3. **La TV resta sul Wi-Fi a 2,4 GHz** (link a 144 Mb/s): per ora niente cavo né 5 GHz.
+
+### 8.2 Il dispositivo
+
+Fatti misurati in S5 (sonda con Media3 1.11.1, dump via ADB, 2026-11-07); dettagli e file nel [report](../spikes/S5-tv-client.md).
+
+| Aspetto | Fatto |
+|---|---|
+| Piattaforma | Google TV su Android TV 11 (API 30). Modello commerciale H65C95EUX; `Build.MODEL` riporta «Haier OLED TV AE» |
+| SoC e ABI | MediaTek MT5889; `ro.product.cpu.abilist` = `armeabi-v7a,armeabi`: **userspace a 32 bit** |
+| Memoria | 2,95 GB totali, circa 1,06 GB disponibili; `memoryClass` 192 MB, `largeMemoryClass` 512 MB |
+| Display | All'app sono esposti solo 1920×1080 a 60 e a 50 Hz, **nessun modo a 24 Hz**; piano video 3840×2160.<br>HDR: Dolby Vision, HDR10, HLG, HDR10+; 500 nit |
+| Video | - HEVC Main10 (HDR10, HDR10+) fino a livello 5.1 High, 4096×2176, 3840×2160 fino a 64,5 fps;<br>- AV1, VP9 profili 0 e 2;<br>- AVC fino a 1080p a 120 fps, ma in 4K solo fino a 30 fps;<br>- tutti in hardware, con tunneling |
+| Dolby Vision | Decoder hardware P4, P5, P8, P9 e P10; **nessun P7** (DVHE.DTB), nemmeno nel decoder generico |
+| Decoder audio | AC-3 ed E-AC-3 in hardware (6 canali); AAC, FLAC, Opus e PCM in software (8 canali).<br>**Nessun decoder DTS né TrueHD visibile alle app:** il decoder DTS che `media_codecs.xml` dichiara non compare in `MediaCodecList(ALL_CODECS)` |
+| Uscita audio | Un solo dispositivo, `BUILTIN_SPEAKER` (altoparlanti Harman Kardon): PCM 16 bit stereo, AC-3, E-AC-3, E-AC-3 JOC.<br>`AudioCapabilities` di Media3 e `AudioTrack.isDirectPlaybackSupported` accettano in bitstream AC-3, E-AC-3, E-AC-3 JOC e AC-4, a 2, 6 e 8 canali; DTS, DTS-HD e TrueHD no |
+| Estensione FFmpeg (opzione futura) | L'AAR Jellyfin `media3-ffmpeg-decoder` 1.9.0+1 (licenza GPL-3.0), compilato per Media3 1.9.0, si carica con la 1.11.1 e dichiara TrueHD, DTS e DTS-HD |
+| Rete | Wi-Fi a 2,4 GHz, link a 144 Mb/s |
+
+Cosa ne segue, prima ancora di scegliere lo stack:
+- l'app deve compilare per `armeabi-v7a`, e ogni libreria nativa deve avere quella ABI;
+- il buffer predefinito di Media3 (circa 125 MiB nello heap Java, §8.10) non sta in 192 MB insieme alla UI;
+- su questa uscita "passthrough" vuol dire bitstream verso il decoder Dolby del TV, non verso un ricevitore.
+
+### 8.3 Criteri
+
+| # | Criterio | Fonte | Peso | Vincolo rigido? |
+|---|---|---|---|---|
+| T1 | **Direct Play di MKV sulla TV** con i decoder hardware: HEVC Main10 4K HDR10 delle ricodifiche (il caso comune), e per i remux anche HDR10+, DV P5 e P8 | §5.1, §7 "TV", §18 | 5 | sì (MKV nativo) |
+| T2 | **Controllo di audio e capability:** leggere `MediaCodecList`, `AudioCapabilities` e l'HDR del display, e dichiarare solo capability reali | §5, §6, doc 03 I6, doc 04 §5 | 5 | sì (capability reali, non presunte) |
+| T3 | **Sottotitoli:** PGS e SRT incorporati (entrambi nel caso comune), `.sup` e WebVTT esterni | §6, doc 04 §4.4, P3 | 5 | no |
+| T4 | **Qualità e manutenibilità con sviluppo AI:** un linguaggio, API stabili, errori presi dal compilatore, revisione del proprietario | CLAUDE.md, §18 "Qualità" | 5 | no |
+| T5 | **UX con il D-pad:** focus, righe, griglie | §7 "TV", §16 | 4 | no |
+| T6 | **Memoria e fluidità** sulla TV: 32 bit, heap di 192 MB | §18, §8.2 | 4 | no |
+| T7 | **Manutenzione e licenza** | §18 "Evolvibilità" | 4 | sì (progetto mantenuto, licenza compatibile con l'uso privato) |
+| T8 | **Testabilità e toolchain** su Windows | CLAUDE.md "Environment" | 3 | no |
+| T9 | **Riuso per il mobile** | §7 "mobile" (condivisione facoltativa) | 2 | no |
+| — | **Sideload via ADB** e stesso APK su un box esterno | proprietario | — | sì (passa/non passa) |
+
+- La familiarità del proprietario (forte in TypeScript e Python, non in Kotlin) conta solo dentro T4, come capacità di rivedere il codice: lo sviluppo è guidato dall'AI.
+- T3 pesa quanto T1 perché nel caso comune ogni film ha PGS in italiano e SRT in inglese.
+- T9 pesa poco perché il §7 rende facoltativa la condivisione di codice fra i client.
+
+### 8.4 Opzioni (stato al 2026-11-07)
+
+#### A. Kotlin, Jetpack Compose con Compose for TV, Media3
+- **Media3 1.11.1** (Apache-2.0, 2026-09-10; la 1.12.0-alpha02 è del 2026-10-26).
+  - Il `MatroskaExtractor` riconosce `dvcC`/`dvvC` (MIME Dolby Vision), `S_HDMV/PGS`, `S_TEXT/UTF8`, `A_TRUEHD` e `A_DTS`.
+  - `AudioCapabilities` dice cosa passa in bitstream; ci sono `OkHttpDataSource` e `media3-ui-compose` con `PlayerSurface`.
+  - La 1.11 aggiunge gli slot del `Player` Material3 e il supporto di `FocusRequester` per il D-pad ([novità di Media3 1.11](https://android-developers.googleblog.com/2026/08/media3-1-11-whats-new.html), 2026-08-11).
+- **Compose for TV:** `androidx.tv:tv-material` 1.1.0 e `tv-foundation` 1.0.0 (2026-05-06), su Compose ui e foundation 1.12.1 (2026-11-04). Le lazy list TV sono state deprecate in tv-foundation 1.0.0-alpha11 e tolte in alpha12: si usano quelle di Compose foundation.
+- **Pro:** il player di riferimento su Android, nello stesso linguaggio dell'app; la sonda di S5 è già scritta così; è la UI che Google raccomanda per la TV.
+- **Contro:** lo scorrimento di Compose su un SoC a 32 bit non è misurato; le righe in stile Leanback si scrivono a mano.
+
+#### B. Kotlin, Leanback, Media3
+- La [pagina di rilascio di Leanback](https://developer.android.com/jetpack/androidx/releases/leanback) la dichiara deprecata e rimanda alla [migrazione a Compose for TV](https://developer.android.com/training/tv/playback/leanback/migrate-to-compose), anche se esce ancora qualche alpha (1.3.0-alpha02, giugno 2026).
+- **Pro:** `BrowseSupportFragment`, righe con Presenter e focus pronti e provati su dispositivi deboli.
+- **Contro:** API deprecata, con View e Fragment; il codice generato tende a pattern vecchi; la UI non si riusa sul mobile.
+
+#### C. React Native for TV
+- `react-native-tvos` (fork della community per Android TV e tvOS; ultimo commit visto intorno al 2026-05-29) con `react-native-video` 7, che su Android usa Media3.
+- **Pro:** TypeScript; riuso con il mobile, iOS compreso.
+- **Contro:**
+  - capability (`MediaCodecList`, `AudioCapabilities`), scelta dei renderer e sottotitoli esterni non sono esposti: servono moduli nativi in Kotlin, cioè il costo di A più un ponte;
+  - runtime JavaScript nello stesso heap di 192 MB.
+
+#### D. Flutter
+- Nessun target TV ufficiale; il focus del D-pad passa da pacchetti della community come `dpad` 3.1.0 (2026-10-07).
+- `video_player` su Android usa ExoPlayer, ma non espone tracce, capability né bitstream: il player va scritto in Kotlin dietro un platform channel, con Dart in più.
+
+#### E. WebView o TWA che incapsula il web client
+- **Non passa T1.** Una WebView si comporta come il browser del §7: niente MKV né PGS nativi, nessun controllo dell'uscita audio, e tutto andrebbe in Direct Stream o in Transcode (§5.1).
+- Una TWA richiede Chrome, che Google TV non installa di serie (giudizio).
+
+### 8.5 Valutazione
+
+Punteggi 1–5. **E** = evidenza (§8.2, S5, codice di Media3, documentazione, K1); **G** = giudizio.
+
+| Criterio (peso) | A. Compose for TV + Media3 | B. Leanback + Media3 | C. React Native TV | D. Flutter |
+|---|---|---|---|---|
+| T1 Direct Play MKV (5) | 5 **E**: Media3 con i decoder hardware della TV (S5) | 5 **E**: stesso player | 4 G: Media3 dietro react-native-video; i renderer si configurano da un modulo nativo | 3 G: `video_player` non controlla tracce né renderer; serve comunque un player nativo |
+| T2 Audio e capability (5) | 5 **E**: la sonda di S5 le produce già in Kotlin | 5 **E** | 2 G: tutto da un modulo nativo | 2 G: platform channel |
+| T3 Sottotitoli (5) | 4 **E**: PGS e SRT incorporati con Media3 (S5 per i PGS); `.sup` esterno da verificare | 4 **E** | 3 G | 2 G |
+| T4 Qualità con sviluppo AI (5) | 5 G: un linguaggio, l'API raccomandata, Compose molto documentato | 3 G: API deprecata, View e Fragment | 3 G: due linguaggi e un ponte | 3 G: Dart più Kotlin |
+| T5 D-pad (4) | 4 **E**: focus di Compose e tv-material 1.1.0; le righe si scrivono | 5 **E**: righe e focus pronti | 3 G: motore di focus del fork | 3 G: focus di Flutter più `dpad` |
+| T6 Memoria e fluidità (4) | 3 G: Compose su 32 bit, non misurato | 4 G: RecyclerView, provato su dispositivi deboli | 2 G: un runtime JS in più | 3 G: un motore in più |
+| T7 Manutenzione e licenza (4) | 5 **E**: Apache-2.0, tutto stabile e attivo | 2 **E**: deprecata | 3 **E**: fork della community | 3 **E**: la TV non è un target ufficiale |
+| T8 Testabilità e toolchain (3) | 4 **E**: S5 compila con AGP 9.5.1 sul portatile; test sulla JVM con Robolectric | 4 **E** | 3 G: Metro, npm e Gradle insieme | 4 G |
+| T9 Riuso per il mobile (2) | 4 G: Compose e `:player` su Android; iOS no | 2 G | 5 G: anche iOS | 5 G: anche iOS |
+| **Totale pesato (/5)** | **4,41** | 3,92 | 3,00 | 2,92 |
+
+Tutte le opzioni passano il vincolo del sideload. C e D passano T1 e T2 solo con moduli nativi in Kotlin, cioè con una parte del costo di A. E non passa T1.
+
+**Lettura del risultato.**
+- **A e B condividono il player:** sulla riproduzione, la parte che conta di più, non c'è differenza.
+- **B vince solo su T5 e T6;** A vince su T4, T7 e T9.
+  - T7 vincola: una UI nuova non si costruisce su un'API deprecata.
+  - T6 è l'unico rischio vero di A, da misurare nella prima slice TV (§8.13, domanda 7). Se Compose non regge, la riserva è circoscritta: Leanback solo per le schermate di navigazione, con lo stesso modulo del player.
+- **C e D non tolgono lavoro nativo, ne aggiungono:** il valore del client TV sta nel player e nelle capability, che restano in Kotlin.
+
+### 8.6 Piattaforma, versioni e toolchain
+
+Versioni lette il 2026-11-07.
+
+| Componente | Versione | Data | Fonte | Note |
+|---|---|---|---|---|
+| Kotlin | 2.4.21 | 2026-10-08 | [kotlinlang.org](https://kotlinlang.org/docs/releases.html) | la 2.4.0 è del 2026-06-03 |
+| Android Gradle Plugin | 9.5.1 | patch della 9.5.0 (ottobre 2026) | [Google Maven](https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml), [note della 9.5](https://developer.android.com/build/releases/agp-9-5-0-release-notes) | Gradle 9.6.0 o più, JDK 17 o più, API fino a 37; Kotlin integrato da AGP 9.0; la 9.6 è ancora alpha |
+| Gradle | 9.8.2 | 2026-10-19 | [gradle.org](https://gradle.org/releases/) | |
+| JDK | 21 | — | Microsoft OpenJDK 21.0.13 sul portatile | per eseguire Gradle; bytecode 17 |
+| Android SDK | compileSdk e targetSdk 36, minSdk 30 | — | piattaforme `android-36` e `android-37.0` già installate sul portatile | S5 compila con 36 |
+| Media3 | 1.11.1 | 2026-09-10 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/media3) | `exoplayer`, `exoplayer-hls`, `datasource-okhttp`, `ui-compose`, `ui` (solo per `SubtitleView`) |
+| Compose | ui e foundation 1.12.1 | 2026-11-04 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/compose) | la [BOM](https://dl.google.com/dl/android/maven2/androidx/compose/compose-bom/maven-metadata.xml) più recente è la 2026.09.00, quindi versioni fissate a mano |
+| Compose for TV | tv-material 1.1.0, tv-foundation 1.0.0 | 2026-05-06 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/tv) | |
+| Navigation3 | 1.2.1 | 2026-11-04 | [note di rilascio](https://developer.android.com/jetpack/androidx/releases/navigation3) | |
+| Coil | 3.6.3 | 2026-09-18 | [Maven Central](https://repo1.maven.org/maven2/io/coil-kt/coil3/coil-compose/maven-metadata.xml) | `coil-compose`, `coil-network-okhttp` |
+| Retrofit | 3.0.0 | 2025-05-15 | [Maven Central](https://repo1.maven.org/maven2/com/squareup/retrofit2/retrofit/maven-metadata.xml) | con `converter-kotlinx-serialization` 3.0.0 |
+| OkHttp | 5.5.1 | 2026-10-22 | [Maven Central](https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/maven-metadata.xml) | anche `mockwebserver3` per i test |
+| kotlinx-serialization-json | 1.12.0 | 2026-10-19 | [Maven Central](https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json/maven-metadata.xml) | |
+| kotlinx-coroutines | 1.11.0 | — | [Maven Central](https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/maven-metadata.xml) | |
+| OpenAPI Generator | 7.27.0 | 2026-11-02 | [release](https://github.com/OpenAPITools/openapi-generator/releases), [Gradle Plugin Portal](https://plugins.gradle.org/m2/org/openapi/generator/org.openapi.generator.gradle.plugin/maven-metadata.xml) | plugin Gradle o immagine Docker (ADR 0004), stessa versione |
+| Robolectric | 4.17 | — | [Maven Central](https://repo1.maven.org/maven2/org/robolectric/robolectric/maven-metadata.xml) | SDK dei test fissato a 30 |
+
+- **minSdk 30:** è la TV. Anche l'Nvidia Shield, il box più vecchio che avrebbe senso, ha Android 11. Con 30 non ci sono rami di codice per API che non si possono provare.
+- **targetSdk 36, non 37:** con targetSdk 37 Android 17 blocca di default l'accesso alla rete locale. Serve allora il permesso a runtime `ACCESS_LOCAL_NETWORK`, e senza di lui le connessioni TCP in LAN vanno in timeout, OkHttp compreso ([protezione della rete locale](https://developer.android.com/privacy-and-security/local-network-permission)).
+  - Sulla TV con API 30 non cambia nulla, ma sul box e sul mobile sì.
+  - Con targetSdk 36 l'accesso resta concesso implicitamente con `INTERNET`.
+  - Si passa a 37 solo dichiarando e chiedendo il permesso e gestendo il rifiuto. Per la scoperta mDNS c'è il picker di `NsdManager` (`FLAG_SHOW_PICKER`), che non chiede il permesso.
+- **Versioni fisse** in `gradle/libs.versions.toml`, senza BOM e senza intervalli. Le librerie Jetpack di base (activity-compose, lifecycle) si fissano nello scaffold all'ultima stabile.
+- **Scartati:**
+  - Ktor 3.6.1 (2026-10-29), per l'esito di K1 (§8.7);
+  - DataStore, perché tre valori stanno bene in `SharedPreferences`;
+  - un framework di DI, perché un contenitore scritto a mano basta per tre moduli.
+- **Opzione futura:** l'estensione FFmpeg di Media3, per TrueHD e DTS in Direct Play (§8.9.2).
+
+### 8.7 Esperimento K1: client Kotlin generato dal bundle (2026-11-07)
+
+Report completo: [K1](../spikes/K1-kotlin-codegen.md); codice in `spikes/k1-kotlin-codegen/`.
+
+- **Domanda:** OpenAPI Generator 7.27.0 produce un client Kotlin che compila e decodifica i payload del contratto? Con quale libreria HTTP?
+- **Metodo:**
+  - cinque varianti del generatore sul bundle, compilate con Kotlin 2.4.21 in Docker;
+  - una sonda con sette controlli su **payload d'esempio scritti a mano** nel formato del contratto (istanti in millisecondi, byte, enum sconosciuti, `payload` libero, `null`, codifica di una `StartPlaybackRequest`).
+
+| Variante | Compilazione | Controlli |
+|---|---|---|
+| `jvm-retrofit2`, senza mapping | ❌ `Map<String, kotlin.Any>` senza serializer | — |
+| `jvm-ktor`, `AnyType=JsonElement`, `number=kotlin.Double` | ❌ `State.needs_review` non qualificato in `AdminApi`, enum `Sort` e `Order` non risolti in `CatalogApi`; in più, nessun convertitore JSON nell'`ApiClient` | — |
+| `jvm-retrofit2`, stessi mapping | ✅ | 4 su 7: istanti e byte superano `Int` |
+| idem, bundle con `format: int64` su 10 proprietà | ✅ | 7 su 7 |
+| idem, bundle invariato più **`integer=kotlin.Long`** | ✅ | **7 su 7** |
+
+**Lettura:**
+- `jvm-ktor` è scartato sull'evidenza;
+- `jvm-retrofit2` va con i tre mapping;
+- `integer=kotlin.Long` copre per costruzione ogni intero futuro, e `Long` è il tipo che Media3 usa già per posizioni e durate.
+
+**Cosa K1 non prova:**
+- il collegamento HTTP di Retrofit;
+- la validità dei corpi codificati rispetto allo schema: con la configurazione generata il corpo contiene `"app":null`, che il server rifiuterebbe.
+
+Il §8.8 prevede il test che manca.
+
+### 8.8 Client API, rete ed eventi
+
+- **Generazione:** il modulo `:api` genera il client a ogni build, in `build/generated/`, dal bundle versionato `services/video/contract/dist/openapi.json`.
+  - Si usa il plugin Gradle `org.openapi.generator` 7.27.0; se non va con Gradle 9.8 (da verificare nello scaffold), si genera con l'immagine Docker dell'ADR 0004.
+  - Opzioni e mapping sono quelli della variante `integer=kotlin.Long` di K1. Si usano solo i sorgenti generati.
+- **Gate sui cambi del contratto:** ogni modifica di `contract/dist/openapi.json` rigenera e compila il client Kotlin.
+  - Lo fa `gradlew :api:check`, quando `clients/tv` esiste; prima di allora `bash spikes/k1-kotlin-codegen/run.sh retrofit-long`, che deve dare 14 righe `OK`.
+  - Il gate di milestone dell'ADR 0004 diventa "genera e compila".
+- **`format: int64`:** nella prima slice TV si aggiunge alle 10 proprietà in millisecondi e in byte di K1. È un cambio additivo, che serve anche a un generatore senza mapping globale (la riserva Fabrikt). Il contratto, oggi, non cambia.
+- **Retrofit:** l'app costruisce l'istanza Retrofit sulle interfacce generate, con il convertitore kotlinx.serialization e un `Json` a `explicitNulls = false`, `encodeDefaults = false` e `ignoreUnknownKeys = true`.
+  - Non usa l'`ApiClient` generato: la sua autenticazione aggiunge un interceptor al builder che riceve, e senza builder ne crea uno con il logging del corpo completo.
+- **`subtitleTrackId`:** "spenti" è `null`, "preferenze del profilo" è il campo assente. Il modello generato si codifica in un `JsonObject`, e per "spenti" si aggiunge `"subtitleTrackId": null`. I tipi generati restano.
+- **Test dei corpi:** un test con MockWebServer valida i corpi codificati di `StartPlayback`, `ChangeTracks` e `ReportProgress` contro lo schema del bundle. Il validatore JSON Schema 2020-12 per i test si sceglie nella prima slice, come riga di decisione.
+- **Facciata:** sopra il codice generato c'è una facciata scritta a mano, l'unica cosa che l'app vede.
+  - Traduce gli errori in `Problem` (RFC 9457), compresi `410 CURSOR_EXPIRED` e `422 NO_COMPATIBLE_PLAN`.
+  - Tiene i tipi stretti di `PlaybackSession.mode` ed `Event.type`, come nel web (§7.7).
+- **HTTP:** un `OkHttpClient` 5.5.1 di base, e client derivati con `newBuilder()`:
+  - quello delle API aggiunge `Authorization: Bearer <profileToken>`, tranne alle operazioni con `security: []` (`listProfiles`, `selectProfile`, `getServerInfo`), e `Accept-Language: it-IT`;
+  - quelli di Coil e di Media3 (`OkHttpDataSource`) non portano il Bearer. Il data plane non usa header: il token di sessione è nel path (doc 03 P9).
+
+  Un `401` del control plane cancella il token e porta alla scelta del profilo.
+- **URL del server:**
+  - si inserisce a mano al primo avvio (per esempio `http://192.168.1.10:8080/`) e si conserva in `SharedPreferences`. La scoperta mDNS arriverà dopo;
+  - i locatori del control plane si risolvono su quell'URL, e l'app non costruisce mai URL dei media (doc 03 P1, P9);
+  - nessuna logica assume la stessa subnet (§9).
+- **HTTP in chiaro** (§4.10): Android lo blocca di default da API 28. Un `domain-config` accetta solo nomi di dominio, non intervalli di indirizzi ([configurazione di sicurezza di rete](https://developer.android.com/privacy-and-security/security-config)), mentre il server può essere un IP qualsiasi della LAN. Quindi:
+
+  ```xml
+  <network-security-config>
+      <base-config cleartextTrafficPermitted="true" />
+  </network-security-config>
+  ```
+
+  Con TLS (accesso remoto, ADR futura) il chiaro si spegne, e una CA privata entra con `trust-anchors`.
+- **Eventi:** polling come nel web client (§7.7).
+  - All'avvio `listEvents` senza cursore. Poi una chiamata ogni 5 s con l'app in primo piano, ogni 15 s durante la riproduzione, nessuna in background (`ProcessLifecycleOwner`).
+  - Dopo un errore di rete l'intervallo cresce fino a 60 s. `410 CURSOR_EXPIRED` invalida tutto e riparte.
+  - Gli eventi invalidano le schermate interessate con la tabella del web; lo stato sta in ViewModel con `StateFlow`.
+- **SSE:** non ora. Una sola TV e pochi eventi non lo giustificano; quando servirà, è un cambio di trasporto (I3) senza toccare il contratto.
+- **Rete e `limits.maxBitrate`:**
+  - in S5 il sample tipico (19,6 Mb/s) non va mai in rebuffer sul Wi-Fi a 2,4 GHz, mentre un remux 4K60 da circa 100 Mb/s va in rebuffer una volta per circa 3 s;
+  - il client **non dichiara** `limits.maxBitrate`. Per un 4K oltre la capacità della rete non c'è alternativa comunque (niente Transcode 4K, P2), e un limite trasformerebbe un rebuffer in `NO_COMPATIBLE_PLAN`.
+
+### 8.9 Capability e audio
+
+#### 8.9.1 Mappatura sul contratto
+
+Il client dichiara **solo capability reali**, lette dalla piattaforma **a ogni avvio di sessione**, perché l'uscita audio può cambiare. Gli override del server per dispositivo (I2) restano la correzione per i casi in cui la piattaforma dichiara male.
+
+| Campo | Regola | API |
+|---|---|---|
+| `device.class` | `tv` se il modo UI è televisione | `UiModeManager` |
+| `device.model` | `"<MANUFACTURER> <MODEL>; Android <release> (API <n>)"`. Sulla TV: «Haier Haier OLED TV AE; Android 11 (API 30)». Gli override si scrivono su questa stringa, non sul nome commerciale | `Build` |
+| `device.app` | `"pezzotflix-tv <versionName>"` | `PackageInfo` |
+| `containers` | `mkv`, `mp4`, `webm`: gli estrattori di Media3 | fisso |
+| `protocols` | `progressive`, `hls-fmp4` | fisso |
+| `audioTrackSelection` | `true`: il client sceglie le tracce dentro un Direct Play. Il server ci riconosce un player nativo (`selectsTracks`) | fisso |
+| `video[]` | Per `hevc`, `h264`, `av1` e `vp9` contano solo i **decoder hardware**: profili dai `profileLevels`, dimensioni dalle `VideoCapabilities`, `maxBitDepth` 10 se c'è un profilo a 10 bit.<br>**Una voce per fascia di risoluzione**, perché il contratto ha un solo `maxFrameRate` per voce: per esempio `h264` a 1080p fino a 120 fps e a 4K fino a 30 fps. Il motore guarda la dimensione prima del frame rate (`videoFit`), quindi più voci per codec funzionano già | `MediaCodecUtil.getDecoderInfos`, `VideoCapabilities` |
+| `hdr[]` | Intersezione fra l'HDR del display e i profili dei decoder: `HDR10`, `HDR10+`, `HLG`, e `DV<n>` per ogni profilo Dolby Vision con un decoder (`DV4`, `DV5`, `DV8`, `DV9`, `DV10` su questa TV).<br>Il motore accetta `DV<profilo>` per qualunque profilo (`clientPlaysDolbyVision`). Il client **non dichiara mai un `DV` generico**, che il motore farebbe valere anche per il P7 | `Display.getHdrCapabilities`, `CodecProfileLevel` |
+| `displayHdr` | `Display.isHdr()` | `Display` |
+| `audio[]`, `passthrough` | Codifiche che `AudioCapabilities` accetta in bitstream sull'uscita attuale: oggi AC-3 ed E-AC-3, JOC compreso (`eac3`). `maxChannels` = il massimo sondato, fino a 8 | Media3 `AudioCapabilities` |
+| `audio[]`, `decode` | Codec con un decoder che Media3 trova, con i canali che il decoder gestisce davvero: oggi `aac`, `flac`, `opus` e `pcm` a 8 canali. Niente `truehd`, `dts` né `dtshd`: sulla TV non c'è un decoder | `MediaCodecUtil` |
+| `subtitles` | `text`: `srt`, `webvtt`; `image`: `pgs` (Media3 legge anche `vobsub` e `dvb`); `ass`: `true`, con lo stile parziale del `SsaParser` di Media3 | fisso |
+| `limits.maxBitrate` | assente (§8.8) | — |
+
+#### 8.9.2 Audio sulla TV di oggi
+
+Il client non ha una preferenza audio: dichiara cosa la TV sa fare, e il motore sceglie con la scala del doc 04 §4.3.
+
+| Traccia della sorgente | Piano | Sottotitoli |
+|---|---|---|
+| **AC-3, E-AC-3** (JOC compreso): la traccia italiana tipica | Direct Play, bitstream al processore Dolby del TV | incorporati, resi da Media3 |
+| **AAC 5.1**: la traccia inglese tipica; anche FLAC, PCM, Opus | Direct Play, decodificati sulla TV; Android porta il multicanale sui due canali degli altoparlanti | incorporati |
+| **TrueHD, DTS-HD MA, DTS** (remux, casi limite) | Direct Stream: il motore scende al **FLAC con i canali della sorgente**, e la TV lo decodifica. Il lossless resta; si perdono gli oggetti Atmos (S5: Blade Runner, TrueHD → FLAC 5.1) | PGS come `.sup` esterno (`client_render`), testo come WebVTT esterno |
+| **AAC con PCE** (raro) | il motore non lo copia mai, per nessun client (`audio.ts`): conversione | come sopra se il piano è Direct Stream |
+
+- **Ascolto del proprietario (S5):** l'AAC 5.1 decodificato sulla TV contro lo stesso convertito dal server in E-AC-3 5.1 a 640 kb/s, che il processore Dolby del TV renderebbe sugli altoparlanti.
+  - Se vince il primo, o non c'è differenza, non cambia nulla.
+  - Se vince il Dolby, la scelta diventa una **politica del server**, non una preferenza nascosta del client: un override per dispositivo (I2) o un campo additivo del contratto (P8), che il motore legge, applica alle tracce multicanale non Dolby e riporta nei `reasons`.
+  - Il client continua a dichiarare capability vere, e la ripianificazione mantiene i suoi gradini.
+- **Perché nessuna preferenza nel client:**
+  - dichiarare AAC o FLAC a 2 canali quando la TV ne decodifica 8 sarebbe falso (il contratto definisce `maxChannels` come i canali che il client decodifica);
+  - il server non vedrebbe la scelta, e i suoi motivi direbbero "non decodificato dal client";
+  - dopo un'esclusione dell'E-AC-3, la scala resterebbe senza gradini per un AAC 5.1.
+- **Estensione FFmpeg:** opzione futura per TrueHD e DTS in Direct Play. Il guadagno sarebbe solo il Direct Play al posto del Direct Stream, non la qualità, perché il FLAC è già lossless. Il costo è un AAR GPL-3.0 compilato per un'altra versione di Media3 (§8.2).
+
+#### 8.9.3 Passthrough lossless con un impianto futuro
+
+- **Come funzionerebbe:** con un AVR o una soundbar su HDMI eARC l'app non cambia logica. `AudioCapabilities` vede TrueHD e DTS-HD sull'uscita, l'app li dichiara in `passthrough`, e il server copia la traccia (doc 04 §4.3). È il trigger del passthrough lossless (H5).
+- **Da verificare allora:** sulle TV con API 29–32 Media3 interroga `isDirectPlaybackSupported` sull'uscita attuale, e non usa l'intent HDMI né l'impostazione del surround esterno (codice di `AudioCapabilities`). Bisogna vedere se l'HAL di questo TV espone TrueHD su eARC: il profilo ARC letto oggi ha solo AC-3 ed E-AC-3.
+
+### 8.10 Player
+
+- **Superficie:** `PlayerSurface` di media3-ui-compose su `SurfaceView`, che serve per HDR e Dolby Vision. I sottotitoli usano `SubtitleView` di media3-ui dentro `AndroidView`, alimentata dai `Cue` del player: le note della 1.11 non citano un composable per i sottotitoli (giudizio).
+- **Buffer:**
+  - `DefaultLoadControl` di Media3 1.11.1 dimensiona il buffer video a 2000 segmenti da 64 KiB, circa 125 MiB, più 200 segmenti per l'audio, e li alloca come `byte[]` nello heap Java (codice di `DefaultLoadControl`);
+  - con un heap di 192 MB non sta insieme alla UI: `android:largeHeap="true"` (512 MB) e `setTargetBufferBytes` a 100 MiB come valore di partenza. Le durate restano quelle predefinite, e il tetto in byte vince;
+  - 100 MiB sono circa 43 s del sample tipico (19,6 Mb/s), 14 s a 60 Mb/s e 6,5 s ai 128 Mb/s di picco di un remux UHD.
+- **Immagini:** con `largeHeap` la cache in memoria predefinita di Coil cresce a circa un quarto di 512 MB. Le si dà un tetto esplicito (64 MB come partenza), da tarare nella prima slice.
+- **Tunneling:** spento. In S5 non riduce i frame persi né l'avvio, e con il sample tipico rallenta un seek.
+- **Frequenza del display:** Media3 chiede da sé `Surface.setFrameRate` (strategia predefinita: solo se il cambio è senza interruzioni; giudizio dalla documentazione). Il display espone all'app solo 60 e 50 Hz, quindi l'app non può chiedere i 24 Hz. Se a 23,976 fps c'è judder, si interviene sulle impostazioni del TV, non nel codice (verifica del proprietario).
+- **Tracce non supportate:** dopo ogni `onTracksChanged`, il client guarda il supporto delle tracce scelte.
+  - Con `FORMAT_UNSUPPORTED_TYPE`, `FORMAT_UNSUPPORTED_SUBTYPE` o `FORMAT_UNSUPPORTED_DRM` segnala un fallimento con quella dimensione, invece di riprodurre in silenzio o a schermo nero.
+  - Con `FORMAT_EXCEEDS_CAPABILITIES` riproduce, e si affida agli errori veri del decoder. I dispositivi sottodichiarano profili e livelli: in S5 un HEVC livello 6.1 va su un decoder che dichiara il 5.1. Anche il motore ignora livello e tier (`caps.ts`).
+  - **Unica eccezione:** una traccia Dolby Vision il cui profilo non è fra gli `hdr[]` dichiarati si segnala come fallimento video (§8.12).
+- **Posizioni:**
+  - in Direct Play la posizione di Media3 è quella del file;
+  - in HLS Media3 riporta il tempo della playlist VOD, che copre il film da 0, e ignora `mediaTimestampOffsetMs`, che il contratto descrive per hls.js. Deve coincidere con la timeline originale anche dopo un seek con riavvio (§8.13, domanda 9);
+  - il client riporta sempre posizioni sulla timeline originale (doc 04).
+- **Cambio della traccia audio:** il server marca ogni traccia audio `switchWithoutRestart: false` (`view.ts`). Il client chiama `ChangeTracks`, e cambia in locale solo se il piano restituito ha la stessa modalità e lo stesso URL; altrimenti riparte sul nuovo stream dalla posizione corrente.
+- **Cambio dei sottotitoli:** una traccia incorporata si sceglie in locale, e il client manda anche `ChangeTracks` per registrare la scelta del profilo (§7.8).
+- **Fallimenti e sessione** (doc 04 §8, con le precisazioni di F2):
+
+| Segnale di Media3 | Azione | Note |
+|---|---|---|
+| Traccia scelta con `FORMAT_UNSUPPORTED_*`, o traccia DV con profilo non dichiarato | `reportPlaybackFailure` con `video`, `audio` o `subtitle` | |
+| `PlaybackException` di un renderer: `ERROR_CODE_DECODER_INIT_FAILED`, `ERROR_CODE_DECODING_FAILED`, `ERROR_CODE_DECODING_FORMAT_UNSUPPORTED`, `ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES` | `reportPlaybackFailure`, con il sospetto dal tipo di traccia di `ExoPlaybackException.rendererFormat` | |
+| `ERROR_CODE_AUDIO_TRACK_INIT_FAILED`, `ERROR_CODE_AUDIO_TRACK_WRITE_FAILED` | `reportPlaybackFailure` con `audio` | Per esempio un bitstream che l'uscita rifiuta |
+| `ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED` o `_MALFORMED` | `reportPlaybackFailure` con `container` | In Direct Play porta al Direct Stream |
+| `ERROR_CODE_PARSING_MANIFEST_*` | `reportPlaybackFailure` con `unknown` | La playlist la scrive il server |
+| `404` o `410` dal data plane | Il client chiede **una volta** al control plane il motivo della chiusura (`reason` del `410 SESSION_EXPIRED`). Riparte da solo con `StartPlayback` dalla posizione corrente **solo** per `expired`, `stopped`, `shutdown` o un motivo ignoto. Con `terminated`, `failed` o `item_removed` mostra il motivo e non riparte | Con `terminated` un altro dispositivo ha preso il posto: ripartire glielo contenderebbe |
+| `503 MEDIA_UNAVAILABLE` con `sessionClosed` | Mostra "il file non è raggiungibile", **senza nuovi tentativi** | Senza `sessionClosed` il `503` è transitorio: si riprova dopo `Retry-After` |
+| Altro `5xx` | Definitivo al primo errore (`500 STREAM_FAILED`), poi `reportPlaybackFailure` con `unknown` | Una `LoadErrorHandlingPolicy` propria: nessun retry sui `5xx` diversi da `503` |
+| `ERROR_CODE_IO_NETWORK_CONNECTION_*` | Nuovi tentativi con backoff, poi "connessione persa" | |
+| Caricamento di un sottotitolo esterno (`.sup`, WebVTT) fallito | `reportPlaybackFailure` con `subtitle` | Un `503` con `Retry-After` vuol dire "in preparazione", come nel web |
+
+- **Limiti:** al massimo 3 tentativi automatici per `StartPlayback` (doc 04 §8). Esauriti, il player mostra il motivo e offre "Riprova".
+- **Il client libera il posto** (doc 04 §8, F2):
+  - `StopPlayback` quando si esce dal player, quando si rinuncia (errore, tentativi esauriti) e su `onStop` dell'Activity, l'equivalente del `pagehide` del web, tranne che per una sessione già `terminated`, `expired` o `stopped`;
+  - un nuovo avvio aspetta al più 3 s lo stop della sessione che sostituisce.
+- **Diagnostica:** il pannello "Informazioni tecniche" mostra `mode`, `reasons`, capability dichiarate e ultimo fallimento.
+- **Sottotitoli esterni** (solo in Direct Stream):
+  - il WebVTT si carica con `SubtitleConfiguration`;
+  - il `.sup` ha un'intestazione per segmento (`PG`, PTS, DTS), mentre il `PgsParser` di Media3 legge i segmenti come stanno nei blocchi dell'MKV, quindi il side-load diretto probabilmente non basta (giudizio, §8.13 domanda 10). La riserva è un piccolo parser che divide il `.sup` in display set con i loro tempi e passa ciascuno al `PgsParser`;
+  - come ricaricare un `.sup` che cresce senza ripreparare il player si decide con la misura. Se Media3 non lo permette, il PGS esterno si disegna in un overlay proprio, sincronizzato con la posizione del player, come libpgs nel web.
+
+### 8.11 Progetto, UI, distribuzione e test
+
+- **Progetto:** `clients/tv/`, un progetto Gradle con il wrapper (Gradle 9.8.2), `gradle/libs.versions.toml` e tre moduli:
+  - `:app`: UI, navigazione, impostazioni;
+  - `:player`: Media3, capability, ripianificazione;
+  - `:api`: client generato più la facciata.
+- **Ambito della UI:** scelta del profilo, Home composta dal server, navigazione del catalogo (film, documentari, serie → stagione → episodio, extra), ricerca, scheda dell'item, player. Niente sezione di gestione: la coda "Da verificare" resta nel web client.
+- **Gate:**
+  - `npm run verify` non costruisce la TV. Il gate della TV è `gradlew check`: test JVM, Robolectric, Android Lint, warning del compilatore Kotlin come errori;
+  - lo lancia l'orchestratore quando cambia il codice TV **o il contratto** (§8.8).
+- **Gradle** con impostazioni prudenti come in S5 (heap da 2 GB, 2 worker, niente progetti in parallelo): il portatile ha poca RAM.
+- **Distribuzione:**
+  - APK di release firmato con una chiave del progetto, tenuta fuori dal repo. Se la chiave si perde basta disinstallare e reinstallare: sul dispositivo restano solo URL del server, profilo e preferenze;
+  - installazione con `adb connect <ip-tv>:5555` e `adb install -r`;
+  - APK unico con `armeabi-v7a` e `arm64-v8a`;
+  - `LEANBACK_LAUNCHER` con banner; `android.software.leanback` e `android.hardware.touchscreen` con `required="false"`.
+- **Test:**
+  - **capability:** dalle istantanee di S5 (`raw-caps.json`) come fixture, confrontate con la tabella del §8.9.1;
+  - **ripianificazione e sessione:** la macchina a stati del §8.10;
+  - **facciata API:** con MockWebServer (Problem, `410`, corpi validati contro lo schema, §8.8);
+  - **UI:** test di Compose su Robolectric, con l'SDK dei test fissato a 30, per l'ordine del focus;
+  - **sulla TV:** prova di fumo via ADB.
+
+### 8.12 Dolby Vision profilo 7
+
+Nessuna regola nuova nel motore: il P7 è un caso limite della libreria reale, e manca un sample (H11).
+- **Cosa succede oggi:**
+  - un MKV con DV P7 arriva al client in Direct Play con `keep_rpu`, perché il motore assume che un player nativo riproduca il livello base (doc 04 §4.2);
+  - su questa TV nessun decoder elenca il profilo 7 (S5), quindi la traccia DV ha un profilo non dichiarato, e il client la segnala come fallimento video (§8.10);
+  - la ripianificazione passa al Direct Stream (doc 04 §8). Lì `keep_rpu` etichetta lo stream `hvc1` senza box DV (`playback-plan.ts`), e Media3 lo legge come HEVC HDR10.
+- **Costo:** un tentativo automatico.
+- **Da misurare con un sample** (§8.13, domanda 12): il Direct Stream `hvc1` con e senza `remove_dovi`. Se la misura lo chiede, la regola diventa un blocco del solo Direct Play per i client nativi, con il doc 04 §4.2 aggiornato.
+
+### 8.13 Domande per S5
+
+Lo stato viene dal [report di S5](../spikes/S5-tv-client.md) al 2026-11-07. Le domande 1, 2 e 4 fissano dei default; le altre sono verifiche.
+
+| # | Domanda | Stato | Se l'esito è negativo |
+|---|---|---|---|
+| 1 | Il sample tipico in Direct Play (4K HEVC Main10 HDR10, AC-3 5.1, AAC 5.1, PGS e SRT): avvio, seek, frame persi; tunneling | ✅ Avvio in circa 1 s, seek a 2 ore in 0,8 s al primo frame, 0 frame persi su 933. Il tunneling non porta vantaggi: resta spento | — |
+| 2 | Sull'uscita Speaker, AC-3 ed E-AC-3 arrivano davvero al processore Dolby, e non come PCM stereo? L'A/V sync regge? | ⏳ `isDirectPlaybackSupported` è vero; resta l'ascolto | Il percorso comune va comunque; la politica Dolby del §8.9.2 perde senso |
+| 3 | PGS e SRT incorporati in Direct Play: resa, tempi, posizione, cambio di traccia | PGS ✅ (ritardo mediano 7 ms, 1 frame perso su 1862); SRT ⏳ | PGS: `.sup` anche in Direct Play, con un override del server. SRT: WebVTT esterno |
+| 4 | Ascolto del proprietario: AAC 5.1 decodificato sulla TV contro E-AC-3 5.1 a 640 kb/s convertito dal server | ⏳ | — (decide se serve la politica Dolby del server, §8.9.2) |
+| 5 | Rete sul Wi-Fi a 2,4 GHz | ✅ Sample tipico senza rebuffer; un remux da circa 100 Mb/s va in rebuffer una volta per circa 3 s | Caso limite: nessun intervento nel codice |
+| 6 | Heap con il tetto del buffer e `largeHeap`; nessun intervento del low memory killer durante un film | ⏳ | Tetto più basso |
+| 7 | Scorrimento di una griglia con centinaia di locandine | non in S5, che usa le View: **prima slice TV** | Baseline profile e immagini più piccole; poi Leanback per la navigazione |
+| 8 | Judder a 23,976 fps | ⏳ verifica a occhio del proprietario | Impostazioni del TV |
+| 9 | Direct Stream HLS fMP4 in Media3: avvio, seek con riavvio della pipeline, posizione uguale alla timeline originale, `trun` v1 con CTS negativi, E-AC-3 con `delay_moov`, **FLAC 7.1** | ⏳ i piani del server sono verificati; la riproduzione sulla TV no | Correzione nel segmenter (ADR 0003): il Direct Stream deve funzionare anche in Media3 |
+| 10 | Sottotitoli esterni in Direct Stream: `.sup` col side-load di Media3? Ricarica mentre cresce? WebVTT? | ⏳ | Parser proprio o overlay (§8.10) |
+| 11 | Remux: HDR10+, DV P5 e DV P8.1 in Direct Play | ✅ DV P5 e P8.1 sui decoder Dolby Vision; un HEVC livello 6.1 va. Resta da vedere a occhio che il pannello entri in Dolby Vision. HDR10+ ⏳ | Override del server per il profilo che non va |
+| 12 | DV P7 (H11, serve un sample del proprietario) | ⏳ | §8.12 |
+
+**Aggiornamento a fine S5 (2026-11-07).** Rispetto alla tabella:
+- **3:** SRT ✅, ritardo mediano 5 ms.
+- **6:** ⚠️ il buffer predefinito (137,5 MiB) sta nei 192 MB ma al limite (PSS 208 MB nel punto più denso del 2001); 120 s / 400 MB vanno in `OutOfMemoryError` senza `largeHeap` e stanno con `largeHeap`. Deciso il tetto di 100 MiB con `largeHeap` (ADR 0008, decisioni dopo S5). Il low memory killer su un film intero resta da osservare.
+- **9:** il Direct Stream HLS fMP4 va in Media3 (spezzone di 30 s, primo frame in 456 ms); il seek lungo con riavvio della pipeline resta da misurare. Il **FLAC con blocchi da 4608 campioni si ferma** su audio reale; con 1152 campioni 5.1 e 7.1 vanno: il server passa a 1152 (ADR 0008).
+- **10:** ❌ il `.sup` esterno non dà cue in Media3 1.11: parser nel client (ADR 0008, seconda slice TV).
+
+### 8.14 Dipendenze con altre aree
+
+- **ADR 0004:**
+  - opzioni del generatore Kotlin allargate (libreria `jvm-retrofit2`, mapping di tipo); restano la versione 7.27.0 e la riserva Fabrikt;
+  - il gate di milestone diventa "genera e compila", più il gate sui cambi del contratto (§8.8);
+  - la frase sui tipi «`Int?` corretti» non vale per gli istanti in millisecondi (K1).
+- **Contratto:** `format: int64` sulle 10 proprietà, nella prima slice TV (additivo, §8.8).
+- **Decision Engine:** nessuna modifica richiesta ora.
+  - La politica Dolby (§8.9.2) arriva solo se l'ascolto la chiede.
+  - Gli override I2 usano il `device.model` del §8.9.1, cioè «Haier Haier OLED TV AE», non il nome commerciale.
+- **ADR 0003:** il Direct Stream HLS fMP4, FLAC 7.1 compreso, e i sottotitoli esterni devono funzionare in Media3 (§8.13, domande 9 e 10).
+- **ADR 0006:** URL del gateway e HTTP in chiaro; nessuna modifica a Caddy.
+- **Doc 04:**
+  - §4.3, §5 e §7 allineati a questa area: passthrough verso il processore del TV, AAC con PCE, capability audio su Android, rete;
+  - H5, riletta: sulla TV di oggi il bitstream va al processore Dolby del TV, e il lossless non è in gioco (§8.9.3);
+  - H11 (§8.12).
+- **CLAUDE.md:** "Living room" (TV, AVR e ARC) e "lossless audio passthrough matters" vanno allineati ai fatti del §8.1; li allinea l'orchestratore.
+- **Web client (§7):** nessun codice condiviso. Si condividono contratto, vocabolario delle capability, protocollo di ripianificazione e tabella di invalidazione degli eventi.
+
+### 8.15 Raccomandazione
+
+- **Scelta:** app Android nativa in **Kotlin 2.4.21**, con **Jetpack Compose 1.12.1** e **Compose for TV** (tv-material 1.1.0) e il player **Media3 1.11.1**.
+  - Build con AGP 9.5.1 e Gradle 9.8.2; compileSdk e targetSdk 36, minSdk 30.
+  - Client API generato con OpenAPI Generator 7.27.0 `jvm-retrofit2` e mapping `integer=kotlin.Long`, su Retrofit 3.0.0, OkHttp 5.5.1 e kotlinx-serialization 1.12.0.
+  - Audio: solo capability reali. Il caso comune va in Direct Play; TrueHD e DTS scendono al FLAC in Direct Stream.
+- **Criteri decisivi:**
+  - T1, T2 e T3: solo Media3 nello stesso linguaggio dell'app dà Direct Play, sottotitoli incorporati e capability reali senza ponti;
+  - T7: Leanback è deprecata;
+  - T4: un linguaggio.
+  - Il client HTTP lo decide K1: Ktor non compila sul bundle.
+- **Runner-up: Kotlin con Leanback.** Diventerebbe la scelta, solo per le schermate di navigazione, se Compose non reggesse lo scorrimento sul MT5889 (§8.13, domanda 7). Player, capability e client API resterebbero gli stessi.
+
+### 8.16 Domande aperte, rischi e fonti
+
+- **Per il proprietario,** azioni fisiche:
+  - l'**ascolto** del §8.13, domanda 4;
+  - la **verifica a occhio**: Dolby Vision sul pannello, judder a 23,976 fps;
+  - un **sample DV P7** (H11), a bassa priorità.
+- **Rischi:**
+  - remux sopra i 100 Mb/s sul Wi-Fi a 2,4 GHz (rebuffer, caso limite);
+  - memoria: 192 MB di heap senza `largeHeap`, cache delle immagini;
+  - Compose su un SoC a 32 bit;
+  - 24p su un display che espone all'app solo 60 e 50 Hz;
+  - supporto 3.1 «beta» del generatore, coperto dal gate sui cambi del contratto.
+
+  Ogni rischio ha la sua domanda nel §8.13 o la sua riserva (§8.8, §8.15).
+- **Fonti** (consultate il 2026-11-07):
+  - le versioni e le pagine di rilascio del §8.6, comprese la [pagina di Leanback](https://developer.android.com/jetpack/androidx/releases/leanback) e la [protezione della rete locale](https://developer.android.com/privacy-and-security/local-network-permission);
+  - il codice di Media3 sul ramo `release`: [`MatroskaExtractor`](https://raw.githubusercontent.com/androidx/media/release/libraries/extractor/src/main/java/androidx/media3/extractor/mkv/MatroskaExtractor.java), [`MediaCodecUtil`](https://raw.githubusercontent.com/androidx/media/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecUtil.java), [`AudioCapabilities`](https://raw.githubusercontent.com/androidx/media/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/AudioCapabilities.java), [`DefaultLoadControl`](https://raw.githubusercontent.com/androidx/media/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/DefaultLoadControl.java);
+  - la [guida a Media3 con Compose](https://developer.android.com/media/media3/ui/compose) e le [novità di Media3 1.11](https://android-developers.googleblog.com/2026/08/media3-1-11-whats-new.html) (2026-08-11);
+  - la [migrazione a Compose for TV](https://developer.android.com/training/tv/playback/leanback/migrate-to-compose);
+  - la [configurazione di sicurezza di rete](https://developer.android.com/privacy-and-security/security-config);
+  - [`dpad`](https://pub.dev/packages/dpad/changelog) per Flutter;
+  - i report [S5](../spikes/S5-tv-client.md) e [K1](../spikes/K1-kotlin-codegen.md).

@@ -1,0 +1,756 @@
+[
+ {
+  "run": "ch51-a0",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1011,
+  "firstFrameMs": 944,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 961,
+    "firstFrameMs": 870,
+    "posAfterMs": 9750
+   }
+  ],
+  "dropped": 0,
+  "rendered": 351,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, 3 E-AC-3 5.1 640k, video/x-matroska, audio/eac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "E_AC3 6ch 48000",
+   "E_AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 56,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 62,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a1",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1096,
+  "firstFrameMs": 877,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1151,
+    "firstFrameMs": 945,
+    "posAfterMs": 9796
+   }
+  ],
+  "dropped": 0,
+  "rendered": 355,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, 4 AC-3 5.1 640k, video/x-matroska, audio/ac3, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "BITSTREAM AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "AC3 6ch 48000",
+   "AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 56,
+  "maxAllocMb": 19,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 60,
+   "Java Heap": 24,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a2",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1106,
+  "firstFrameMs": 1045,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 985,
+    "firstFrameMs": 886,
+    "posAfterMs": 9942
+   }
+  ],
+  "dropped": 0,
+  "rendered": 368,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(6, 5 FLAC 5.1, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 57,
+  "maxAllocMb": 19,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 61,
+   "Java Heap": 24,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a3",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 962,
+  "firstFrameMs": 945,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 952,
+    "firstFrameMs": 941,
+    "posAfterMs": 9985
+   }
+  ],
+  "dropped": 1,
+  "rendered": 360,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(7, 6 PCM 5.1 24 bit, video/x-matroska, audio/raw, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 56,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 61,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a4",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1095,
+  "firstFrameMs": 918,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1009,
+    "firstFrameMs": 942,
+    "posAfterMs": 9854
+   }
+  ],
+  "dropped": 0,
+  "rendered": 352,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(8, 7 AAC 5.1, video/x-matroska, audio/mp4a-latm, mp4a.40.2, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "c2.android.aac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 58,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 63,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a5",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1152,
+  "firstFrameMs": 972,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1081,
+    "firstFrameMs": 1018,
+    "posAfterMs": 9803
+   }
+  ],
+  "dropped": 0,
+  "rendered": 349,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(9, 8 AAC 2.0, video/x-matroska, audio/mp4a-latm, mp4a.40.2, -1, it, [-1, -1, -1.0, null], [2, -1, 48000])",
+  "audioDecoder": "c2.android.aac.decoder",
+  "audioOut": "PCM PCM_16BIT 2 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 2ch 48000",
+   "PCM_16BIT 2ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 58,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 63,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a6",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1158,
+  "firstFrameMs": 1030,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1049,
+    "firstFrameMs": 981,
+    "posAfterMs": 9800
+   }
+  ],
+  "dropped": 0,
+  "rendered": 364,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, 1 TrueHD 5.1, video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 57,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 62,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch51-a7",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1117,
+  "firstFrameMs": 992,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 936,
+    "firstFrameMs": 849,
+    "posAfterMs": 9902
+   }
+  ],
+  "dropped": 0,
+  "rendered": 359,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, 2 DTS 5.1 (core), video/x-matroska, audio/vnd.dts, null, -1, it, [-1, -1, -1.0, null], [6, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-dca",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 57,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 61,
+   "Java Heap": 25,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch71-a0",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 923,
+  "firstFrameMs": 828,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 886,
+    "firstFrameMs": 872,
+    "posAfterMs": 10837
+   }
+  ],
+  "dropped": 22,
+  "rendered": 363,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, 2 FLAC 7.1, video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [8, -1, 48000])",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 57,
+  "maxAllocMb": 19,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 62,
+   "Java Heap": 24,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [
+   "audioSinkError:  androidx.media3.exoplayer.audio.AudioSink$UnexpectedDiscontinuityException: Unexpected audio track timestamp discontinuity: expected 1000004693333, got 10000048",
+   "audioSinkError:  androidx.media3.exoplayer.audio.AudioSink$UnexpectedDiscontinuityException: Unexpected audio track timestamp discontinuity: expected 1000006517333, got 10000067",
+   "audioSinkError:  androidx.media3.exoplayer.audio.AudioSink$UnexpectedDiscontinuityException: Unexpected audio track timestamp discontinuity: expected 1000008341334, got 10000085"
+  ],
+  "net": null
+ },
+ {
+  "run": "ch71-a1",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1244,
+  "firstFrameMs": 877,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 863,
+    "firstFrameMs": 841,
+    "posAfterMs": 10079
+   }
+  ],
+  "dropped": 0,
+  "rendered": 356,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, 3 PCM 7.1 24 bit, video/x-matroska, audio/raw, null, -1, it, [-1, -1, -1.0, null], [8, -1, 48000])",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 56,
+  "maxAllocMb": 19,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 60,
+   "Java Heap": 24,
+   "Native Heap": 5,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "ch71-a2",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 946,
+  "firstFrameMs": 833,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 893,
+    "firstFrameMs": 861,
+    "posAfterMs": 9970
+   }
+  ],
+  "dropped": 0,
+  "rendered": 360,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, 1 TrueHD 5.1 (encoder ffmpeg: niente 7.1), video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null]",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 56,
+  "maxAllocMb": 19,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 61,
+   "Java Heap": 24,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "cmp-a0",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 889,
+  "firstFrameMs": 803,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1024,
+    "firstFrameMs": 949,
+    "posAfterMs": 9880
+   }
+  ],
+  "dropped": 0,
+  "rendered": 360,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(3, 2 E-AC-3 5.1 640k (conversione del server), video/x-matroska, audio/eac3, null, -1, it, [-1, -1, -1.0, null], ",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 6 can.)",
+  "audioTracks": [
+   "E_AC3 6ch 48000",
+   "E_AC3 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 81,
+  "maxAllocMb": 48,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 90,
+   "Java Heap": 54,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "cmp-a1",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1006,
+  "firstFrameMs": 975,
+  "seeks": [],
+  "dropped": -1,
+  "rendered": -1,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(4, 3 FLAC (conversione del server), video/x-matroska, audio/flac, null, -1, it, [-1, -1, -1.0, null], [6, -1, 480",
+  "audioDecoder": "c2.android.flac.decoder",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 64,
+  "maxAllocMb": 20,
+  "cues": 0,
+  "meminfo": {},
+  "errors": [
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33242)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 33684)",
+   "audioCodecError:  androidx.media3.decoder.DecoderInputBuffer$InsufficientCapacityException: Buffer too small (32768 < 34346)"
+  ],
+  "net": null
+ },
+ {
+  "run": "cmp-a2",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 913,
+  "firstFrameMs": 886,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1167,
+    "firstFrameMs": 918,
+    "posAfterMs": 9706
+   }
+  ],
+  "dropped": 0,
+  "rendered": 355,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, 1 TrueHD (decodifica software sulla TV), video/x-matroska, audio/true-hd, null, -1, it, [-1, -1, -1.0, null], ",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 6 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 6ch 48000",
+   "PCM_16BIT 6ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 62,
+  "maxAllocMb": 30,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 68,
+   "Java Heap": 32,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "cmp-a3",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 975,
+  "firstFrameMs": 947,
+  "seeks": [
+   {
+    "toMs": 3000,
+    "readyMs": 1216,
+    "firstFrameMs": 1058,
+    "posAfterMs": 9621
+   }
+  ],
+  "dropped": 1,
+  "rendered": 351,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(5, 4 DTS-HD MA 7.1 originale, video/x-matroska, audio/vnd.dts.hd, null, -1, it, [-1, -1, -1.0, null], [8, -1, 480",
+  "audioDecoder": "ffmpegLavc60.3.100-dca",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 88,
+  "maxAllocMb": 49,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 92,
+   "Java Heap": 55,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "real-dtshd-ma",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 980,
+  "firstFrameMs": 953,
+  "seeks": [
+   {
+    "toMs": 2000,
+    "readyMs": 934,
+    "firstFrameMs": 916,
+    "posAfterMs": 8910
+   }
+  ],
+  "dropped": 0,
+  "rendered": 335,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, DTS-HD MA 7.1 (bitstream reale, FATE), video/x-matroska, audio/vnd.dts.hd, null, -1, en, [-1, -1, -1.0, null],",
+  "audioDecoder": "ffmpegLavc60.3.100-dca",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 50,
+  "maxAllocMb": 12,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 54,
+   "Java Heap": 18,
+   "Native Heap": 6,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "real-eac3-joc",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 1106,
+  "firstFrameMs": 877,
+  "seeks": [
+   {
+    "toMs": 2000,
+    "readyMs": 792,
+    "firstFrameMs": 635,
+    "posAfterMs": 9165
+   }
+  ],
+  "dropped": 0,
+  "rendered": 341,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, E-AC-3 JOC Atmos 7.1 (bitstream reale, FATE), video/x-matroska, audio/eac3, null, -1, en, [-1, -1, -1.0, null]",
+  "audioDecoder": "-",
+  "audioOut": "BITSTREAM E_AC3 (passthrough, mask 8 can.)",
+  "audioTracks": [
+   "E_AC3 8ch 48000",
+   "E_AC3 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 37,
+  "maxAllocMb": 3,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 41,
+   "Java Heap": 6,
+   "Native Heap": 5,
+   "Graphics": 4
+  },
+  "errors": [],
+  "net": null
+ },
+ {
+  "run": "real-truehd-atmos",
+  "ffmpeg": "on",
+  "videoDecoder": "OMX.MS.AVC.Decoder",
+  "hdr": "SDR",
+  "startReadyMs": 852,
+  "firstFrameMs": 779,
+  "seeks": [
+   {
+    "toMs": 2000,
+    "readyMs": 665,
+    "firstFrameMs": 638,
+    "posAfterMs": 9190
+   }
+  ],
+  "dropped": 0,
+  "rendered": 313,
+  "rebuffers": 0,
+  "rebufferMs": 0,
+  "audioIn": "Format(2, TrueHD Atmos 7.1 (bitstream reale, FATE), video/x-matroska, audio/true-hd, null, -1, en, [-1, -1, -1.0, null],",
+  "audioDecoder": "ffmpegLavc60.3.100-truehd",
+  "audioOut": "PCM PCM_16BIT 8 can. 48000 Hz",
+  "audioTracks": [
+   "PCM_16BIT 8ch 48000",
+   "PCM_16BIT 8ch 48000"
+  ],
+  "audioSelectedSupport": [
+   4
+  ],
+  "underruns": 0,
+  "maxPssMb": 40,
+  "maxAllocMb": 5,
+  "cues": 0,
+  "meminfo": {
+   "TOTAL PSS": 45,
+   "Java Heap": 9,
+   "Native Heap": 6,
+   "Graphics": 5
+  },
+  "errors": [],
+  "net": null
+ }
+]

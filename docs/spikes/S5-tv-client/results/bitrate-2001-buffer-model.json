@@ -1,0 +1,61 @@
+[
+ {
+  "file": "2001 - Odissea nello spazio (1968) - 2160p.mkv",
+  "avgMbps": 19.6,
+  "peak1sMbps": 57.4,
+  "peak5sMbps": 47.3,
+  "peak30sMbps": 39.6,
+  "peak60sMbps": 38.4,
+  "peak300sMbps": 27.4,
+  "bufferNeeded": {
+   "20": {
+    "MB": 1332.8,
+    "sAtAvg": 545.2
+   },
+   "25": {
+    "MB": 176.7,
+    "sAtAvg": 72.3
+   },
+   "30": {
+    "MB": 108.9,
+    "sAtAvg": 44.6
+   },
+   "35": {
+    "MB": 42.5,
+    "sAtAvg": 17.4
+   },
+   "40": {
+    "MB": 5.6,
+    "sAtAvg": 2.3
+   },
+   "50": {
+    "MB": 1.2,
+    "sAtAvg": 0.5
+   },
+   "60": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "80": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net/run1": {
+    "MB": 0.9,
+    "sAtAvg": 0.4
+   },
+   "trace:net2/net2-run1": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run2": {
+    "MB": 0.0,
+    "sAtAvg": 0.0
+   },
+   "trace:net2/net2-run3": {
+    "MB": 4.0,
+    "sAtAvg": 1.6
+   }
+  }
+ }
+]

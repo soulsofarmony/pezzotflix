@@ -1,0 +1,13 @@
+# Piattaforma (adb shell), 2026-11-07
+
+uname -m: armv8l
+ro.product.cpu.abilist: armeabi-v7a,armeabi
+ro.product.cpu.abilist64:
+ro.zygote: zygote32
+MemTotal: 2884672 kB
+MemFree: 95932 kB
+MemAvailable (durante le prove): 694692 kB
+ro.build.version.security_patch: 2025-03-01
+
+Build (dall'app): {"manufacturer": "Haier", "model": "Haier OLED TV AE", "device": "irvine", "sdk": 30, "release": "11", "hardware": "mt5889", "fingerprint": "Haier/HRT51EUOL/irvine:11/RTM9.241015.206/13302540:user/release-keys"}
+Memoria (ActivityManager): {"totalMem": 2953904128, "availMem": 1084444672, "lowMemory": false, "threshold": 67108864, "memoryClassMb": 192, "largeMemoryClassMb": 512, "maxHeap": 201326592}

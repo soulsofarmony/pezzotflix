@@ -1,0 +1,163 @@
+{
+  "device": {
+    "class": "tv",
+    "model": "Haier Haier OLED TV AE; Android 11 (API 30); Media3 1.11.1",
+    "app": "pezzotflix-s5-probe 0.1"
+  },
+  "containers": [
+    "mkv",
+    "mp4",
+    "webm"
+  ],
+  "audioTrackSelection": true,
+  "protocols": [
+    "progressive",
+    "hls-fmp4"
+  ],
+  "video": [
+    {
+      "codec": "hevc",
+      "profiles": [
+        "main",
+        "main10"
+      ],
+      "maxWidth": 1920,
+      "maxHeight": 1080,
+      "maxBitDepth": 10,
+      "maxFrameRate": 256
+    },
+    {
+      "codec": "hevc",
+      "profiles": [
+        "main",
+        "main10"
+      ],
+      "maxWidth": 4096,
+      "maxHeight": 2176,
+      "maxBitDepth": 10,
+      "maxFrameRate": 64
+    },
+    {
+      "codec": "h264",
+      "profiles": [
+        "baseline",
+        "main",
+        "high"
+      ],
+      "maxWidth": 1920,
+      "maxHeight": 1080,
+      "maxBitDepth": 8,
+      "maxFrameRate": 120
+    },
+    {
+      "codec": "h264",
+      "profiles": [
+        "baseline",
+        "main",
+        "high"
+      ],
+      "maxWidth": 4096,
+      "maxHeight": 2304,
+      "maxBitDepth": 8,
+      "maxFrameRate": 30
+    },
+    {
+      "codec": "av1",
+      "profiles": [
+        "main"
+      ],
+      "maxWidth": 1920,
+      "maxHeight": 1080,
+      "maxBitDepth": 10,
+      "maxFrameRate": 262
+    },
+    {
+      "codec": "av1",
+      "profiles": [
+        "main"
+      ],
+      "maxWidth": 4096,
+      "maxHeight": 2304,
+      "maxBitDepth": 10,
+      "maxFrameRate": 66
+    },
+    {
+      "codec": "vp9",
+      "profiles": [
+        "profile0",
+        "profile2"
+      ],
+      "maxWidth": 1920,
+      "maxHeight": 1080,
+      "maxBitDepth": 10,
+      "maxFrameRate": 281
+    },
+    {
+      "codec": "vp9",
+      "profiles": [
+        "profile0",
+        "profile2"
+      ],
+      "maxWidth": 4096,
+      "maxHeight": 2176,
+      "maxBitDepth": 10,
+      "maxFrameRate": 70
+    }
+  ],
+  "hdr": [
+    "HDR10",
+    "HDR10+",
+    "HLG",
+    "DV4",
+    "DV5",
+    "DV8",
+    "DV9",
+    "DV10"
+  ],
+  "displayHdr": true,
+  "audio": [
+    {
+      "codec": "eac3",
+      "maxChannels": 8,
+      "mode": "passthrough"
+    },
+    {
+      "codec": "ac3",
+      "maxChannels": 6,
+      "mode": "passthrough"
+    },
+    {
+      "codec": "aac",
+      "maxChannels": 8,
+      "mode": "decode"
+    },
+    {
+      "codec": "flac",
+      "maxChannels": 8,
+      "mode": "decode"
+    },
+    {
+      "codec": "opus",
+      "maxChannels": 8,
+      "mode": "decode"
+    },
+    {
+      "codec": "pcm",
+      "maxChannels": 8,
+      "mode": "decode"
+    }
+  ],
+  "subtitles": {
+    "text": [
+      "srt",
+      "webvtt",
+      "tx3g"
+    ],
+    "image": [
+      "pgs",
+      "vobsub",
+      "dvb"
+    ],
+    "ass": true
+  }
+}

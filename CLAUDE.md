@@ -1,6 +1,6 @@
 # CLAUDE.md — Pezzotflix (Home Media Platform)
 
-Self-hosted home media platform for the owner's digitized Blu-ray / UHD Blu-ray collection (MKV remuxes). Streaming-service UX, original quality, proprietary clients, fully self-hosted. The project is developed mostly by Claude, guided and reviewed by the owner: optimize for correctness, clarity and maintainability.
+Self-hosted home media platform for the owner's digitized Blu-ray / UHD Blu-ray collection (MKV files: mostly x265 re-encodes of about 20 GB per 4K film or less, per the owner on 2026-11-07; full remuxes stay supported). Streaming-service UX, original quality, proprietary clients, fully self-hosted. The project is developed mostly by Claude, guided and reviewed by the owner: optimize for correctness, clarity and maintainability.
 
 Source of truth for requirements: `docs/requirements/0001-video-service-requirements-v0.1.md`. Read it before any design or implementation work.
 
@@ -38,7 +38,7 @@ The main session is the **orchestrator**: it scopes the work, delegates to proje
   - `code-reviewer` is a read-only code critic, run before the orchestrator commits.
 - Skills (`.claude/skills/`): `spike-report` (spike lifecycle) and `adr` (ADR lifecycle).
 - **Parallelism:** independent work runs in parallel agents, one decision area or spike each. Work that shares a scarce tool (Docker daemon, GPU, the browser) runs in sequence. Product code is built one module per agent, each in its own git worktree, and integrates through the contract-first API spec.
-- **Owner-only:** spending money, creating external accounts or API keys, physical checks (HDR colours, audio on the AVR), real media, and anything irreversible outside the repo. Ask for these up front and in batches; never block on them, work around and record what is pending.
+- **Owner-only:** spending money, creating external accounts or API keys, physical checks (HDR colours, audio from the TV speakers), real media, and anything irreversible outside the repo. Ask for these up front and in batches; never block on them, work around and record what is pending.
 - **Dev tools:** the orchestrator keeps the toolchain (WSL, Docker Desktop, ffmpeg, Node, Python) up to date on its own. Only steps that need the owner (UAC prompts, licences) go to them.
 
 ## Working with the owner
@@ -50,7 +50,8 @@ These agreements used to live only in Claude's local memory; they are here so th
 - When a real choice needs the owner: plan mode, **one question at a time** (AskUserQuestion), plain language, the concrete consequence for them, recommended option first. Settle trivial alignments yourself.
 - Be autonomous on dev tooling (install/update WSL, Docker, Node, ffmpeg); hand over only steps that physically need the owner (UAC prompts, licences).
 - **Effort is proportional** (owner, 2026-11-05: "ha senso usarla solo se necessaria"). Claude decides the effort level (and model) of each agent and the size of each review. Heavy multi-agent reviews with adversarial verification only where a mistake is expensive: the Playback Decision Engine, Stream Delivery, data-loss or security paths, and the final integration (F2). Elsewhere one reviewer, or Claude's own check for small changes; mechanical edits are done inline, without agents.
-- Living room: a **Haier QLED TV with Google TV** (model to confirm) → AVR/soundbar over HDMI (ARC/eARC to confirm). A TV app comes after the web MVP; it needs the TV model, developer options + ADB over network, and the audio link.
+  - **Clients are not critical like the backend** (owner, 2026-11-07, about the TV app: "usa un processo meno iterativo"). Build them in a few large slices, one agent per slice in sequence, with tests and one run on the real device at the end of each slice. Plans for client work are written by Claude without a reviewer. One external review per client, focused on the player and its protocol with the server (progress, resume, re-planning); Claude checks the rest.
+- Living room (read over ADB on 2026-11-07): a **Haier H65C95EUX** 65" OLED, Android TV 11 with the Google TV launcher, MediaTek MT5889 with a 32-bit userspace, 2.8 GB RAM. Audio comes from its **built-in Harman Kardon speakers**: there is no external AVR or soundbar. It stays on **2.4 GHz Wi‑Fi** for now (5 GHz or a cable are not possible yet). Developer options and ADB over the network are on (`192.168.1.8:5555` at that date); the laptop's FortiClient VPN blocks the LAN, so it must be off for ADB. Device evidence: `docs/spikes/S5-tv-client.md`; TV app decision: ADR 0008.
 - Git remote: `origin` = https://github.com/soulsofarmony/pezzotflix.git over HTTPS (no SSH key, no `gh` on the original PC).
 
 ## Architectural invariants (from requirements)
@@ -79,8 +80,8 @@ These agreements used to live only in Claude's local memory; they are here so th
   - **original PC** (desktop): Docker Desktop 4.98 (engine 29) on WSL 3.0.3, NVIDIA RTX 3060 Ti (driver 596), Node as a portable copy (see `docs/journal/2026-11-06-handoff.md`). S2/S3/H10 numbers come from here;
   - **laptop** (since 2026-11-05): Docker Desktop with engine 28.1, WSL 2.5.7, Intel iGPU + NVIDIA RTX 1000 Ada Laptop (driver 595.95, 16 GB to Docker). Node 26.13 is installed with nvm-windows but **not** made the default, because other projects need Node 22: prepend `C:\Users\SimoneMen\AppData\Local\nvm\v26.13.0` to PATH for project commands. ffmpeg 8.1.2 (Gyan build via winget, pinned to 8.1.*) is under `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_*\ffmpeg-8.1.2-full_build\bin`. Its NVENC needs driver ≥ 610, so GPU encoding on this host goes through the project image (jellyfin-ffmpeg) with `--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all`.
 - Bind mounts from NTFS into WSL2 containers are slow. Keep this in mind for scanning/watching (inotify does not propagate reliably from Windows paths).
-- Main TV client: Android TV / Google TV device (Chromecast GTV / Google TV Streamer or a Google TV set) → AVR/soundbar over HDMI. Lossless audio passthrough (TrueHD/Atmos, DTS-HD) matters. **Known risk:** Dolby Vision profile 7 (FEL) is unreliable on these devices and usually falls back to HDR10, so it is not an MVP requirement.
-- No real media yet: use public test samples. Subtitle formats are unknown, so treat PGS as likely.
+- Main TV client: a native Android TV app (ADR 0008) on the owner's TV; the same APK should also run on an external Android TV box later. Apps on this TV can bitstream only AC-3/E-AC-3 (Atmos included, as JOC) and decode the rest. With no external audio system, lossless passthrough (TrueHD/Atmos, DTS-HD) is moot for now, but it stays designed in through per-device capabilities. **Known risk:** the TV has no Dolby Vision profile 7 decoder (only profiles 4, 5, 8, 9, 10), so P7 (FEL) falls back to HDR10; it is not an MVP requirement.
+- Real media: the owner's first file (2026-11-07) is a typical library file, a 4K x265 HDR10 re-encode at about 20 Mbps with AC-3 5.1 ita + AAC 5.1 eng, PGS ita + SRT eng, in `media-samples/library/movies/`. Other test media are public samples. Treat PGS as likely.
 
 ## Repo map
 
