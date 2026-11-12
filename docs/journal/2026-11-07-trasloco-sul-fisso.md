@@ -92,3 +92,22 @@ Su una chiavetta o un disco esterno, mai in chat né in un commit:
   - Android SDK, con platform 37 e build-tools 37.0.0;
   - la chiave di firma in `%USERPROFILE%\.pezzotflix\` (§3);
   - poi si segue `clients/tv/README.md`.
+
+## 7. Esito sul fisso (2026-11-12)
+
+- **Macchina.** Il fisso ha ora **8 GB di RAM** (manca un banco) e il disco C: quasi pieno (42 GB liberi). E: è un SSD Samsung 870 EVO da 4 TB.
+  - `%USERPROFILE%\.wslconfig`: la VM di WSL (Docker) ha al massimo **3 GB** di RAM e 4 GB di swap in `E:\Docker\wsl-swap.vhdx`.
+  - Dischi di Docker Desktop spostati in `E:\Docker\wsl` (impostazione `CustomWslDistroDir`; copia della vecchia configurazione in `%APPDATA%\Docker\settings-store.json.bak-2026-11-12`). Docker Desktop si avvia all'accesso.
+  - Docker Desktop aggiornato alla 4.99 (engine 29.9.3), WSL 3.0.5.
+  - Sospensione disattivata con l'alimentazione da rete.
+- **Libreria.** `E:\Film` è la cartella di appoggio del proprietario e **non** si monta. La libreria è `E:\Libreria Pezzottoflix` (`MEDIA_DIR`), con la sola radice `Film` per ora; `Serie` e `Documentari` si aggiungono a `LIBRARY_ROOTS` quando nascono le cartelle.
+  - Primo film: Shining, spostato da `E:\Film` e rinominato secondo lo standard in `Film/Shining (1980)/Shining (1980) - 2160p.mkv`. Abbinato in automatico su Wikidata. Avviso del keyframe index: Cues dell'MKV inattendibili, indice ricostruito dal probe.
+  - Arancia meccanica (remux DV ibrido, 56 GB) è ancora in `E:\Film`.
+- **Stack.** Vecchio stack F0 rimosso con i suoi volumi (ok del proprietario). Nuovo stack `pezzotflix` su, `video` healthy, `http://localhost:8080`. Gli altri progetti Docker del proprietario sul fisso non sono stati toccati.
+- **Rete.** IP del fisso `192.168.1.16`, via cavo (Ethernet). NordVPN è installato (interfaccia NordLynx): se blocca la LAN va attivata la sua opzione per la rete locale.
+- **Manca:**
+  - [ ] profilo Ethernet da Pubblico a Privato e regola firewall per la 8080 (amministratore, proprietario: comandi in `deploy/README.md`);
+  - [ ] `TMDB_READ_TOKEN` nel `.env` (proprietario), poi `up -d` per ricaricarlo;
+  - [ ] prova da un altro dispositivo e passaggio della TV a `http://192.168.1.16:8080`;
+  - [ ] prenotazione DHCP sul router per fisso e TV;
+  - [ ] fermare lo stack 8080 del portatile.
