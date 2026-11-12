@@ -106,8 +106,8 @@ Su una chiavetta o un disco esterno, mai in chat né in un commit:
 - **Stack.** Vecchio stack F0 rimosso con i suoi volumi (ok del proprietario). Nuovo stack `pezzotflix` su, `video` healthy, `http://localhost:8080`. Gli altri progetti Docker del proprietario sul fisso non sono stati toccati.
 - **Rete.** IP del fisso `192.168.1.16`, via cavo (Ethernet). NordVPN è installato (interfaccia NordLynx): se blocca la LAN va attivata la sua opzione per la rete locale.
 - **Manca:**
-  - [ ] profilo Ethernet da Pubblico a Privato e regola firewall per la 8080 (amministratore, proprietario: comandi in `deploy/README.md`);
-  - [ ] `TMDB_READ_TOKEN` nel `.env` (proprietario), poi `up -d` per ricaricarlo;
-  - [ ] prova da un altro dispositivo e passaggio della TV a `http://192.168.1.16:8080`;
+  - [x] profilo Ethernet Privato e regola firewall per la 8080 (proprietario, 2026-11-12): il server risponde da un altro PC;
+  - [x] `TMDB_READ_TOKEN` nel `.env` (2026-11-12): provider `wikidata,tmdb` ok;
+  - [ ] passaggio della TV a `http://192.168.1.16:8080`;
   - [ ] prenotazione DHCP sul router per fisso e TV;
   - [ ] fermare lo stack 8080 del portatile.
