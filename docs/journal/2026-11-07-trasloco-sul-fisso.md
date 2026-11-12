@@ -109,5 +109,5 @@ Su una chiavetta o un disco esterno, mai in chat né in un commit:
   - [x] profilo Ethernet Privato e regola firewall per la 8080 (proprietario, 2026-11-12): il server risponde da un altro PC;
   - [x] `TMDB_READ_TOKEN` nel `.env` (2026-11-12): provider `wikidata,tmdb` ok;
   - [ ] passaggio della TV a `http://192.168.1.16:8080`;
-  - [ ] prenotazione DHCP sul router per fisso e TV;
+  - [x] prenotazione DHCP sul router (2026-11-12, TP-Link Archer NX200): fisso `24:4B:FE:56:95:85` → `192.168.1.16`, TV `5A:53:29:3A:30:C2` (MAC casuale della rete di casa) → `192.168.1.18`. Il router non ha voci DNS locali (nome → IP): un nome interno richiede un DNS altrove;
   - [ ] fermare lo stack 8080 del portatile.
