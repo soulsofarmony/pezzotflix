@@ -243,7 +243,7 @@ Un fallimento in Direct Play non deve lasciare l'utente davanti a uno schermo ne
 - Accelerazione hardware per Transcode e tone-mapping.
 - DV profilo 7 → 8.1 durante lo stream **[H4]**.
 - Adaptive bitrate (più qualità in parallelo) per l'accesso remoto: sul lato LAN non serve.
-- Trickplay (anteprime sulla barra di seek).
+- Trickplay (anteprime sulla barra di seek): deciso nell'[ADR 0009](../adr/0009-trickplay-anteprime-seek.md), piano in [doc 08](08-trickplay-plan.md).
 - Più istanze di Stream Delivery (container `video-worker`, Componenti C1).
 
 ---

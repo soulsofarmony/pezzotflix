@@ -118,7 +118,7 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
 - **Fa:**
   - Conserva localmente l'artwork (dal provider, caricato a mano, generato dal video).
   - Produce **varianti** per dimensione e client (una thumbnail della griglia non deve scaricare un poster da 2 MB).
-  - Genera i frame dal video (still degli episodi; in futuro l'anteprima nella barra di seek).
+  - Genera i frame dal video per il catalogo (still degli episodi). Le anteprime della barra di seek (trickplay) non sono artwork: le genera e le serve Stream Delivery (ADR 0009).
 - **Possiede:** Artwork e file immagine nel volume dati.
 
 ### 3.8 Profiles & Watch State
@@ -154,6 +154,7 @@ Per ciascuno: responsabilità, dati di cui è **proprietario** (unico che li scr
   - **Sottotitoli:** i testuali vengono serviti in un formato leggibile dal client. Quelli immagine passano in pass-through se il client li supporta; per il browser si estraggono come file `.sup` a parte, da rendere lato client (Playback P3; delivery in Interfacce §4.3). Solo in ultima risorsa vengono bruciati nel video.
   - **Estrazione dei sottotitoli embedded** (immagine e testo): legge tutto il file. Avviene al primo playback del file, tutte le tracce in un processo, partendo poco prima della posizione della sessione, con la lettura limitata in byte; il file si serve mentre cresce (ADR 0003, Playback §4.4). Il risultato va nella cache persistente, non nello scratch.
   - **Indice dei keyframe** di ogni file, che serve alla playlist del Direct Stream: dai Cues dell'MKV, o da una sonda di ffprobe se mancano. Si calcola in un job dopo `FileAnalyzed` e si tiene nella cache (ADR 0003).
+  - **Trickplay** (ADR 0009): griglie di anteprime per la barra di seek, generate in un job dopo `FileAnalyzed` solo quando non c'è una visione in corso, tenute nella cache per stamp e servite sotto il token di sessione.
   - **Errori di stream:** tiene il proprio registro del fallimento (uscita del processo, classificazione dello stderr), che il Session Manager usa per scegliere la modifica minima quando ripianifica (Playback §8).
 - **Gestisce:** processi di elaborazione media, file temporanei/segmenti (volume **scratch** effimero), sottotitoli estratti (volume **cache**, persistente), futura accelerazione hardware.
 - **Proprietà:** è il componente più **pesante** e l'unico con picchi di CPU/GPU. Deve essere isolabile (vedi §6, C1).

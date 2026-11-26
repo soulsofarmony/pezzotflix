@@ -149,7 +149,7 @@ PlaybackSession
 │                      renderer lato client (Playback P3); distinta da sidecar
 ├── resumePositionMs, durationMs
 ├── chapters[]
-└── trickplay / thumbnail di anteprima [futuro]
+└── trickplay: griglie di anteprima per la barra di seek (passo, riquadro, griglia, locatori), null finché non sono pronte (ADR 0009)
 ```
 
 Il **motivo** della modalità serve alla diagnostica: si deve poter capire perché un film non va in Direct Play.
@@ -221,7 +221,7 @@ Contratti tra i componenti di [02](02-components.md). Sono dati in ingresso e da
 | **MetadataProvider** | `search(query, kind, year?, lang) → Candidate[]`, `getDetails(ref, lang) → NormalizedMetadata`, `getSeason(ref, n, lang)`, `getImages(ref) → ImageRef[]` | Contratto neutro: nessun tipo del provider esce dall'adapter |
 | **Resolver** | `resolve(MediaFacts, PathInfo, context) → ScoredCandidate[]` (con evidenze) | Catena ordinata; un nuovo resolver (AI) implementa la stessa firma |
 | **PlaybackDecision** | `decide(files: MediaFacts[], ClientCapabilities, ProfilePrefs, constraints) → PlaybackPlan` | **Pura**: stesso input, stesso output. Base di `ExplainPlaybackDecision` |
-| **StreamDelivery** | `start(PlaybackPlan) → StreamHandle{locators, mimeType, bitrate, mediaTimestampOffsetMs, disponibilità di ogni traccia di sottotitoli}`, `stop(handle)`, `status(handle)` | Confine estraibile (C1). Il file è riferito come root + path relativo, mai come path assoluto dell'host. Un fallimento di formato o di stream torna al Session Manager, che ripianifica col Decision Engine (ADR 0003) |
+| **StreamDelivery** | `start(PlaybackPlan) → StreamHandle{locators (stream, sottotitoli, trickplay), mimeType, bitrate, mediaTimestampOffsetMs, disponibilità di ogni traccia di sottotitoli}`, `stop(handle)`, `status(handle)` | Confine estraibile (C1). Il file è riferito come root + path relativo, mai come path assoluto dell'host. Un fallimento di formato o di stream torna al Session Manager, che ripianifica col Decision Engine (ADR 0003) |
 | **JobRunner** | `enqueue(type, payload, priority, idempotencyKey)` | L'idempotency key evita doppie analisi dello stesso file |
 
 ### 8.1 Eventi di dominio interni

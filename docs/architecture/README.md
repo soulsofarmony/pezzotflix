@@ -13,3 +13,4 @@ La tecnologia deriva dai requisiti, non il contrario (vedi requisiti §20–21).
 | 6 | [05-technology-evaluation.md](05-technology-evaluation.md) + [ADR](../adr/) | — |
 | 7 | `06-mvp-plan.md` — piano vertical slice | — |
 | 8 | [07-tv-client-plan.md](07-tv-client-plan.md) — piano del client TV (F3) | ✅ 2026-11-07 |
+| 9 | [08-trickplay-plan.md](08-trickplay-plan.md) — piano del trickplay (F4) | in corso, 2026-11-27 |

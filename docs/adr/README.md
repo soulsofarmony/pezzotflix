@@ -14,7 +14,8 @@ Nessuna scelta di stack entra nel codice senza un ADR in stato **Accepted**.
 | [0006](0006-deploy-e-gateway.md) | Deploy Docker Compose e gateway Caddy | Accepted |
 | [0007](0007-provider-metadata-e-offline.md) | Provider dei metadata (TMDB + base durevole Wikidata) e funzionamento offline | Accepted |
 | [0008](0008-client-tv-kotlin-compose-media3.md) | Client TV: app Android nativa in Kotlin con Compose for TV e Media3 | Accepted |
+| [0009](0009-trickplay-anteprime-seek.md) | Trickplay: anteprime sulla barra di seek | Accepted |
 
 La valutazione completa delle aree tecnologiche è in [05 — Valutazione tecnologica](../architecture/05-technology-evaluation.md).
 
-ADR previste, con numero da assegnare quando servono: accelerazione hardware del transcode (dopo H10), thumbnail, CI ospitata, backup fuori dall'host.
+ADR previste, con numero da assegnare quando servono: accelerazione hardware del transcode (dopo H10), thumbnail degli episodi (il trickplay è nell'ADR 0009), CI ospitata, backup fuori dall'host.
