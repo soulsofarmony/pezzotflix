@@ -719,7 +719,8 @@ class PlayerController(
         val duration = s.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE
         val target = originalMs.coerceIn(0, duration)
         engine.seekTo(target)
-        set { copy(positionMs = target) }
+        // A seek back from the end leaves it at once: a play() right after must not start again from 0.
+        set { copy(positionMs = target, ended = ended && target >= duration) }
     }
 
     fun seekBy(deltaMs: Long) = seekTo(positionMs() + deltaMs)

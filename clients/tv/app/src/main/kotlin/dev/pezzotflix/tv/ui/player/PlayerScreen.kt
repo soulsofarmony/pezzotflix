@@ -59,8 +59,9 @@ private val BUSY_PHASES = setOf(Phase.IDLE, Phase.STARTING, Phase.PREPARING, Pha
 
 /**
  * The player (doc 05 §8.10): the video, the subtitles, the controls on demand and the status overlays. The remote:
- * OK or up/down show the controls; left/right seek 10 s; play/pause and the media keys always work; Back closes a
- * panel, then the controls, then the player. Leaving the screen or the Activity's onStop closes the session.
+ * OK or up/down show the controls; left/right seek 10 s, or enter scrub mode when the session has previews (doc 08
+ * §3 T3); play/pause and the media keys always work; Back cancels scrub mode, then closes a panel, then the
+ * controls, then the player. Leaving the screen or the Activity's onStop closes the session.
  */
 @Composable
 fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Unit) {
@@ -68,6 +69,8 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
     val controller = vm.controller
     val player = vm.engine.player
     val state by controller.state.collectAsState()
+    val scrubber = vm.scrubber
+    val scrub by scrubber.state.collectAsState()
 
     var controlsVisible by remember { mutableStateOf(false) }
     var panel by remember { mutableStateOf<Panel?>(null) }
@@ -103,17 +106,25 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
     LaunchedEffect(state.ended) {
         if (state.ended) controlsVisible = true
     }
+    // Scrub mode lives through a re-plan (busy phases) but not through a dialog or the end of the session.
+    LaunchedEffect(state.phase) {
+        if (state.phase != Phase.PLAYING && state.phase !in BUSY_PHASES) scrubber.abort()
+    }
+    LaunchedEffect(scrub != null, state.playing) { scrubber.holdPaused(state.playing) }
 
     val controlsShown = controlsVisible && state.phase == Phase.PLAYING
     val back = {
-        when {
-            panel != null -> panel = null
-            controlsShown -> controlsVisible = false
-            else -> onExit()
+        // Scrub mode first: Back returns to where the film was, before any other use of Back.
+        if (!scrubber.cancel()) {
+            when {
+                panel != null -> panel = null
+                controlsShown -> controlsVisible = false
+                else -> onExit()
+            }
         }
     }
     // Fallback for a press that reaches the Activity (nothing focused inside the player); the root handles the rest.
-    BackHandler(enabled = panel != null || controlsShown) { back() }
+    BackHandler(enabled = scrub != null || panel != null || controlsShown) { back() }
 
     val dialog = state.phase !in BUSY_PHASES && state.phase != Phase.PLAYING && state.phase != Phase.CLOSED
 
@@ -131,6 +142,7 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 interactions++
                 if (dialog) return@onPreviewKeyEvent false
+                if (scrubber.active) return@onPreviewKeyEvent scrubKey(scrubber, e.nativeKeyEvent)
                 when (e.key.nativeKeyCode) {
                     AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> controller.togglePlay().let { true }
                     AndroidKeyEvent.KEYCODE_MEDIA_PLAY -> controller.play().let { true }
@@ -139,7 +151,12 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
                     AndroidKeyEvent.KEYCODE_MEDIA_REWIND -> controller.seekBy(-SKIP_MS * 3).let { true }
                     AndroidKeyEvent.KEYCODE_DPAD_LEFT, AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
                         if (controlsVisible || panel != null) return@onPreviewKeyEvent false
-                        controller.seekBy(if (e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_LEFT) -SKIP_MS else SKIP_MS)
+                        val forward = e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT
+                        val available = scrubAvailable(controlsVisible, panel != null, state.phase, state.session?.trickplay)
+                        val native = e.nativeKeyEvent
+                        if (!scrubber.press(forward, heldMs(native), native.eventTime, available)) {
+                            controller.seekBy(if (forward) SKIP_MS else -SKIP_MS)
+                        }
                         true
                     }
                     AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_DPAD_UP,
@@ -168,6 +185,14 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
                 onPanel = { panel = it },
             )
         }
+        scrub?.let { sc ->
+            ScrubOverlay(
+                targetMs = sc.targetMs,
+                durationMs = state.durationMs,
+                trickplay = state.session?.trickplay,
+                sheet = { url -> rememberSheet(vm.sheets, url) },
+            )
+        }
         panel?.let { p ->
             if (state.phase == Phase.PLAYING || state.phase == Phase.PREPARING) {
                 SidePanel(p, state, onAudio = { controller.selectAudio(it); panel = null }, onSubtitle = { controller.selectSubtitle(it); panel = null })
@@ -183,6 +208,30 @@ fun PlayerScreen(container: AppContainer, args: Screen.Player, onExit: () -> Uni
     }
     KeepKeyboardHidden()
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+}
+
+/** How long the key has been held: 0 for a fresh press, the time since the first down for a system repeat. */
+private fun heldMs(e: AndroidKeyEvent): Long = if (e.repeatCount == 0) 0 else (e.eventTime - e.downTime).coerceAtLeast(1)
+
+/**
+ * Keys while scrubbing: left/right and the media fast-forward/rewind move the target; OK and Play/Pause confirm
+ * (Back is handled with the other Backs). Up, down, Menu and Pause do nothing; other keys (volume) pass through.
+ */
+private fun scrubKey(scrubber: Scrubber, e: AndroidKeyEvent): Boolean {
+    when (e.keyCode) {
+        AndroidKeyEvent.KEYCODE_DPAD_LEFT, AndroidKeyEvent.KEYCODE_DPAD_RIGHT ->
+            scrubber.press(e.keyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT, heldMs(e), e.eventTime, available = true)
+        AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> scrubber.moveBy(SKIP_MS * 3)
+        AndroidKeyEvent.KEYCODE_MEDIA_REWIND -> scrubber.moveBy(-SKIP_MS * 3)
+        AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER,
+        AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AndroidKeyEvent.KEYCODE_MEDIA_PLAY,
+        -> scrubber.confirm()
+        AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_DPAD_DOWN, AndroidKeyEvent.KEYCODE_MENU,
+        AndroidKeyEvent.KEYCODE_MEDIA_PAUSE,
+        -> Unit
+        else -> return false
+    }
+    return true
 }
 
 @Composable

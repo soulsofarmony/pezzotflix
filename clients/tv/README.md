@@ -25,7 +25,25 @@ Dalla cartella `clients/tv`:
 - Su Windows i percorsi di build possono superare la lunghezza massima: `-PpzfBuildRoot=C:/pzf-b` sposta tutte le
   cartelle di build lì, e l'APK finisce in `C:/pzf-b/app/outputs/apk/<debug|release>/`.
 - Per l'emulatore Android (x86): aggiungere `-PpzfExtraAbis=x86,x86_64`. La TV è ARM e non ne ha bisogno.
-- Versione attuale: 0.2.0 (versionCode 2).
+- Versione attuale: 0.3.0 (versionCode 3).
+
+## Telecomando nel player
+
+| Tasto | Controlli nascosti | Controlli visibili |
+|---|---|---|
+| OK, su, giù, Menu | mostrano i controlli | come sui pulsanti |
+| Sinistra / destra | modalità scorrimento se il film ha le anteprime, altrimenti −10 s / +10 s subito | spostano il focus tra i pulsanti |
+| Play/Pausa, avanti e indietro veloce (tasti media) | play/pausa, ±30 s | uguale |
+| Indietro | esce dal player | chiude il pannello, poi i controlli |
+
+**Modalità scorrimento** (anteprime, ADR 0009):
+
+- il film va in pausa e sopra la barra compaiono l'anteprima e l'ora del punto scelto (finché l'immagine arriva
+  si vede solo l'ora);
+- ogni pressione di sinistra/destra sposta il punto di 10 s; tenendo premuto il passo sale a 30 s dopo 1 s e a
+  60 s dopo 3 s; avanti e indietro veloce lo spostano di 30 s;
+- OK o Play/Pausa: il film salta al punto scelto e riparte;
+- Indietro: annulla, il film torna dov'era, in riproduzione o in pausa come prima.
 
 ## Installare sulla TV con ADB in rete
 

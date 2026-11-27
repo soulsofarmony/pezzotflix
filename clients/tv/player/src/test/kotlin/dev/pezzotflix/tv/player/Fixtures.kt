@@ -6,6 +6,7 @@ import dev.pezzotflix.api.models.PlaybackSessionStream
 import dev.pezzotflix.api.models.PlaybackSessionTracks
 import dev.pezzotflix.api.models.SessionTrack
 import dev.pezzotflix.api.models.SessionTrack.Delivery
+import dev.pezzotflix.api.models.Trickplay
 import dev.pezzotflix.tv.player.tracks.MediaTrack
 
 /** Plans of the S5 samples (doc 05 §8.9.2): 2001 in Direct Play, Blade Runner 2049 in Direct Stream without FFmpeg. */
@@ -40,10 +41,11 @@ object Fixtures {
         subtitles: List<SessionTrack>,
         id: String = "sess-1",
         resumeMs: Long = 0,
+        trickplay: Trickplay? = null,
     ) = PlaybackSession(
         sessionId = id, expiresAt = 1_794_000_000_000, mode = mode, reasons = listOf("motivo"),
         stream = PlaybackSessionStream(url = url, protocol = protocol), tracks = PlaybackSessionTracks(audio, subtitles),
-        resumePositionMs = resumeMs, durationMs = 8_940_000, chapters = emptyList(), heartbeatIntervalMs = 10_000,
+        resumePositionMs = resumeMs, durationMs = 8_940_000, chapters = emptyList(), trickplay = trickplay, heartbeatIntervalMs = 10_000,
         itemId = "item-2001", fileId = "file-2001",
     )
 

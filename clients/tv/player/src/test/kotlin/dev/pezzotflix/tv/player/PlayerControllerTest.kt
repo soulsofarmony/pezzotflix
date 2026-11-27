@@ -208,6 +208,25 @@ class PlayerControllerTest {
     }
 
     @Test
+    fun aSeekBackFromTheEndThenPlayResumesThere() = runTest {
+        val port = FakePort().apply { onStart = { Fixtures.odyssey(id = "sess-1") } }
+        val engine = FakeEngine()
+        val c = controller(port, engine)
+        c.start(PlayerController.StartOptions(itemId = "item-2001"))
+        runCurrent()
+        engine.position = 8_940_000
+        engine.listener!!.onState(EngineState.ENDED)
+        runCurrent()
+
+        // Scrub mode confirms with seekTo then play (doc 08 T3): the target, not the beginning.
+        c.seekTo(4_000_000)
+        assertFalse(c.state.value.ended)
+        c.play()
+        assertEquals(4_000_000L, engine.position)
+        assertTrue(engine.isPlaying)
+    }
+
+    @Test
     fun backWhileStartPlaybackIsInFlightStopsTheSessionItCreates() = runTest {
         val answer = CompletableDeferred<PlaybackSession>()
         val port = FakePort().apply { onStart = { answer.await() } }
