@@ -61,6 +61,8 @@ type Gen = { kind: 'ok'; tiles: number } | { kind: 'exit'; code: number } | { ki
 /** A fake ffmpeg for `-filters` and for the generation: writes the sheets, prints the framecrc. */
 class FakeTrickplayFfmpeg {
   gen: Gen = { kind: 'ok', tiles: 13 };
+  /** What a full-decode run (no -skip_frame) does; the same as gen when unset. */
+  genFull: Gen | null = null;
   tonemapx = true;
   runs: { args: readonly string[]; signals: string[] }[] = [];
 
@@ -83,7 +85,7 @@ class FakeTrickplayFfmpeg {
     }
     const run = { args, signals: [] as string[] };
     this.runs.push(run);
-    const g = this.gen;
+    const g = !args.includes('-skip_frame') && this.genFull ? this.genFull : this.gen;
     let ended = false;
     setImmediate(() => {
       if (g.kind === 'hang') return;
@@ -265,15 +267,30 @@ describe('job', () => {
     expect(ff.runs).toHaveLength(1);
   });
 
-  it('a short output fails for good (recorded, no retry), and so does an ffmpeg exit', async () => {
+  it('a short output from the keyframes falls back to a full decode, without the GOP shift', async () => {
+    await open();
+    ff.gen = { kind: 'ok', tiles: 1 }; // the H.264 decoder outputs nothing from non-IDR I-frames
+    ff.genFull = { kind: 'ok', tiles: 13 };
+    const p = plan();
+    await h.delivery.trickplayJob(payloadOf(p), ctx());
+    expect(ff.runs).toHaveLength(2);
+    expect(ff.runs[0]!.args).toContain('-skip_frame');
+    const full = ff.runs[1]!.args;
+    expect(full).not.toContain('-skip_frame');
+    expect(full[full.indexOf('-filter_complex') + 1]).toMatch(/^\[0:\d+\]fps=1\/10:start_time=0/);
+    expect(readdirSync(stampDir(p)).sort()).toEqual(['manifest.json', 'sheet-0.jpg']);
+  });
+
+  it('a short output of both passes fails for good (recorded, no retry), and so does an ffmpeg exit', async () => {
     await open();
     ff.gen = { kind: 'ok', tiles: 9 }; // 13 expected, 3 may lack
     await expect(h.delivery.trickplayJob(payloadOf(plan()), ctx())).resolves.toBeUndefined();
     const f = await h.delivery.trickplayCache.getFailure({ fileId: 'play', sizeBytes: plan().file.sizeBytes, mtimeMs: plan().file.mtimeMs }, Date.now());
     expect(f).toMatchObject({ permanent: true });
-    expect(f!.reason).toMatch(/short output: 9 of 13/);
+    expect(f!.reason).toMatch(/keyframes only: short output: 9 of 13.*full decode: short output: 9 of 13/s);
+    expect(ff.runs).toHaveLength(2);
     await h.delivery.trickplayJob(payloadOf(plan()), ctx());
-    expect(ff.runs).toHaveLength(1);
+    expect(ff.runs).toHaveLength(2);
     expect(readdirSync(dirname(stampDir(plan())))).toEqual(['failed.json']);
   });
 

@@ -150,6 +150,11 @@ export interface TrickplayArgsInput {
   /** gopShiftMs; 0 by default. */
   shiftMs?: number;
   threads?: number;
+  /**
+   * Decode the keyframes only (-skip_frame nokey, the default). false decodes every frame: the fallback for
+   * streams whose decoder outputs nothing from keyframes alone (Blu-ray H.264 with non-IDR I-frames).
+   */
+  keyframesOnly?: boolean;
 }
 
 /**
@@ -167,7 +172,7 @@ export function trickplayArgs(i: TrickplayArgsInput): string[] {
     '-loglevel', 'error',
     '-filter_threads', '1',
     '-threads', String(i.threads ?? TRICKPLAY_THREADS),
-    '-skip_frame', 'nokey',
+    ...(i.keyframesOnly === false ? [] : ['-skip_frame', 'nokey']),
     '-i', `file:${i.absPath}`,
     '-filter_complex', graph,
     '-map', '[s]',
@@ -273,12 +278,25 @@ async function countSheets(dir: string): Promise<number> {
   return ids.every((id, i) => id === i) ? ids.length : -1;
 }
 
+/** A clean ffmpeg exit that produced too few tiles: the cue for the full-decode fallback. */
+const isShortOutput = (o: GenerateOutcome): boolean => !o.ok && o.permanent && /^(short output|no tiles produced)/.test(o.reason);
+
 /**
  * One generation into outDir (which must exist and be empty). Throws when aborted (shutdown: nothing to record)
- * and on an error of the output directory (I/O: transient).
+ * and on an error of the output directory (I/O: transient). Keyframes only first; when ffmpeg exits cleanly
+ * with too few tiles (the H.264 decoder outputs nothing from the non-IDR I-frames of some Blu-ray streams,
+ * seen on a 1971 AVC remux on 2026-11-27), the partial sheets are removed and every frame is decoded instead.
  */
 export async function generateTrickplay(spawn: Spawn, input: GenerateInput): Promise<GenerateOutcome> {
   if (!(input.durationMs > 0) || input.durationMs > MAX_DURATION_MS) return { ok: false, permanent: true, reason: `duration ${input.durationMs} ms out of range` };
+  const first = await generateOnce(spawn, input, true);
+  if (!isShortOutput(first)) return first;
+  for (const name of await readdir(input.outDir)) await rm(join(input.outDir, name), { force: true });
+  const full = await generateOnce(spawn, input, false);
+  return full.ok ? full : { ...full, reason: `keyframes only: ${first.ok ? '' : first.reason.slice(0, 200)}; full decode: ${full.reason}` };
+}
+
+async function generateOnce(spawn: Spawn, input: GenerateInput, keyframesOnly: boolean): Promise<GenerateOutcome> {
   const intervalMs = intervalFor(input.durationMs);
   const args = trickplayArgs({
     absPath: input.absPath,
@@ -287,7 +305,9 @@ export async function generateTrickplay(spawn: Spawn, input: GenerateInput): Pro
     intervalMs,
     sourceHeight: input.sourceHeight,
     outDir: input.outDir,
-    shiftMs: gopShiftMs(intervalMs, input.gopMs),
+    // With every frame decoded, fps=round=near already picks the frame nearest to each slot.
+    shiftMs: keyframesOnly ? gopShiftMs(intervalMs, input.gopMs) : 0,
+    keyframesOnly,
   });
   input.signal.throwIfAborted();
   const child = spawn(args);
