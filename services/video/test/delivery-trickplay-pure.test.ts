@@ -12,6 +12,7 @@ import {
   MAX_TILES,
   medianGapMs,
   minimumTiles,
+  fullDecodeTimeoutMs,
   parseFramecrc,
   timeoutFor,
   TRICKPLAY_TIMEOUT_FLOOR_MS,
@@ -38,9 +39,15 @@ describe('interval and tiles (D2)', () => {
     expect(expectedTiles(duration, interval)).toBeLessThanOrEqual(MAX_TILES);
   });
 
-  it('tolerates the last 30 s missing, no more', () => {
-    expect(minimumTiles(8_930_664, 10_000)).toBe(891);
+  it('tolerates the last 60 s missing, no more', () => {
+    expect(minimumTiles(8_930_664, 10_000)).toBe(888);
+    expect(minimumTiles(5_956_650, 10_000)).toBe(590); // Suspiria: 592 of 596, last keyframe 38 s before the end
     expect(minimumTiles(20_000, 10_000)).toBe(1);
+  });
+
+  it('gives the full decode at least the duration as timeout', () => {
+    expect(fullDecodeTimeoutMs(1_200_000, 5_956_650)).toBe(5_956_650);
+    expect(fullDecodeTimeoutMs(1_200_000, 600_000)).toBe(1_200_000);
   });
 
   it.each([

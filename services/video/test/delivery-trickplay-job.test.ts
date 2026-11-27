@@ -283,22 +283,22 @@ describe('job', () => {
 
   it('a short output of both passes fails for good (recorded, no retry), and so does an ffmpeg exit', async () => {
     await open();
-    ff.gen = { kind: 'ok', tiles: 9 }; // 13 expected, 3 may lack
+    ff.gen = { kind: 'ok', tiles: 6 }; // 13 expected, 6 may lack
     await expect(h.delivery.trickplayJob(payloadOf(plan()), ctx())).resolves.toBeUndefined();
     const f = await h.delivery.trickplayCache.getFailure({ fileId: 'play', sizeBytes: plan().file.sizeBytes, mtimeMs: plan().file.mtimeMs }, Date.now());
     expect(f).toMatchObject({ permanent: true });
-    expect(f!.reason).toMatch(/keyframes only: short output: 9 of 13.*full decode: short output: 9 of 13/s);
+    expect(f!.reason).toMatch(/keyframes only: short output: 6 of 13.*full decode: short output: 6 of 13/s);
     expect(ff.runs).toHaveLength(2);
     await h.delivery.trickplayJob(payloadOf(plan()), ctx());
     expect(ff.runs).toHaveLength(2);
     expect(readdirSync(dirname(stampDir(plan())))).toEqual(['failed.json']);
   });
 
-  it('accepts an output missing up to 30 s at the end', async () => {
+  it('accepts an output missing up to 60 s at the end', async () => {
     await open();
-    ff.gen = { kind: 'ok', tiles: 10 };
+    ff.gen = { kind: 'ok', tiles: 7 };
     await h.delivery.trickplayJob(payloadOf(plan()), ctx());
-    expect((await start()).locators.trickplay?.count).toBe(10);
+    expect((await start()).locators.trickplay?.count).toBe(7);
   });
 
   it('a slot past the end (or past MAX_TILES) is clamped: the manifest stays valid and the cache is used', async () => {

@@ -35,9 +35,11 @@ export const TRICKPLAY_DEFER_MS = 5 * 60_000;
 /**
  * How much of the end the tiles may miss: the fps filter emits slots only up to the last keyframe it saw, x265
  * re-encodes put keyframes up to ~10 s apart (13 s measured), and the container's duration may run on with the
- * audio. 2001 (T1 step 0) produced 892 of 894 tiles. A truncated or broken file misses far more.
+ * audio. 2001 (T1 step 0) produced 892 of 894 tiles; Suspiria (1977, x265 1080p) ends on a 38 s GOP over the
+ * credits and produced 592 of 596. The client shows the last tile for the missing tail. A truncated or broken
+ * file misses far more.
  */
-export const TAIL_TOLERANCE_MS = 30_000;
+export const TAIL_TOLERANCE_MS = 60_000;
 /** Longest duration a generation accepts (a hostile value must stay cheap). */
 const MAX_DURATION_MS = 7 * 24 * 3600 * 1000;
 /**
@@ -51,6 +53,11 @@ export const TRICKPLAY_MIN_BYTES_PER_S = 8 * 1000 ** 2;
 export const TRICKPLAY_TRANSIENT_FAILURE_TTL_MS = 6 * 3600_000;
 
 export const timeoutFor = (sizeBytes: number): number => Math.max(TRICKPLAY_TIMEOUT_FLOOR_MS, Math.ceil((sizeBytes / TRICKPLAY_MIN_BYTES_PER_S) * 1000));
+/**
+ * The full-decode fallback is bound by the decoder, not by the disk: at least the film's duration (1× real time).
+ * A 1080p x265 re-encode of 99 min did not finish in 20 min on the home server (nice 10, 2 threads).
+ */
+export const fullDecodeTimeoutMs = (timeoutMs: number, durationMs: number): number => Math.max(timeoutMs, Math.ceil(durationMs));
 
 // ---------------------------------------------------------------- pure parameters
 
@@ -309,6 +316,7 @@ async function generateOnce(spawn: Spawn, input: GenerateInput, keyframesOnly: b
     shiftMs: keyframesOnly ? gopShiftMs(intervalMs, input.gopMs) : 0,
     keyframesOnly,
   });
+  const timeoutMs = keyframesOnly ? input.timeoutMs : fullDecodeTimeoutMs(input.timeoutMs, input.durationMs);
   input.signal.throwIfAborted();
   const child = spawn(args);
   const { stdout, stderr } = collect(child, 1024 * 1024);
@@ -316,7 +324,7 @@ async function generateOnce(spawn: Spawn, input: GenerateInput, keyframesOnly: b
   const timer = setTimeout(() => {
     timedOut = true;
     void terminate(child, 'discard');
-  }, input.timeoutMs);
+  }, timeoutMs);
   const onAbort = () => void terminate(child, 'discard');
   input.signal.addEventListener('abort', onAbort, { once: true });
   let exit: ExitInfo;
@@ -330,7 +338,7 @@ async function generateOnce(spawn: Spawn, input: GenerateInput, keyframesOnly: b
   input.signal.throwIfAborted();
   const tail = () => stderr.tail(1500).trim();
   if (exit.error) return { ok: false, permanent: false, reason: `ffmpeg not runnable: ${exit.error}` };
-  if (timedOut) return { ok: false, permanent: false, reason: `timed out after ${Math.round(input.timeoutMs / 1000)} s` };
+  if (timedOut) return { ok: false, permanent: false, reason: `timed out after ${Math.round(timeoutMs / 1000)} s` };
   // Killed by a signal we did not send (the OOM killer, a stop of the container): the content is not at fault.
   if (exit.exitCode === null && exit.signal) return { ok: false, permanent: false, reason: `ffmpeg killed by ${exit.signal}: ${tail()}` };
   if (exit.exitCode !== 0) return { ok: false, permanent: true, reason: `ffmpeg exited with ${exit.exitCode ?? exit.signal}: ${tail()}` };
