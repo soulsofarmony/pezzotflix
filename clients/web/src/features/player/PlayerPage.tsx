@@ -11,6 +11,7 @@ import { PlayerController, type StartOptions } from '../../player/controller.ts'
 import { isLocalTrack } from '../../player/subtitles.ts';
 import { Icon } from '../../ui/Icon.tsx';
 import { InfoPanel, modeLabel, WhyPanel } from './Panels.tsx';
+import { SeekPreview, useSeekHover } from './SeekPreview.tsx';
 import { StatusOverlay } from './StatusOverlay.tsx';
 import { TrackMenu } from './TrackMenu.tsx';
 import styles from './player.module.css';
@@ -28,6 +29,8 @@ export interface PlayerPageProps {
 type Panel = 'tracks' | 'why' | 'info' | null;
 
 const HIDE_CONTROLS_MS = 3_000;
+/** The seek bar's step: the preview snaps to it, so it shows the position a click would seek to. */
+const SEEK_STEP_MS = 1_000;
 
 export function PlayerPage(props: PlayerPageProps): ReactElement {
   const services = useServices();
@@ -41,6 +44,7 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
   const item = useItem(itemId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const seekRef = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
@@ -162,6 +166,10 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
   const title = item.data?.title ?? '';
   const duration = snap.durationMs || snap.session?.durationMs || 0;
   const position = scrub ?? snap.positionMs;
+  const seekMax = Math.max(duration, 1);
+  const seekHover = useSeekHover(seekRef, seekMax, SEEK_STEP_MS);
+  // The scrub value wins over the hover: while dragging (touch too) or with the arrow keys the preview follows the thumb.
+  const previewMs = snap.phase === 'ready' && showControls ? (scrub ?? seekHover.hoverMs) : null;
 
   return (
     // The player surface takes the keyboard shortcuts; every control in it is a native element.
@@ -205,17 +213,18 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
       <div className={styles.bottom}>
         <div className={styles.seekRow}>
           <span className={styles.time}>{formatClock(position)}</span>
-          <div className={styles.seekWrap}>
+          <div className={styles.seekWrap} {...seekHover.handlers}>
             <div className={styles.buffered} style={{ width: duration ? `${Math.min(100, (snap.bufferedMs / duration) * 100)}%` : 0 }} />
             {snap.session?.chapters.map((c) =>
               duration && c.startMs > 0 ? <span key={c.startMs} className={styles.chapterMark} style={{ left: `${(c.startMs / duration) * 100}%` }} title={c.title ?? undefined} /> : null,
             )}
             <input
+              ref={seekRef}
               type="range"
               className={styles.seek}
               min={0}
-              max={Math.max(duration, 1)}
-              step={1000}
+              max={seekMax}
+              step={SEEK_STEP_MS}
               value={Math.min(position, duration || position)}
               aria-label={t('player.seek')}
               aria-valuetext={t('player.seekValue', { position: formatClock(position), duration: formatClock(duration) })}
@@ -230,6 +239,7 @@ export function PlayerPage(props: PlayerPageProps): ReactElement {
                 setScrub(null);
               }}
             />
+            <SeekPreview trickplay={snap.session?.trickplay ?? null} valueMs={previewMs} maxMs={seekMax} inputRef={seekRef} boundsRef={rootRef} />
           </div>
           <span className={styles.time}>{formatClock(duration)}</span>
         </div>

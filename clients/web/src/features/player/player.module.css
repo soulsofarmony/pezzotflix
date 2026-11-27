@@ -104,6 +104,37 @@
   pointer-events: none;
 }
 
+/* Seek-bar preview: above the bar, never in the way of the pointer (the range input keeps every event). */
+.preview {
+  --preview-w: clamp(10rem, 18vw, 20rem);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.previewImage {
+  width: var(--preview-w);
+  background-repeat: no-repeat;
+  background-color: #000;
+  border-radius: var(--radius-sm);
+  /* A ring, not a border: a border would shift the tile grid inside the box. */
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.85), 0 4px 16px rgb(0 0 0 / 0.6);
+}
+
+.previewTime {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 0.7);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .seek,
 .volume {
   accent-color: var(--color-accent);

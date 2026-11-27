@@ -69,6 +69,7 @@ function session(over: Partial<PlaybackSession> = {}): PlaybackSession {
     resumePositionMs: 0,
     durationMs: 7_200_000,
     chapters: [],
+    trickplay: null,
     ...over,
   };
 }

@@ -22,6 +22,7 @@ export type Home = S['Home'];
 export type Track = S['Track'];
 export type MediaVersion = S['MediaVersion'];
 export type Chapter = S['Chapter'];
+export type Trickplay = S['Trickplay'];
 export type Credit = S['Credit'];
 export type ClientCapabilities = S['ClientCapabilities'];
 export type StartPlaybackRequest = S['StartPlaybackRequest'];
@@ -108,6 +109,8 @@ export interface PlaybackSession {
   resumePositionMs: number;
   durationMs: number;
   chapters: Chapter[];
+  /** Seek-bar preview sheets (ADR 0009), null while none is ready or when the server sent unusable values. */
+  trickplay: Trickplay | null;
 }
 
 export const DEFAULT_HEARTBEAT_MS = 10_000;
@@ -172,7 +175,18 @@ export function toPlaybackSession(raw: RawPlaybackSession): PlaybackSession {
     resumePositionMs: raw.resumePositionMs,
     durationMs: raw.durationMs,
     chapters: raw.chapters,
+    trickplay: toTrickplay(raw.trickplay),
   };
+}
+
+const positiveInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0;
+
+/** A grid whose numbers cannot address a tile is no preview: the seek bar then shows the time only. */
+function toTrickplay(raw: Trickplay | null | undefined): Trickplay | null {
+  if (!raw) return null;
+  const { intervalMs, tileWidth, tileHeight, columns, rows, count, sheets } = raw;
+  if (![intervalMs, tileWidth, tileHeight, columns, rows, count].every(positiveInt) || !Array.isArray(sheets) || sheets.length === 0) return null;
+  return { intervalMs, tileWidth, tileHeight, columns, rows, count, sheets: [...sheets] };
 }
 
 // ---------------------------------------------------------------- events
