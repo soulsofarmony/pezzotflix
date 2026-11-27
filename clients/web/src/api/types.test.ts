@@ -20,6 +20,7 @@ const rawSession = (over: Partial<RawPlaybackSession> = {}): RawPlaybackSession 
   resumePositionMs: 0,
   durationMs: 1000,
   chapters: [],
+  trickplay: null,
   ...over,
 });
 
@@ -51,6 +52,18 @@ describe('toPlaybackSession', () => {
   it('treats a missing availability as complete and an unknown delivery as not local', () => {
     const s = toPlaybackSession(rawSession({ tracks: { audio: [], subtitles: [rawTrack({ delivery: 'teletext' as never })] } }));
     expect(s.tracks.subtitles[0]).toMatchObject({ availability: 'complete', delivery: null });
+  });
+
+  it('keeps a usable trickplay and drops one that cannot address a tile', () => {
+    const trickplay = { intervalMs: 10_000, tileWidth: 320, tileHeight: 134, columns: 10, rows: 10, count: 640, sheets: ['/video/media/s/t/trickplay/sheet-0.jpg'] };
+    expect(toPlaybackSession(rawSession({ trickplay })).trickplay).toEqual(trickplay);
+    expect(toPlaybackSession(rawSession({ trickplay: null })).trickplay).toBeNull();
+    expect(toPlaybackSession(rawSession({ trickplay: { ...trickplay, count: 0 } })).trickplay).toBeNull();
+    expect(toPlaybackSession(rawSession({ trickplay: { ...trickplay, intervalMs: 0 } })).trickplay).toBeNull();
+    expect(toPlaybackSession(rawSession({ trickplay: { ...trickplay, sheets: [] } })).trickplay).toBeNull();
+    // An older server without the field.
+    const { trickplay: _omit, ...old } = rawSession();
+    expect(toPlaybackSession(old as RawPlaybackSession).trickplay).toBeNull();
   });
 
   it('rejects an unknown protocol', () => {

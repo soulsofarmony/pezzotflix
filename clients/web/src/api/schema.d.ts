@@ -745,6 +745,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video/media/s/{sessionToken}/trickplay/{sheet}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Session token (P9). Never logged in clear. */
+                sessionToken: components["parameters"]["SessionToken"];
+                /** @description A sheet listed in the session's trickplay.sheets, e.g. sheet-0.jpg. */
+                sheet: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Seek-bar preview sheet (JPEG) of the session's file.
+         * @description Only the sheets listed in the session's trickplay are served: 400 for a name outside the pattern, 404 for one not in this session's sheets. Requests for sheets do not count as playback activity. Every answer has Cache-Control no-store (ADR 0009).
+         */
+        get: operations["getTrickplaySheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/media/images/{imageKey}": {
         parameters: {
             query?: {
@@ -1093,6 +1118,21 @@ export interface components {
              */
             availability?: "complete" | "growing";
         };
+        /** @description Sprite sheets of JPEG tiles. Tile i shows the keyframe nearest to the original time i × intervalMs (the same timeline as positions and durationMs, so no conversion); for a position p on that timeline the tile is min(count - 1, round(p / intervalMs)), rounded to the nearest integer. Sheet k holds tiles k × columns × rows onwards, row by row, left to right; tile i sits in sheets[floor(i / (columns × rows))] at column (i mod columns) and row (floor(i / columns) mod rows). The last sheet may be partly filled. Draw the crop at the sheet's original pixel size: a resized sheet moves the tiles. */
+        Trickplay: {
+            /** @description Time between tiles, 10000 except for films over about 5 h 33 min. */
+            intervalMs: number;
+            /** @description Tile width in pixels (320). */
+            tileWidth: number;
+            /** @description Tile height in pixels, from the display aspect ratio. */
+            tileHeight: number;
+            columns: number;
+            rows: number;
+            /** @description Tiles to use. The last sheet may hold a few more past count, never to be shown. */
+            count: number;
+            /** @description Data-plane locators (relative) of the sheets, in order. Never build them client-side. */
+            sheets: string[];
+        };
         PlaybackSession: {
             sessionId: components["schemas"]["Id"];
             /**
@@ -1133,6 +1173,8 @@ export interface components {
             resumePositionMs: number;
             durationMs: number;
             chapters: components["schemas"]["Chapter"][];
+            /** @description Seek-bar preview sheets of the file (ADR 0009), null while none is ready (they are generated in the background; a later session of the same file gets them). A re-plan brings a new token, hence new sheet urls. */
+            trickplay: components["schemas"]["Trickplay"] | null;
         };
         ProgressReport: {
             /** @description Original media timeline. */
@@ -2557,6 +2599,62 @@ export interface operations {
             500: components["responses"]["Problem"];
             /** @description STREAM_PREPARING with Retry-After (the embedded track's extraction is queued), or MEDIA_UNAVAILABLE. MEDIA_UNAVAILABLE with Retry-After is transient (the sidecar or the extracted file is briefly unreachable or not readable): retry like STREAM_PREPARING. Without Retry-After it is final for this stream (the extraction failed for good, or the sidecar could not be converted): re-plan without the track. */
             503: components["responses"]["ProblemRetryAfter"];
+        };
+    };
+    getTrickplaySheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Session token (P9). Never logged in clear. */
+                sessionToken: components["parameters"]["SessionToken"];
+                /** @description A sheet listed in the session's trickplay.sheets, e.g. sheet-0.jpg. */
+                sheet: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheet (image/jpeg). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Partial content. */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not modified (If-None-Match or If-Modified-Since). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            410: components["responses"]["Problem"];
+            /** @description Precondition failed (If-Match or If-Unmodified-Since). */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Range not satisfiable. */
+            416: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description MEDIA_UNAVAILABLE, the sheet is not readable. */
+            503: components["responses"]["Problem"];
         };
     };
     getImage: {

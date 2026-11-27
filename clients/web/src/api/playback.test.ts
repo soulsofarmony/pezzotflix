@@ -19,6 +19,7 @@ const raw = (sessionId: string): RawPlaybackSession => ({
   resumePositionMs: 0,
   durationMs: 1_000,
   chapters: [],
+  trickplay: null,
 });
 
 function setup() {
