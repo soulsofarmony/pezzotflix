@@ -174,11 +174,15 @@ Dettagli decisi durante la costruzione, che precisano D2–D5 senza cambiarne il
 - **Timeline (D2).** Senza `-copyts` ffmpeg riporta già i tempi a zero sullo start_time del file: il payload non porta lo start_time.
 - **Aspect ratio (D1).** La scala usa il DAR (`h=trunc(320/dar/2+0.5)*2`, poi `setsar=1`). Le dimensioni vere del riquadro si leggono dall'output di ffmpeg.
 - **Colore (D3).** Le griglie si scrivono in BT.601 full range, cioè quello che i decoder JPEG assumono (`zscale=t=bt709:m=470bg:r=full`). La catena preliminare (`m=bt709:r=tv`) dava neri sollevati, visti a confronto su 2001. La scala avviene prima del tone mapping.
-- **Esito (D4).** Un ramo `split` scrive `framecrc` su stdout: conteggio e dimensioni esatti dei riquadri. Tolleranza: mancano al più 30 s alla fine. Il numero di griglie deve essere `ceil(riquadri / 100)`.
+- **Esito (D4).** Un ramo `split` scrive `framecrc` su stdout: conteggio e dimensioni esatti dei riquadri. Tolleranza: mancano al più 60 s alla fine (era 30 s; alzata il 2026-11-27 per Suspiria, vedi sotto). Il numero di griglie deve essere `ceil(riquadri / 100)`.
 - **Fallimenti (D4).** Registrati in `<fileId>/failed.json`. Quelli temporanei (timeout, I/O, avvio) valgono 6 h. Timeout: `max(20 min, dimensione ÷ 8 MB/s)`, cioè circa 4 volte il tempo misurato su Arancia meccanica.
 - **Contratto (D4).** `trickplay` è obbligatorio e nullable nella PlaybackSession: il server lo manda sempre.
 - **Rinvio (D5).** Scatta con uno stream registrato o con un avvio in corso. Con `TRICKPLAY_ENABLED=false` niente job, niente ricostruzione, `trickplay: null`.
 - **Indice del riquadro nei client (D6).** Il riquadro `i` copre `[i·I − I/2, i·I + I/2)`, quindi l'indice per una posizione `p` è `min(count − 1, round(p / intervalMs))`, non `floor` come scritto in D6: con `floor` a 19 s si vedrebbe il riquadro dei 10 s invece di quello dei 20 s. Vale il testo del contratto.
+- **Ripiego a decodifica completa (D3, 2026-11-27).** Su un remux Blu-ray AVC (La classe operaia va in paradiso, 31 GB) il decoder H.264 con `-skip_frame nokey` non restituisce niente dagli I-frame non IDR: 1 riquadro su 692. Lo stesso con `nointra` e con `-flags2 +showall`. Quando ffmpeg esce pulito con troppi pochi riquadri, le griglie parziali si cancellano e la generazione si rifà decodificando tutti i fotogrammi, senza lo spostamento del GOP. Su quel file la decodifica completa con 2 thread va a circa 12 volte il tempo reale.
+- **Coda lunga e timeout del ripiego (2026-11-27).** Suspiria (x265 1080p, 8,6 GB) chiude con un GOP di 38 s sui titoli di coda: dai soli keyframe escono 592 riquadri su 596, sotto il minimo di allora (593). Il ripiego a decodifica completa è poi scaduto dopo 20 minuti, perché il timeout si calcolava solo dalla dimensione del file. Due correzioni:
+  - la tolleranza alla fine sale a 60 s. Il client mostra l'ultimo riquadro per la coda che manca;
+  - il passaggio a decodifica completa ha come timeout almeno la durata del film (1× tempo reale), perché lì conta il decoder, non il disco.
 - **B2 non serve per ora.** I 29 minuti del remux più grande si spendono una volta sola, nelle ore senza visione: si resta su B1.
 
 ## Conseguenze

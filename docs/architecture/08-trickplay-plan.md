@@ -1,6 +1,7 @@
 # 08 — Piano del trickplay (F4)
 
 - **Stato:** approvato da Claude, 2026-11-27, dopo un passaggio di `design-reviewer` insieme all'ADR 0009.
+- **Avanzamento:** T1 ✅ (`5a56b9b`, ripiego `d464c4a`), T2 ✅ (`bcc832a`, provato dal vivo in Chrome), T3 ✅ (`97949e2`, provato sull'emulatore Android TV 11). Ricostruzione della libreria fatta sul fisso il 2026-11-27. Da fare: la prova sulla TV vera (§5.4) e la convivenza col playback (§5.2).
 - **Base:** [ADR 0009](../adr/0009-trickplay-anteprime-seek.md); [ADR 0003](../adr/0003-streaming-hls-fmp4-segmenter.md) D8–D10 (keyframe index, confine di Delivery, risorse di sessione); [ADR 0004](../adr/0004-contratto-api-openapi-3-1.md) (contratto); [ADR 0005](../adr/0005-web-client-react-vite.md) e [ADR 0008](../adr/0008-client-tv-kotlin-compose-media3.md) (client).
 - **Richiesta:** proprietario, 2026-11-27: "scorro sulla timeline col mouse e, stile Netflix, mi compare il riquadro con la preview di quella scena".
 
