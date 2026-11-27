@@ -27,7 +27,7 @@ Nella cartella di appoggio resta "Investigation of a Citizen Above Suspicion" (I
   | T2 browser | `bcc832a` | provato dal vivo in Chrome su 2001 (HLS), Il sorpasso, Todo modo (Transcode, anamorfico) e Winnie the Pooh (Direct Play): dopo il click il film riparte entro circa 1 s dall'ora mostrata |
   | T3 TV | `97949e2` | app 0.3.0, provata sull'emulatore Android TV 11 (API 30) con Psyco e Il dottor Zivago |
   | Ripiego | `d464c4a` | decodifica completa quando quella dei soli keyframe produce troppo poco (§4) |
-  | Coda lunga | (questo commit) | tolleranza alla fine da 30 a 60 s, timeout del ripiego legato alla durata (§4) |
+  | Coda lunga | `cfe0e24` | tolleranza alla fine da 30 a 60 s, timeout del ripiego legato alla durata (§4) |
 
 - **In funzione sul fisso:** servizio `video` e gateway ricostruiti. All'avvio il servizio ha accodato da solo le anteprime dei 31 file.
 
