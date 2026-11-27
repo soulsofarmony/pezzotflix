@@ -109,8 +109,8 @@ describe.skipIf(skipReason !== null)('ingest with enrichment (scan → probe →
   });
 
   it('runs every job to completion, enrichment included', () => {
-    // The analyzer also enqueues the delivery keyframe index; delivery is not composed here.
-    expect(all("SELECT DISTINCT type, state FROM job WHERE type <> 'delivery.keyframe_index' ORDER BY type")).toEqual([
+    // The analyzer also enqueues the delivery keyframe index and previews; delivery is not composed here.
+    expect(all("SELECT DISTINCT type, state FROM job WHERE type NOT LIKE 'delivery.%' ORDER BY type")).toEqual([
       { type: 'analyzer.probe', state: 'done' },
       { type: 'identifier.identify', state: 'done' },
       { type: 'library.scan', state: 'done' },

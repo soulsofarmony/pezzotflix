@@ -193,10 +193,11 @@ describe.skipIf(skipReason !== null)('catalog and review queue over the sample l
     const ingest = await call('getIngestStatus', 'GET', '/video/api/v1/admin/ingest');
     expect(ingest).toMatchObject({ running: false, failed: [] });
     // Only enrichments wait: the one of the manual work and the series one, delayed a minute after
-    // its episodes (F1a.4), plus the keyframe indexes for delivery, which is not composed here.
+    // its episodes (F1a.4), plus the keyframe indexes and the seek-bar previews for delivery, which is not
+    // composed here.
     // Ingest itself is done.
     const waiting = (type: string): number => Number(ingest.jobs[type]?.queued ?? 0);
-    expect(ingest.queued).toBe(waiting('metadata.enrich') + waiting('delivery.keyframe_index'));
+    expect(ingest.queued).toBe(waiting('metadata.enrich') + waiting('delivery.keyframe_index') + waiting('delivery.trickplay'));
     expect(ingest.jobs['identifier.identify'].done).toBeGreaterThan(0);
   });
 

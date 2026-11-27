@@ -95,7 +95,8 @@ let spawnOverride: Spawn | null = null;
 
 async function open(env: Record<string, string> = {}, timings: DeliveryDeps['timings'] = { waitMs: 2000, killGraceMs: 50 }, probe: DeliveryProbe = fakeProbe) {
   h = await harness([{ name: 'Film', path: lib }], {
-    env: { DELIVERY_AHEAD_S: '4', ...env },
+    // Previews off: these tests count the keyframe jobs (trickplay has its own tests).
+    env: { DELIVERY_AHEAD_S: '4', TRICKPLAY_ENABLED: 'false', ...env },
     timings,
     probe,
     spawn: (args) => {

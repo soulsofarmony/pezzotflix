@@ -1,5 +1,6 @@
 // PlaybackSession response (doc 03 §4.3) built from the plan and the StreamHandle: tracks from the
-// file's facts, subtitle urls and availability from the handle's locators (ADR 0003 D12).
+// file's facts, subtitle urls and availability from the handle's locators (ADR 0003 D12), the preview sheets
+// from the handle's trickplay locator (ADR 0009 D4).
 import type { components } from '../../contract/schema.d.ts';
 import type { AudioStreamFacts, MediaFacts, SubtitleStreamFacts } from '../../shared/media-facts.ts';
 import { streamTrackId } from '../../shared/media-facts.ts';
@@ -165,5 +166,6 @@ export function sessionView(v: SessionViewInput): PlaybackSessionView {
     resumePositionMs: plan.startPositionMs,
     durationMs: plan.file.durationMs ?? v.itemDurationMs ?? 0,
     chapters: facts.chapters.map((c) => ({ title: c.title, startMs: c.startMs, endMs: c.endMs })),
+    trickplay: handle.locators.trickplay ? { ...handle.locators.trickplay, sheets: [...handle.locators.trickplay.sheets] } : null,
   };
 }

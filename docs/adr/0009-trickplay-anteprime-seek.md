@@ -86,7 +86,7 @@ Vincoli:
 
 ## Evidenze
 
-Misura **preliminare** del 2026-11-27 sul server di casa, con l'ffmpeg dell'immagine del progetto (`jellyfin-ffmpeg` 8.1.3) nel container `video`, sul file reale `2001 - Odissea nello spazio (1968) - 2160p.mkv` (HEVC 10 bit 3840×1746, HDR10/PQ, 21,8 GB, 2 h 29 min):
+Misura **preliminare** del 2026-11-27, superata dalla tabella successiva sul server di casa, con l'ffmpeg dell'immagine del progetto (`jellyfin-ffmpeg` 8.1.3) nel container `video`, sul file reale `2001 - Odissea nello spazio (1968) - 2160p.mkv` (HEVC 10 bit 3840×1746, HDR10/PQ, 21,8 GB, 2 h 29 min):
 
 | Misura | Valore |
 |---|---|
@@ -97,6 +97,19 @@ Misura **preliminare** del 2026-11-27 sul server di casa, con l'ffmpeg dell'imma
 | Note | il demuxer segnala elementi EBML fuori misura nel file, ma la generazione arriva in fondo |
 
 La lettura media è stata di circa 89 MB/s, molto sotto un SSD SATA. Il collo di bottiglia è quindi la CPU o il bind mount NTFS → WSL2, cioè proprio le risorse che usa lo streaming. Questi numeri **non** sono quelli della configurazione decisa (thread limitati, nice 10): il primo passo di T1 ([piano 08](../architecture/08-trickplay-plan.md) §3) li rimisura con gli argomenti finali, con tempo, CPU e memoria di picco, su un re-encode 4K, sul remux di Arancia meccanica e su un 1080p.
+
+**Misura con gli argomenti finali** (T1, 2026-11-27, stesso container): `nice -n 10`, `-threads 2`, `-skip_frame nokey`, catena di tone mapping per PQ, `tile=10x10`, `-q:v 4`. CPU e memoria campionate da `/proc`.
+
+| File | Dimensione | Durata | Tempo | CPU (core medi) | Memoria di picco | Lettura | Riquadri (attesi) | Output |
+|---|---|---|---|---|---|---|---|---|
+| 2001, 4K HDR10 x265 | 21,8 GB | 2 h 29 min | **359 s** | 0,47 | 311 MiB | 61 MB/s | 892 (894) | 9 griglie, 6,4 MB |
+| Psyco, 1080p SDR H.264 | 8,5 GB | 1 h 49 min | **150 s** | 0,46 | 205 MiB | 57 MB/s | 653 (654) | 7 griglie, 4,3 MB |
+| Arancia meccanica, 4K DV 8.1 remux, GOP ~1 s | 56,4 GB | 2 h 17 min | **1766 s (29 min)** | 0,88 | 452 MiB | 32 MB/s | 820 (820) | 9 griglie, 7,9 MB |
+
+- I re-encode sono limitati dalla lettura del bind mount, il remux dalla CPU (keyframe 4K ogni secondo).
+- Con `-threads 4` su 600 s di Arancia meccanica: 102,7 s contro 110,8 s con 2 thread, ma 321 MiB contro 241 MiB. Si tengono 2 thread.
+- La memoria resta sotto i 500 MiB anche sul remux: compatibile con il limite di 3 GB di WSL.
+- HLG provato su una clip sintetica nel container: luminosità dei riquadri coerente con il tempo.
 
 `tonemapx` esiste solo in jellyfin-ffmpeg (immagine del progetto, ADR 0006). L'ffmpeg upstream installato sui PC di sviluppo non ce l'ha.
 
@@ -154,10 +167,24 @@ Riferimenti non verificati in rete in questa sessione, quindi senza peso nella d
   - senza anteprima resta il comportamento attuale (±10 s immediati);
   - in memoria al più 2 griglie decodificate, in una cache propria, separata da quella dei poster.
 
+## Note di costruzione (T1, 2026-11-27)
+
+Dettagli decisi durante la costruzione, che precisano D2–D5 senza cambiarne il senso:
+- **Riquadro più vicino (D2).** `fps=…:round=near` sui soli keyframe prende l'ultimo keyframe prima di `n·I + I/2`: con GOP di 2 s i riquadri arrivavano 4 s in ritardo. Un `setpts=PTS+(I−g)/2` prima di `fps`, con `g` il gap mediano dei keyframe letto dal keyframe index (o dai Cues), rende ogni riquadro il keyframe più vicino a `i × I`. Senza `g` lo spostamento è nullo. `eof_action=pass` recupera l'ultimo riquadro. Il test d'integrazione controlla uno scarto ≤ 1,5 s.
+- **Timeline (D2).** Senza `-copyts` ffmpeg riporta già i tempi a zero sullo start_time del file: il payload non porta lo start_time.
+- **Aspect ratio (D1).** La scala usa il DAR (`h=trunc(320/dar/2+0.5)*2`, poi `setsar=1`). Le dimensioni vere del riquadro si leggono dall'output di ffmpeg.
+- **Colore (D3).** Le griglie si scrivono in BT.601 full range, cioè quello che i decoder JPEG assumono (`zscale=t=bt709:m=470bg:r=full`). La catena preliminare (`m=bt709:r=tv`) dava neri sollevati, visti a confronto su 2001. La scala avviene prima del tone mapping.
+- **Esito (D4).** Un ramo `split` scrive `framecrc` su stdout: conteggio e dimensioni esatti dei riquadri. Tolleranza: mancano al più 30 s alla fine. Il numero di griglie deve essere `ceil(riquadri / 100)`.
+- **Fallimenti (D4).** Registrati in `<fileId>/failed.json`. Quelli temporanei (timeout, I/O, avvio) valgono 6 h. Timeout: `max(20 min, dimensione ÷ 8 MB/s)`, cioè circa 4 volte il tempo misurato su Arancia meccanica.
+- **Contratto (D4).** `trickplay` è obbligatorio e nullable nella PlaybackSession: il server lo manda sempre.
+- **Rinvio (D5).** Scatta con uno stream registrato o con un avvio in corso. Con `TRICKPLAY_ENABLED=false` niente job, niente ricostruzione, `trickplay: null`.
+- **Indice del riquadro nei client (D6).** Il riquadro `i` copre `[i·I − I/2, i·I + I/2)`, quindi l'indice per una posizione `p` è `min(count − 1, round(p / intervalMs))`, non `floor` come scritto in D6: con `floor` a 19 s si vedrebbe il riquadro dei 10 s invece di quello dei 20 s. Vale il testo del contratto.
+- **B2 non serve per ora.** I 29 minuti del remux più grande si spendono una volta sola, nelle ore senza visione: si resta su B1.
+
 ## Conseguenze
 
 - **Più facile:** navigare un film lungo. L'anteprima vale per Direct Play, Direct Stream e Transcode, perché non dipende dallo stream.
-- **Costo una tantum:** da rimisurare in T1. Con i numeri preliminari, circa 4 min per un re-encode 4K da 20 GB e almeno 2 h per i 30 file attuali, distribuite nei momenti senza visione. Spazio: circa 5–15 MB per film.
+- **Costo una tantum:** circa 6 min per un re-encode 4K da 20 GB, 2–3 min per un 1080p, circa 30 min per un remux 4K da 50 GB e oltre, sempre nei momenti senza visione. Spazio: circa 5–15 MB per film.
 - **Lacune note:**
   - DV profilo 5 senza anteprima;
   - le cartelle dei file usciti dalla libreria restano in cache, come oggi quelle dei keyframe index (circa 10 MB a film): pulizia insieme, quando servirà;

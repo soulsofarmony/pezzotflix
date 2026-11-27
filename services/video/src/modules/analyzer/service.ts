@@ -11,11 +11,14 @@ import { newId } from '../../shared/ids.ts';
 import {
   type AnalyzerProbePayload,
   type DeliveryKeyframeIndexPayload,
+  type DeliveryTrickplayPayload,
   type IdentifierIdentifyPayload,
   JOB_INTERRUPTED_ERROR,
   JOB_TYPES,
+  TRICKPLAY_VERSION,
+  trickplayJobKey,
 } from '../../shared/job-types.ts';
-import { type MediaFacts, type SidecarSubtitleFacts, sidecarTrackId, type StreamFacts } from '../../shared/media-facts.ts';
+import { type MediaFacts, type SidecarSubtitleFacts, sidecarTrackId, type StreamFacts, type VideoStreamFacts } from '../../shared/media-facts.ts';
 import { resolveRealInsideRoot } from '../../shared/media-path.ts';
 import type { JobQueuePort } from '../../shared/ports.ts';
 import { ANALYZER_VERSION, hasHdr10PlusSideData, mapFacts, mayCarryHdr10Plus, type MappedProbe, type OtherStream } from './facts.ts';
@@ -23,6 +26,30 @@ import type { FfprobeOutput, ProbeRunner } from './ffprobe.ts';
 
 /** Re-analysis after an analyzer upgrade runs after new files, enrichment and artwork (lower runs first). */
 export const REANALYZE_PRIORITY = 300;
+/** The startup backfill of seek-bar previews runs after the previews of new files (ADR 0009 D5). */
+export const TRICKPLAY_BACKFILL_PRIORITY = 200;
+
+/** The video stream the Decision Engine plays: the first one that is not cover art. */
+const mainVideo = (facts: Pick<MediaFacts, 'streams'>): VideoStreamFacts | undefined =>
+  facts.streams.find((s): s is VideoStreamFacts => s.type === 'video' && !s.attachedPic);
+
+/** delivery.trickplay's payload from the facts (the same as delivery builds from a plan of this file). */
+export function trickplayPayload(fileId: string, facts: MediaFacts, v: VideoStreamFacts): DeliveryTrickplayPayload {
+  return {
+    fileId,
+    location: facts.location,
+    sizeBytes: facts.sizeBytes,
+    mtimeMs: facts.mtimeMs,
+    container: facts.container,
+    videoStreamIndex: v.index,
+    durationMs: facts.durationMs,
+    width: v.width,
+    height: v.height,
+    hdr: v.hdr,
+    hdrFallback: [...v.hdrFallback],
+    dolbyVisionProfile: v.dolbyVision?.profile ?? null,
+  };
+}
 
 export const ProbePayload: z.ZodType<AnalyzerProbePayload> = z.object({ fileId: z.string().min(1) });
 
@@ -78,9 +105,11 @@ export interface AnalyzerDeps {
   runner: ProbeRunner;
   /** The probe job's maxAttempts: the last attempt degrades instead of failing on enrichments. */
   maxAttempts: number;
+  /** TRICKPLAY_ENABLED: off, no delivery.trickplay is enqueued (the backfill catches up once it is on). Default on. */
+  trickplay?: boolean;
 }
 
-export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerDeps) {
+export function createAnalyzer({ db, now, jobs, runner, maxAttempts, trickplay = true }: AnalyzerDeps) {
   /** Writes the facts in one transaction; a file still waiting for analysis moves on to identification. */
   function store(fileId: string, m: MappedProbe): void {
     const t = now();
@@ -140,7 +169,8 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
       }
       // ADR 0003 D8: the keyframe index is mandatory after every successful probe (delivery caches it per
       // size + mtime, so a job for unchanged content returns at once).
-      if (facts.streams.some((s) => s.type === 'video' && !s.attachedPic)) {
+      const video = mainVideo(facts);
+      if (video) {
         const index: DeliveryKeyframeIndexPayload = {
           fileId,
           location: facts.location,
@@ -152,6 +182,10 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
         // The stamp is in the key: a job still queued for older content does not hide this one.
         const key = `keyframes:${fileId}:${facts.sizeBytes}:${facts.mtimeMs}`;
         jobs().enqueue({ type: JOB_TYPES.deliveryKeyframeIndex, payload: index, idempotencyKey: key });
+        // ADR 0009 D5: the previews, under the same condition; delivery returns at once for cached content.
+        if (trickplay) {
+          jobs().enqueue({ type: JOB_TYPES.deliveryTrickplay, payload: trickplayPayload(fileId, facts, video), idempotencyKey: trickplayJobKey(fileId, facts.sizeBytes, facts.mtimeMs) });
+        }
       }
     });
   }
@@ -240,7 +274,7 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
     .prepare(
       `SELECT f.id FROM media_file f JOIN library_root r ON r.id = f.root_id
        WHERE f.facts IS NOT NULL AND coalesce(json_extract(f.facts, '$.analyzerVersion'), 0) < ?
-         AND f.state NOT IN ('missing', 'removed') AND r.status = 'online'
+         AND f.state NOT IN ('missing', 'removed', 'ignored') AND r.status = 'online'
        ORDER BY f.id`,
     )
     .pluck();
@@ -290,5 +324,39 @@ export function createAnalyzer({ db, now, jobs, runner, maxAttempts }: AnalyzerD
     return n;
   }
 
-  return { probe, requeueOutdated, requeueFailedProbes };
+  // Present, not ignored files on online roots with no delivery.trickplay job under the current key, whatever its state: a
+  // job done, failed (also one interrupted on its last attempt) or queued is never queued again here. The key
+  // is trickplayJobKey's, built in SQL (the unique index on idempotency_key answers the NOT EXISTS).
+  const withoutTrickplay = db.$client
+    .prepare(
+      `SELECT f.id, f.facts FROM media_file f JOIN library_root r ON r.id = f.root_id
+       WHERE f.facts IS NOT NULL AND f.state NOT IN ('missing', 'removed', 'ignored') AND r.status = 'online'
+         AND NOT EXISTS (SELECT 1 FROM job j WHERE j.idempotency_key =
+               @prefix || f.id || ':' || json_extract(f.facts, '$.sizeBytes') || ':' || json_extract(f.facts, '$.mtimeMs'))
+       ORDER BY f.id`,
+    );
+
+  /**
+   * Startup backfill of the previews (ADR 0009 D5): enqueues delivery.trickplay, at low priority, for the files
+   * with video that never had a job for their current content and parameter version. Returns how many.
+   */
+  function backfillTrickplay(): number {
+    if (!trickplay) return 0;
+    let n = 0;
+    for (const row of withoutTrickplay.all({ prefix: `trickplay:v${TRICKPLAY_VERSION}:` }) as { id: string; facts: string }[]) {
+      let facts: MediaFacts;
+      try {
+        facts = JSON.parse(row.facts) as MediaFacts;
+      } catch {
+        continue;
+      }
+      const video = mainVideo(facts);
+      if (!video) continue;
+      const key = trickplayJobKey(row.id, facts.sizeBytes, facts.mtimeMs);
+      if (jobs().enqueue({ type: JOB_TYPES.deliveryTrickplay, payload: trickplayPayload(row.id, facts, video), priority: TRICKPLAY_BACKFILL_PRIORITY, idempotencyKey: key })) n++;
+    }
+    return n;
+  }
+
+  return { probe, requeueOutdated, requeueFailedProbes, backfillTrickplay };
 }

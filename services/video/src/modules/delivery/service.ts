@@ -1,5 +1,6 @@
 // Stream Delivery (doc 02 §3.11, ADR 0003 D9): the StreamDeliveryPort, the token table, the streams, the
-// keyframe index job and the embedded subtitle extraction. Plain JSON in and out of the port, no DB (C1).
+// keyframe index job, the trickplay job (ADR 0009) and the embedded subtitle extraction. Plain JSON in and out
+// of the port, no DB (C1).
 import { writeFileSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import { mkdir, rm } from 'node:fs/promises';
@@ -10,7 +11,14 @@ import type { Config } from '../../app/config.ts';
 import type { JobContext } from '../../app/module.ts';
 import { ProblemError } from '../../app/problem.ts';
 import { newId } from '../../shared/ids.ts';
-import { type DeliveryKeyframeIndexPayload, JOB_TYPES, KEYFRAME_INDEX_URGENT_PRIORITY } from '../../shared/job-types.ts';
+import {
+  type DeliveryKeyframeIndexPayload,
+  type DeliveryTrickplayPayload,
+  JOB_TYPES,
+  KEYFRAME_INDEX_URGENT_PRIORITY,
+  TRICKPLAY_VERSION,
+  trickplayJobKey,
+} from '../../shared/job-types.ts';
 import {
   type DirectStreamPlan,
   PLAN_VERSION,
@@ -32,6 +40,7 @@ import type {
   StreamStartResult,
   StreamStatus,
   StreamStopReason,
+  TrickplayLocator,
 } from '../../shared/ports.ts';
 import { progressiveMimeType, servedAudioBps } from './codecs.ts';
 import { directStreamArgs, OUTPUT_TS_OFFSET_MS } from './ffmpeg-args.ts';
@@ -47,6 +56,20 @@ import { createSubtitleExtractor, type ExtractFile, type ExtractionLookup, type 
 import { BITMAP_SUBTITLE_CODECS } from './subtitle-format.ts';
 import { extractTarget, sidecarToAss, subtitleLocators, type TextSidecarFormat } from './subtitles.ts';
 import { TokenTable } from './tokens.ts';
+import {
+  generateTrickplay,
+  hasFilter,
+  InvalidManifest,
+  medianGapMs,
+  timeoutFor,
+  TRICKPLAY_COLUMNS,
+  TRICKPLAY_DEFER_MS,
+  TRICKPLAY_JOB_MAX_ATTEMPTS,
+  TRICKPLAY_ROWS,
+  TrickplayCache,
+  type TrickplayEntry,
+  trickplayTransfer,
+} from './trickplay.ts';
 import { type BurnSource, forcedKeyframeList, TRANSCODE_EARLY_MS, transcodeArgs, transcodeBlame, transcodeGrid, transcodeLateMs, transcodeVideoBitrate } from './transcode-args.ts';
 
 export const MEDIA_BASE = '/video/media/s';
@@ -78,6 +101,10 @@ export interface DeliveryDeps {
   extractTimings?: ExtractorDeps['timings'];
   /** A text sidecar to ASS for a burn-in; default sidecarToAss with FFMPEG_PATH. */
   convertSidecar?: (absPath: string, format: TextSidecarFormat, outPath: string, signal?: AbortSignal) => Promise<void>;
+  /** ffmpeg of the trickplay generation (index.ts: under nice); default spawn. */
+  trickplaySpawn?: Spawn;
+  /** Overrides for tests: the generation timeout and the deferral while a stream is active. */
+  trickplayTimings?: { timeoutMs?: number; deferMs?: number };
 }
 
 /** A sidecar text track converted for this stream: one conversion, its result or its failure cached. */
@@ -104,6 +131,8 @@ interface StreamRecord {
   /** Serializes this stream's sidecar conversions (one ffmpeg at a time) and cancels them on stop. */
   sidecarQueue: Promise<unknown>;
   abort: AbortController;
+  /** The file's preview sheets cached when the stream started (ADR 0009 D4): the only ones its token serves. */
+  trickplay: TrickplayEntry | null;
 }
 
 /** What a stopped stream keeps until its tombstone expires (status() and the 410). */
@@ -114,6 +143,37 @@ interface Tombstone {
   failure: StreamFailure | null;
   lastRequestAt: number | null;
 }
+
+const HDR_FORMATS = ['SDR', 'HDR10', 'HDR10+', 'HLG', 'DV'] as const;
+const TrickplayPayload = z.object({
+  fileId: z.string().min(1),
+  location: z.object({ rootName: z.string().min(1), relPath: z.string().min(1) }),
+  sizeBytes: z.number().int().nonnegative(),
+  mtimeMs: z.number().int().nonnegative(),
+  container: z.string(),
+  videoStreamIndex: z.number().int().nonnegative(),
+  durationMs: z.number().nullable(),
+  width: z.number().int().nonnegative(),
+  height: z.number().int().nonnegative(),
+  hdr: z.enum(HDR_FORMATS),
+  hdrFallback: z.array(z.enum(HDR_FORMATS)),
+  dolbyVisionProfile: z.number().int().nullable(),
+});
+
+/** A job put off without using an attempt (the runner reads retryAfterMs). */
+class Deferred extends Error {
+  readonly retryAfterMs: number;
+  constructor(message: string, retryAfterMs: number) {
+    super(message);
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/** Run again after a shutdown that stopped delivery before the job runner (main.ts stops modules first). */
+const TRICKPLAY_SHUTDOWN_RETRY_MS = 60_000;
+
+/** A generation that failed (its outcome already recorded), as opposed to an error of the cache volume. */
+class GenerationFailed extends Error {}
 
 const KeyframePayload = z.object({
   fileId: z.string().min(1),
@@ -145,6 +205,12 @@ export function createDelivery(deps: DeliveryDeps) {
    */
   const shutDown = (): Exclude<StreamStartResult, { ok: true }> => ({ ok: false, code: 'MEDIA_UNAVAILABLE', detail: 'delivery is shutting down' });
   const cache = new KeyframeCache(config.cacheDir);
+  const trickplayCache = new TrickplayCache(config.cacheDir);
+  const trickplaySpawn = deps.trickplaySpawn ?? deps.spawn;
+  /** Whether ffmpeg has tonemapx (initTrickplay); until known, HDR files are not skipped. */
+  let tonemapx: boolean | null = null;
+  /** Kills a running generation at shutdown. */
+  const trickplayAbort = new AbortController();
   const quota = new ScratchQuota(config.SCRATCH_MAX_BYTES);
   const scratchRoot = join(config.scratchDir, 'delivery');
   const ttlMs = config.DELIVERY_TOMBSTONE_TTL_S * 1000;
@@ -216,6 +282,63 @@ export function createDelivery(deps: DeliveryDeps) {
     const t = now();
     for (const [id, r] of tombstones) if (t >= r.stoppedAt + ttlMs) tombstones.delete(id);
   };
+
+  const trickplayPayload = (plan: PlaybackPlan): DeliveryTrickplayPayload => {
+    const v = plan.video.source;
+    return {
+      fileId: plan.file.fileId,
+      location: plan.file.location,
+      sizeBytes: plan.file.sizeBytes,
+      mtimeMs: plan.file.mtimeMs,
+      container: plan.file.container,
+      videoStreamIndex: v.streamIndex,
+      durationMs: plan.file.durationMs,
+      width: v.width,
+      height: v.height,
+      hdr: v.hdr,
+      hdrFallback: [...v.hdrFallback],
+      dolbyVisionProfile: v.dolbyVisionProfile,
+    };
+  };
+
+  /** Why a file gets no previews at all (D3), or null. */
+  const trickplaySkip = (p: Pick<DeliveryTrickplayPayload, 'hdr' | 'hdrFallback' | 'dolbyVisionProfile' | 'durationMs'>): string | null => {
+    const t = trickplayTransfer(p);
+    if ('skip' in t) return t.skip;
+    if (t.transfer !== 'sdr' && tonemapx === false) return 'ffmpeg has no tonemapx filter for HDR sources';
+    if (p.durationMs === null || !(p.durationMs > 0)) return 'duration unknown';
+    return null;
+  };
+
+  /**
+   * The previews of the plan's file (ADR 0009 D4, D5): the cache of its stamp and video stream, else null and
+   * the job enqueued under the analyzer's key (a deleted cache is built again; a queued job is left alone).
+   * Never fails a start: any error only costs the previews.
+   */
+  async function trickplayFor(plan: PlaybackPlan): Promise<TrickplayEntry | null> {
+    if (!config.TRICKPLAY_ENABLED) return null;
+    const stamp = { fileId: plan.file.fileId, sizeBytes: plan.file.sizeBytes, mtimeMs: plan.file.mtimeMs };
+    try {
+      const hit = await trickplayCache.get(stamp, plan.video.source.streamIndex);
+      if (hit) return hit;
+      const p = trickplayPayload(plan);
+      if (trickplaySkip(p) !== null || (await trickplayCache.getFailure(stamp, now()))) return null;
+      deps.jobs().enqueue({ type: JOB_TYPES.deliveryTrickplay, payload: p, idempotencyKey: trickplayJobKey(p.fileId, p.sizeBytes, p.mtimeMs) });
+    } catch (err) {
+      log.warn({ fileId: plan.file.fileId, err: String(err) }, 'trickplay lookup failed');
+    }
+    return null;
+  }
+
+  const trickplayLocator = (t: TrickplayEntry, base: string): TrickplayLocator => ({
+    intervalMs: t.manifest.intervalMs,
+    tileWidth: t.manifest.tileWidth,
+    tileHeight: t.manifest.tileHeight,
+    columns: t.manifest.columns,
+    rows: t.manifest.rows,
+    count: t.manifest.count,
+    sheets: Array.from({ length: t.manifest.sheets }, (_, k) => `${base}/trickplay/sheet-${k}.jpg`),
+  });
 
   const keyframePayload = (plan: PlaybackPlan): DeliveryKeyframeIndexPayload => ({
     fileId: plan.file.fileId,
@@ -354,7 +477,7 @@ export function createDelivery(deps: DeliveryDeps) {
     }
   }
 
-  async function startDirectStream(plan: DirectStreamPlan, sessionId: string, absPath: string): Promise<StreamStartResult> {
+  async function startDirectStream(plan: DirectStreamPlan, sessionId: string, absPath: string, trickplay: TrickplayEntry | null): Promise<StreamStartResult> {
     const r = await indexFor(plan, absPath);
     if (shuttingDown) return shutDown();
     if ('result' in r) return r.result;
@@ -403,7 +526,7 @@ export function createDelivery(deps: DeliveryDeps) {
       }),
       media: mediaPlaylist(grid, { independentSegments: false }),
     };
-    return register(plan, sessionId, absPath, streamId, hls, playlists, out.mimeType, bitrate);
+    return register(plan, sessionId, absPath, streamId, hls, playlists, out.mimeType, bitrate, trickplay);
   }
 
   const hlsCommon = () => ({
@@ -565,7 +688,7 @@ export function createDelivery(deps: DeliveryDeps) {
    * it, a new encode from Bₖ₋₁ on a seek (its first segment dropped). Admission (MAX_TRANSCODES) is the
    * Session Manager's (P4).
    */
-  async function startTranscode(plan: TranscodePlan, sessionId: string, absPath: string): Promise<StreamStartResult> {
+  async function startTranscode(plan: TranscodePlan, sessionId: string, absPath: string, trickplay: TrickplayEntry | null): Promise<StreamStartResult> {
     const src = plan.video.source;
     if (src.width > TRANSCODE_MAX_WIDTH || src.height > TRANSCODE_MAX_HEIGHT) {
       return { ok: false, code: 'STREAM_FAILED', failure: indexFailure(plan, `source ${src.width}x${src.height} is above 1080p: no software Transcode (P2)`) };
@@ -641,7 +764,7 @@ export function createDelivery(deps: DeliveryDeps) {
       }),
       media: mediaPlaylist(grid, { independentSegments: true }),
     };
-    return register(plan, sessionId, absPath, streamId, hls, playlists, out.mimeType, bitrate);
+    return register(plan, sessionId, absPath, streamId, hls, playlists, out.mimeType, bitrate, trickplay);
   }
 
   function register(
@@ -653,6 +776,7 @@ export function createDelivery(deps: DeliveryDeps) {
     playlists: StreamRecord['playlists'],
     mimeType: string,
     bitrate: StreamBitrate,
+    trickplay: TrickplayEntry | null,
   ): StreamStartResult {
     const token = tokens.issue(streamId);
     const extract = extractFileOf(plan, absPath);
@@ -671,6 +795,7 @@ export function createDelivery(deps: DeliveryDeps) {
       sidecars: new Map(),
       sidecarQueue: Promise.resolve(),
       abort: new AbortController(),
+      trickplay,
     };
     streams.set(streamId, rec);
     // ADR 0003 D12: the first stream of a file with embedded served tracks starts their extraction; later
@@ -686,6 +811,7 @@ export function createDelivery(deps: DeliveryDeps) {
       locators: {
         stream: plan.protocol === 'progressive' ? `${base}/file` : `${base}/hls/main.m3u8`,
         subtitles: subtitleLocators(plan.subtitles.served, base, (s) => availabilityOf(rec, s)),
+        trickplay: trickplay ? trickplayLocator(trickplay, base) : null,
       },
       mimeType,
       bitrate,
@@ -726,18 +852,20 @@ export function createDelivery(deps: DeliveryDeps) {
     if (!file.ok) return { ok: false, code: 'MEDIA_UNAVAILABLE', detail: file.detail };
     const failedSub = failedSelectedSubtitle(plan, file.absPath);
     if (failedSub) return { ok: false, code: 'STREAM_FAILED', failure: failedSub };
+    const trickplay = await trickplayFor(plan);
+    if (shuttingDown) return shutDown();
     switch (plan.mode) {
       case 'direct_play': {
         const d = plan.file.durationMs;
         const avg = d && d > 0 ? Math.round((file.sizeBytes * 8000) / d) : (plan.video.source.bitRate ?? 0);
         const bitrate: StreamBitrate = { peakBps: avg, averageBps: avg, audioBps: plan.audio ? servedAudioBps(plan.audio.source, plan.audio.action) : 0 };
         const mime = progressiveMimeType(plan.file.container, plan.video.source, plan.audio?.source ?? null);
-        return register(plan, sessionId, file.absPath, newId(), null, null, mime, bitrate);
+        return register(plan, sessionId, file.absPath, newId(), null, null, mime, bitrate, trickplay);
       }
       case 'direct_stream':
-        return startDirectStream(plan, sessionId, file.absPath);
+        return startDirectStream(plan, sessionId, file.absPath, trickplay);
       case 'transcode':
-        return startTranscode(plan, sessionId, file.absPath);
+        return startTranscode(plan, sessionId, file.absPath, trickplay);
     }
   }
 
@@ -837,6 +965,127 @@ export function createDelivery(deps: DeliveryDeps) {
   }
 
   /**
+   * delivery.trickplay (ADR 0009 D5): returns at once when the sheets are cached, the content failed for good
+   * or gets no previews; put off while any stream is active (or starting), without using an attempt; else one
+   * generation into a working directory, committed by rename. A failure of ffmpeg itself (an exit, a short
+   * output) is recorded for good; a timeout or an I/O error retries, and is recorded on the last attempt.
+   * An aborted job (shutdown) records nothing.
+   */
+  async function trickplayJob(payload: unknown, ctx: JobContext): Promise<void> {
+    // The runner may still claim jobs between delivery.stop() and its own stop: they are given back.
+    if (shuttingDown) throw new Deferred('delivery is shutting down', TRICKPLAY_SHUTDOWN_RETRY_MS);
+    const p = TrickplayPayload.parse(payload);
+    const stamp = { fileId: p.fileId, sizeBytes: p.sizeBytes, mtimeMs: p.mtimeMs };
+    if (await trickplayCache.get(stamp, p.videoStreamIndex)) return;
+    if ((await trickplayCache.getFailure(stamp, now()))?.permanent) return;
+    const transfer = trickplayTransfer(p);
+    const skip = trickplaySkip(p);
+    if (skip || 'skip' in transfer) {
+      ctx.log.info({ fileId: p.fileId, reason: skip }, 'trickplay skipped');
+      return;
+    }
+    if (streams.size > 0 || inFlight.size > 0) throw new Deferred('a stream is active', deps.trickplayTimings?.deferMs ?? TRICKPLAY_DEFER_MS);
+    const file = await resolveMediaFile(config.LIBRARY_ROOTS, p.location, { sizeBytes: p.sizeBytes, mtimeMs: p.mtimeMs });
+    if (!file.ok) {
+      // A changed file is probed again by the analyzer, which enqueues a job with the new stamp.
+      ctx.log.info({ fileId: p.fileId, detail: file.detail }, 'trickplay skipped');
+      return;
+    }
+    const signal = AbortSignal.any([ctx.signal, trickplayAbort.signal]);
+    const recordFailure = async (reason: string, permanent: boolean) => {
+      if (!permanent && ctx.attempt < TRICKPLAY_JOB_MAX_ATTEMPTS) return;
+      await trickplayCache.putFailure(stamp, reason, now(), permanent).catch((err: unknown) => ctx.log.warn({ fileId: p.fileId, err: String(err) }, 'trickplay failure not recorded'));
+      ctx.log.warn({ fileId: p.fileId, reason, permanent }, 'trickplay failed');
+    };
+    const started = now();
+    let tmp: string | null = null;
+    try {
+      tmp = await trickplayCache.makeTmp(p.fileId);
+      const out = await generateTrickplay(trickplaySpawn, {
+        absPath: file.absPath,
+        videoStreamIndex: p.videoStreamIndex,
+        transfer: transfer.transfer,
+        durationMs: p.durationMs ?? 0,
+        sourceHeight: p.height,
+        gopMs: await gopOf(p, file.absPath, signal),
+        outDir: tmp,
+        timeoutMs: deps.trickplayTimings?.timeoutMs ?? timeoutFor(p.sizeBytes),
+        signal,
+      });
+      if (!out.ok) {
+        await recordFailure(out.reason, out.permanent);
+        if (out.permanent) return;
+        throw new GenerationFailed(`trickplay: ${out.reason}`);
+      }
+      const entry = await trickplayCache.commit(tmp, {
+        version: TRICKPLAY_VERSION,
+        ...stamp,
+        videoStreamIndex: p.videoStreamIndex,
+        intervalMs: out.intervalMs,
+        tileWidth: out.tileWidth,
+        tileHeight: out.tileHeight,
+        columns: TRICKPLAY_COLUMNS,
+        rows: TRICKPLAY_ROWS,
+        count: out.count,
+        sheets: out.sheets,
+        builtAt: now(),
+        elapsedMs: now() - started,
+      });
+      tmp = null;
+      ctx.log.info({ fileId: p.fileId, tiles: entry.manifest.count, sheets: entry.manifest.sheets, elapsedMs: entry.manifest.elapsedMs }, 'trickplay built');
+    } catch (err) {
+      // Delivery stopped before the runner did: the attempt is given back (the runner's own abort requeues it).
+      if (trickplayAbort.signal.aborted && !ctx.signal.aborted) throw new Deferred('delivery is shutting down', TRICKPLAY_SHUTDOWN_RETRY_MS);
+      if (signal.aborted) throw err;
+      if (err instanceof InvalidManifest) {
+        await recordFailure(err.message, true);
+        return;
+      }
+      // The working directory or the cache volume: transient.
+      if (!(err instanceof GenerationFailed)) await recordFailure(err instanceof Error ? err.message : String(err), false);
+      throw err;
+    } finally {
+      if (tmp) await trickplayCache.discard(tmp);
+    }
+  }
+
+  /**
+   * The stream's typical keyframe spacing, for the shift that centres each tile on the nearest keyframe: the
+   * median gap of its keyframe index, cached or read now from the MKV's Cues (no slow probe; the index is
+   * cached for playback too). Null when unknown.
+   */
+  async function gopOf(p: z.infer<typeof TrickplayPayload>, absPath: string, signal: AbortSignal): Promise<number | null> {
+    const stamp = { fileId: p.fileId, sizeBytes: p.sizeBytes, mtimeMs: p.mtimeMs };
+    try {
+      const cached = await cache.get(stamp, p.videoStreamIndex);
+      if (cached) return medianGapMs(cached.times);
+      if (p.container !== 'matroska' && p.container !== 'webm') return null;
+      const built = await buildKeyframeIndex(
+        { ...stamp, absPath, container: p.container, videoStreamIndex: p.videoStreamIndex, allowProbe: false, targetMs: gridOptions.targetMs, maxGapMs: gridOptions.maxMs, now, signal },
+        deps.probe,
+      );
+      if (!built.ok) return null;
+      await cache.put(built.index).catch(() => {});
+      return medianGapMs(built.index.times);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Startup: working directories of a previous process deleted, tonemapx looked for once (D3). */
+  async function initTrickplay(): Promise<void> {
+    const orphans = await trickplayCache.cleanOrphans();
+    if (orphans) log.info({ orphans }, 'trickplay working directories of a previous run deleted');
+    if (!config.TRICKPLAY_ENABLED) return;
+    try {
+      tonemapx = await hasFilter(trickplaySpawn, 'tonemapx');
+    } catch {
+      tonemapx = false;
+    }
+    if (!tonemapx) log.warn({ ffmpeg: config.FFMPEG_PATH }, 'ffmpeg has no tonemapx filter: HDR files get no seek-bar previews');
+  }
+
+  /**
    * Where an embedded served track is (handlers): cached, growing, the first pass only, queued or failed.
    * A track no extraction knows (a failure past its TTL, a cache file deleted by hand) is extracted again.
    */
@@ -860,6 +1109,9 @@ export function createDelivery(deps: DeliveryDeps) {
     resolveToken,
     track,
     keyframeJob,
+    trickplayJob,
+    initTrickplay,
+    trickplayCache,
     cache,
     extractor,
     subtitle,
@@ -873,6 +1125,7 @@ export function createDelivery(deps: DeliveryDeps) {
     async shutdown(): Promise<void> {
       shuttingDown = true;
       probeAbort.abort();
+      trickplayAbort.abort();
       await Promise.allSettled([...[...streams.values()].map((r) => stopRecord(r, 'shutdown')), ...[...starting].map((s) => s.stop('discard'))]);
       // The other starts end at their next check (aborted probes and conversions return at once): each
       // answers MEDIA_UNAVAILABLE, and none spawns, registers or writes to the scratch after the rm below.

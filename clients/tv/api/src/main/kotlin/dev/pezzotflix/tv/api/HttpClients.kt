@@ -20,7 +20,7 @@ val PUBLIC_OPERATIONS: Set<String> = setOf(
     "listLibraryRoots", "confirmRootContents", "forgetMissingFiles", "triggerScan", "getIngestStatus", "retryJob",
     "listIdentificationCases", "getIdentificationCase", "resolveCase", "ignoreCase", "searchProvider", "listMediaFiles",
     "getMediaFileDetails", "forgetMediaFile", "explainPlaybackDecision",
-    "getMediaFile", "getHlsResource", "getSubtitle", "getImage",
+    "getMediaFile", "getHlsResource", "getSubtitle", "getTrickplaySheet", "getImage",
 )
 
 /** Where the profile token lives (SharedPreferences in the app, a field in tests). */

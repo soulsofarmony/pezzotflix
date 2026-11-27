@@ -384,7 +384,7 @@ class VideoApiTest {
                                  "selected":true,"switchWithoutRestart":false,"delivery":"embedded"}],
                        "subtitles":[{"id":"s3","type":"subtitle","index":3,"codec":"hdmv_pgs_subtitle","language":"ita",
                                      "subtitleKind":"image","selected":true,"switchWithoutRestart":true,"delivery":"embedded"}]},
-             "resumePositionMs":0,"durationMs":5400000,"chapters":[],"futureField":{"x":1}}
+             "resumePositionMs":0,"durationMs":5400000,"chapters":[],"trickplay":null,"futureField":{"x":1}}
         """.trimIndent()
     }
 }

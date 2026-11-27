@@ -122,7 +122,7 @@ describe('analyzer.probe', () => {
       { i: 1, title: 'Capitolo 2', s: 10000, e: 20000 },
       { i: 2, title: 'Capitolo 3', s: 20000, e: 30000 },
     ]);
-    expect(jobs().filter((j) => j.type !== 'delivery.keyframe_index')).toEqual([{ type: 'identifier.identify', payload: '{"fileId":"f1"}', key: 'identify:f1' }]);
+    expect(jobs().filter((j) => !j.type.startsWith('delivery.'))).toEqual([{ type: 'identifier.identify', payload: '{"fileId":"f1"}', key: 'identify:f1' }]);
     // ADR 0003 D8: the keyframe index follows every successful probe.
     expect(jobs().filter((j) => j.type === 'delivery.keyframe_index')).toEqual([
       {
@@ -131,6 +131,33 @@ describe('analyzer.probe', () => {
         key: `keyframes:f1:11:${facts()?.mtimeMs}`,
       },
     ]);
+    // ADR 0009 D5: and so do the seek-bar previews, with the facts of the stream the engine plays.
+    expect(jobs().filter((j) => j.type === 'delivery.trickplay')).toEqual([
+      {
+        type: 'delivery.trickplay',
+        payload: JSON.stringify({
+          fileId: 'f1',
+          location: { rootName: 'Film', relPath: REL },
+          sizeBytes: 11,
+          mtimeMs: facts()?.mtimeMs,
+          container: 'matroska',
+          videoStreamIndex: 0,
+          durationMs: facts()?.durationMs,
+          width: 3840,
+          height: 2160,
+          hdr: 'HDR10',
+          hdrFallback: [],
+          dolbyVisionProfile: null,
+        }),
+        key: `trickplay:v1:f1:11:${facts()?.mtimeMs}`,
+      },
+    ]);
+  });
+
+  it('enqueues no previews when they are turned off', async () => {
+    insertFile();
+    await createAnalyzer({ db, now: () => 1000, jobs: () => ({ enqueue: (j) => enqueueJob(db, 1000, j) }), runner, maxAttempts: MAX, trickplay: false }).probe({ fileId: 'f1' }, ctx());
+    expect(jobs().map((j) => j.type).sort()).toEqual(['delivery.keyframe_index', 'identifier.identify']);
   });
 
   it('re-analysis keeps later states and does not re-identify', async () => {

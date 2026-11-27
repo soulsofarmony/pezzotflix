@@ -3,7 +3,7 @@
 // sent are registered with the stream, so stop and shutdown can cut them.
 import { ReadStream } from 'node:fs';
 import type { Readable } from 'node:stream';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import send from '@fastify/send';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Config } from '../../app/config.ts';
@@ -242,6 +242,22 @@ export function deliveryHandlers(delivery: Delivery, config: Config, now: () => 
           throw notReady(reply, SEGMENT_RETRY_S, 'The segment');
         }
       }
+    },
+
+    /**
+     * A preview sheet of the session's file (ADR 0009 D4): only the sheets cached for the stamp the stream
+     * started with, by index, never a path from the request. Not stream activity: lastRequestAt and the idle
+     * timer are left alone.
+     */
+    async getTrickplaySheet(req, reply) {
+      const { params } = typed<'getTrickplaySheet'>(req);
+      const rec = lookup(reply, params.sessionToken);
+      const m = /^sheet-(0|[1-9][0-9]{0,3})\.jpg$/.exec(params.sheet);
+      const tp = rec.trickplay;
+      if (!tp || !m || Number(m[1]) >= tp.manifest.sheets) throw new ProblemError('NOT_FOUND', 'No such preview sheet in this session');
+      const path = join(tp.dir, `sheet-${Number(m[1])}.jpg`);
+      if ((await sendFile(req, reply, rec, delivery, path, 'image/jpeg')) === 'missing') throw new ProblemError('NOT_FOUND', 'The preview sheet is no longer cached');
+      return reply;
     },
 
     async getSubtitle(req, reply) {

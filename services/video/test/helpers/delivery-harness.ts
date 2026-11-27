@@ -32,6 +32,9 @@ export interface HarnessOptions {
   extractTimings?: DeliveryDeps['extractTimings'];
   probe?: DeliveryDeps['probe'];
   convertSidecar?: DeliveryDeps['convertSidecar'];
+  /** Trickplay generation; default the stream spawn. */
+  trickplaySpawn?: DeliveryDeps['spawn'];
+  trickplayTimings?: DeliveryDeps['trickplayTimings'];
 }
 
 export async function harness(roots: { name: string; path: string }[], opts: HarnessOptions = {}): Promise<Harness> {
@@ -64,6 +67,8 @@ export async function harness(roots: { name: string; path: string }[], opts: Har
     ...(opts.timings ? { timings: opts.timings } : {}),
     ...(opts.extractTimings ? { extractTimings: opts.extractTimings } : {}),
     ...(opts.convertSidecar ? { convertSidecar: opts.convertSidecar } : {}),
+    ...(opts.trickplaySpawn ? { trickplaySpawn: opts.trickplaySpawn } : {}),
+    ...(opts.trickplayTimings ? { trickplayTimings: opts.trickplayTimings } : {}),
   });
   await delivery.clearScratch();
   const app = await buildServer({ logger: false, profileTokens: { verify: () => null }, handlers: deliveryHandlers(delivery, config, Date.now) });

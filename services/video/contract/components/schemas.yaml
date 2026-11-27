@@ -449,7 +449,7 @@ SessionTrack:
 
 PlaybackSession:
   type: object
-  required: [sessionId, expiresAt, mode, reasons, stream, tracks, resumePositionMs, durationMs, chapters]
+  required: [sessionId, expiresAt, mode, reasons, stream, tracks, resumePositionMs, durationMs, chapters, trickplay]
   properties:
     sessionId: { $ref: '#/Id' }
     expiresAt: { type: integer, format: int64, description: ms UTC; extended by heartbeats. }
@@ -507,6 +507,33 @@ PlaybackSession:
     resumePositionMs: { type: integer }
     durationMs: { type: integer }
     chapters: { type: array, items: { $ref: '#/Chapter' } }
+    trickplay:
+      description: >-
+        Seek-bar preview sheets of the file (ADR 0009), null while none is ready (they are generated in the
+        background; a later session of the same file gets them). A re-plan brings a new token, hence new sheet urls.
+      oneOf: [{ $ref: '#/Trickplay' }, { type: 'null' }]
+
+Trickplay:
+  type: object
+  description: >-
+    Sprite sheets of JPEG tiles. Tile i shows the keyframe nearest to the original time i × intervalMs (the same
+    timeline as positions and durationMs, so no conversion); for a position p on that timeline the tile is
+    min(count - 1, round(p / intervalMs)), rounded to the nearest integer. Sheet k holds tiles k × columns × rows onwards, row by row, left to
+    right; tile i sits in sheets[floor(i / (columns × rows))] at column (i mod columns) and row
+    (floor(i / columns) mod rows). The last sheet may be partly filled. Draw the crop at the sheet's original
+    pixel size: a resized sheet moves the tiles.
+  required: [intervalMs, tileWidth, tileHeight, columns, rows, count, sheets]
+  properties:
+    intervalMs: { type: integer, minimum: 1, description: 'Time between tiles, 10000 except for films over about 5 h 33 min.' }
+    tileWidth: { type: integer, minimum: 1, description: Tile width in pixels (320). }
+    tileHeight: { type: integer, minimum: 1, description: 'Tile height in pixels, from the display aspect ratio.' }
+    columns: { type: integer, minimum: 1 }
+    rows: { type: integer, minimum: 1 }
+    count: { type: integer, minimum: 1, description: 'Tiles to use. The last sheet may hold a few more past count, never to be shown.' }
+    sheets:
+      type: array
+      description: Data-plane locators (relative) of the sheets, in order. Never build them client-side.
+      items: { type: string }
 
 ProgressReport:
   type: object

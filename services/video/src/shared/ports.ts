@@ -539,6 +539,21 @@ export interface StreamBitrate {
   audioBps: number;
 }
 
+/**
+ * Sprite sheets of the file (contract Trickplay, ADR 0009 D4): tile i shows the keyframe nearest to the original
+ * time i × intervalMs, so a position p maps to min(count − 1, round(p / intervalMs)); sheet k holds tiles k·columns·rows … in rows, left to right. Sheet urls are relative
+ * data-plane locators under the stream's token.
+ */
+export interface TrickplayLocator {
+  intervalMs: number;
+  tileWidth: number;
+  tileHeight: number;
+  columns: number;
+  rows: number;
+  count: number;
+  sheets: string[];
+}
+
 /** Result of StreamDeliveryPort.start: what the Session Manager needs for PlaybackSession.stream and the subtitle tracks. */
 export interface StreamHandle extends StreamRef {
   sessionId: string;
@@ -548,6 +563,8 @@ export interface StreamHandle extends StreamRef {
     /** Relative data-plane URL: /video/media/s/<token>/file (progressive) or …/hls/main.m3u8 (hls-fmp4). */
     stream: string;
     subtitles: SubtitleLocator[];
+    /** Seek-bar preview sheets of the file (ADR 0009 D4); null while none is cached for its content. */
+    trickplay: TrickplayLocator | null;
   };
   /** RFC 6381 type of what is served; for hls-fmp4 the segments' type, both codecs read from the init (ADR 0003 D1, D11). */
   mimeType: string;

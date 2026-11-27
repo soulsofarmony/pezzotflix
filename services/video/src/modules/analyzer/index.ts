@@ -21,6 +21,7 @@ export function analyzerModule(options: AnalyzerModuleOptions = {}): ModuleFacto
       jobs: () => ctx.ports.jobs,
       runner: options.runner ?? createFfprobeRunner(ctx.config.FFPROBE_PATH),
       maxAttempts: PROBE_MAX_ATTEMPTS,
+      trickplay: ctx.config.TRICKPLAY_ENABLED,
     });
     return {
       name: 'analyzer',
@@ -38,6 +39,17 @@ export function analyzerModule(options: AnalyzerModuleOptions = {}): ModuleFacto
             if (n) ctx.log.info({ queued: n }, 'files from an older analyzer queued for re-analysis');
             const failed = analyzer.requeueFailedProbes();
             if (failed) ctx.log.info({ queued: failed }, 'files whose probe failed queued for another try');
+          },
+        },
+        {
+          // Seek-bar previews of the files that never had a job for their content (ADR 0009 D5): at start, and
+          // daily as a cheap catch-up after a root came back online. New files get theirs from the probe.
+          name: 'analyzer.trickplay_backfill',
+          everyMs: DAY_MS,
+          runAtStart: true,
+          run: () => {
+            const n = analyzer.backfillTrickplay();
+            if (n) ctx.log.info({ queued: n }, 'files queued for seek-bar previews');
           },
         },
       ],

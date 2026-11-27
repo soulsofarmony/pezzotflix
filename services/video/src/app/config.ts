@@ -91,6 +91,8 @@ const Env = z.object({
   SUBTITLE_EXTRACT_STALL_S: z.coerce.number().positive().default(60),
   SUBTITLE_PREEXTRACT: z.enum(['off', 'on']).default('off'),
   SUBTITLE_CACHE_MAX_BYTES: byteSize.default(20 * 1000 ** 3),
+  /** Seek-bar previews (ADR 0009): false stops their generation and serves none, for a weak server. */
+  TRICKPLAY_ENABLED: bool.default(true),
   TMDB_READ_TOKEN: z.string().optional(),
   TMDB_REFRESH_AFTER_DAYS: z.coerce.number().int().min(1).default(90),
   TMDB_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(180).default(180),

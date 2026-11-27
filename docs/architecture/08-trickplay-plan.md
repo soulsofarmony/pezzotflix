@@ -75,7 +75,7 @@ Ogni slice finisce con i test e una prova vera. Docker, la TV e il browser si us
 
 - **Componente** `SeekPreview` in `clients/web/src/features/player/`:
   - si attiva su `pointermove` sopra la barra (`seekWrap` in `PlayerPage.tsx`) e durante lo scrub che esiste già;
-  - l'indice del riquadro è `min(count − 1, floor(valoreBarraMs / intervalMs))`, **senza conversioni**: la barra (`positionMs`, `durationMs`, `seekTo`) è già sulla timeline originale;
+  - l'indice del riquadro è `min(count − 1, round(valoreBarraMs / intervalMs))` (ADR 0009, note di costruzione), **senza conversioni**: la barra (`positionMs`, `durationMs`, `seekTo`) è già sulla timeline originale;
   - il riquadro si mostra con un `div` a `background-image` e `background-position`, scalato via CSS, sopra il puntatore e dentro i bordi del player, con l'ora sotto.
 - **Caricamento:** le griglie si caricano con `new Image()` alla prima necessità e restano in una mappa per la sessione. Mentre la griglia arriva si vede solo l'ora.
 - **Ri-pianificazione:** con un nuovo `trickplay` (nuovo token) la mappa si svuota.

@@ -77,6 +77,8 @@ export class FakeDelivery implements StreamDeliveryPort {
   stopGates: Gate[] = [];
   /** The next N stop calls throw. */
   stopFailures = 0;
+  /** Preview sheets every started stream reports (sheet urls under its own token); null: none. */
+  trickplay: { intervalMs: number; tileWidth: number; tileHeight: number; columns: number; rows: number; count: number } | null = null;
   private n = 0;
 
   gateStart(): Gate {
@@ -110,6 +112,7 @@ export class FakeDelivery implements StreamDeliveryPort {
           url: `/video/media/s/${token}/subtitles/${s.trackId}.${s.format === 'sup' ? 'sup' : 'vtt'}`,
           availability: 'growing',
         })),
+        trickplay: this.trickplay ? { ...this.trickplay, sheets: Array.from({ length: Math.ceil(this.trickplay.count / 100) }, (_, k) => `/video/media/s/${token}/trickplay/sheet-${k}.jpg`) } : null,
       },
       mimeType: 'video/mp4; codecs="hvc1.2.4.L153.B0, flac"',
       bitrate: { peakBps: 90_000_000, averageBps: 60_000_000, audioBps: 4_000_000 },

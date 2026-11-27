@@ -66,6 +66,7 @@ paths:
   /video/media/s/{sessionToken}/file: { $ref: './paths/media.yaml#/file' }
   /video/media/s/{sessionToken}/hls/{resource}: { $ref: './paths/media.yaml#/hls' }
   /video/media/s/{sessionToken}/subtitles/{track}: { $ref: './paths/media.yaml#/subtitle' }
+  /video/media/s/{sessionToken}/trickplay/{sheet}: { $ref: './paths/media.yaml#/trickplay' }
   /video/media/images/{imageKey}: { $ref: './paths/media.yaml#/image' }
 components:
   securitySchemes:

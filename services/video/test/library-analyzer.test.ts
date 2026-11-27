@@ -83,7 +83,9 @@ describe('library → analyzer', () => {
 
     const keyframeJobs = db.$client.prepare("SELECT state FROM job WHERE type = 'delivery.keyframe_index'").all();
     expect(keyframeJobs).toEqual(files.map(() => ({ state: 'queued' })));
-    const jobs = db.$client.prepare("SELECT type, payload, state FROM job WHERE type <> 'delivery.keyframe_index' ORDER BY type, payload").all();
+    const previewJobs = db.$client.prepare("SELECT state FROM job WHERE type = 'delivery.trickplay'").all();
+    expect(previewJobs).toEqual(files.map(() => ({ state: 'queued' })));
+    const jobs = db.$client.prepare("SELECT type, payload, state FROM job WHERE type NOT LIKE 'delivery.%' ORDER BY type, payload").all();
     expect(jobs).toEqual([
       ...files.map((f) => ({ type: JOB_TYPES.analyzerProbe, payload: JSON.stringify({ fileId: f.id }), state: 'done' })),
       ...files.map((f) => ({ type: JOB_TYPES.identifierIdentify, payload: JSON.stringify({ fileId: f.id }), state: 'queued' })),
