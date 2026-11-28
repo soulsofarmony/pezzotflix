@@ -288,9 +288,16 @@ export function createCatalogReader({ db, now, tmdbMaxAgeMs, profileState, repla
   );
   const fieldsOf = prep('SELECT field, source, value, fetched_at AS fetchedAt FROM item_field WHERE item_id = ? AND field IN (\'overview\', \'genres\')');
   const locksOf = prep("SELECT field, source FROM field_lock WHERE item_id = ? AND field IN ('overview', 'genres')");
+  // Each source stores its own people, so a person credited by Wikidata and TMDB comes twice. One row per
+  // name and role: the one with a character, then TMDB's (its billing order), then the lowest order.
   const creditsOf = prep(
-    `SELECT p.name, c.role, c.character FROM credit c JOIN person p ON p.id = c.person_id WHERE c.item_id = ?
-     ORDER BY CASE c.role WHEN 'director' THEN 0 WHEN 'writer' THEN 1 WHEN 'actor' THEN 2 ELSE 3 END, c.sort_order, p.name`,
+    `WITH ranked AS (
+       SELECT p.name, c.role, c.character, c.sort_order, c.source,
+              ROW_NUMBER() OVER (PARTITION BY lower(p.name), c.role
+                                 ORDER BY c.character IS NULL, c.source <> 'tmdb', c.sort_order) AS rn
+       FROM credit c JOIN person p ON p.id = c.person_id WHERE c.item_id = ?)
+     SELECT name, role, character FROM ranked WHERE rn = 1
+     ORDER BY CASE role WHEN 'director' THEN 0 WHEN 'writer' THEN 1 WHEN 'actor' THEN 2 ELSE 3 END, source <> 'tmdb', sort_order, name`,
   );
   const externalIdsOf = prep('SELECT provider, external_id AS id FROM external_id WHERE item_id = ? ORDER BY provider');
   const sourcesOf = prep(

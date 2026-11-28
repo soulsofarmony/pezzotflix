@@ -286,6 +286,21 @@ describe('without a ProfileStatePort (profiles arrive in F1b)', () => {
     ]);
     expect(body.externalIds).toEqual({ wikidata: 'Q63985561' });
     expect(body.attributions).toEqual([TMDB_NOTICE, WIKIDATA_NOTICE]);
+
+    // The same people from TMDB too: one row each, TMDB's character and billing order first.
+    db.$client.prepare("INSERT INTO person (id, name, source) VALUES ('t-dv', 'Denis Villeneuve', 'tmdb'), ('t-tc', 'Timothée Chalamet', 'tmdb'), ('t-rf', 'Rebecca Ferguson', 'tmdb'), ('p-jb', 'Javier Bardem', 'wikidata')").run();
+    db.$client
+      .prepare(
+        "INSERT INTO credit (item_id, person_id, role, character, sort_order, source) VALUES (?, 't-dv', 'director', NULL, 0, 'tmdb'), (?, 't-rf', 'actor', 'Lady Jessica', 0, 'tmdb'), (?, 't-tc', 'actor', 'Paul', 1, 'tmdb'), (?, 'p-jb', 'actor', NULL, 1, 'wikidata')",
+      )
+      .run(lib.dune, lib.dune, lib.dune, lib.dune);
+    const merged = (await h.call('getItem', 'GET', `/video/api/v1/items/${lib.dune}`)).body;
+    expect(merged.credits).toEqual([
+      { name: 'Denis Villeneuve', role: 'director', character: null },
+      { name: 'Rebecca Ferguson', role: 'actor', character: 'Lady Jessica' },
+      { name: 'Timothée Chalamet', role: 'actor', character: 'Paul' },
+      { name: 'Javier Bardem', role: 'actor', character: null },
+    ]);
     expect(body.versions.map((v: { fileId: string; label: string }) => [v.fileId, v.label])).toEqual([
       [lib.duneFiles[0], '4K · Dolby Vision · TrueHD 5.1 · ENG/ITA'],
       [lib.duneFiles[1], '1080p · DTS 5.1 · ENG/ITA'],
